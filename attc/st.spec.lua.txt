@@ -1,0 +1,92 @@
+local st = require("src.shared.st")
+
+describe("st.new", function()
+    it("should create a new State with default config", function()
+        local state = st.new()
+        assert.is_not_nil(state)
+        assert.is_table(state)
+    end)
+
+    it("should create a new State with custom config", function()
+        local custom_config = {
+            _not_replicate = 0,
+            _replicate = 1,
+            _destructors = {},
+            _component_names = {"TestComponent"}
+        }
+        local state = st.new(custom_config)
+        assert.is_not_nil(state)
+        assert.is_table(state)
+        assert.are.equal(custom_config, state._config)
+    end)
+
+    it("should initialize storage with 32 columns", function()
+        local state = st.new()
+        assert.are.equal(32, #state._storage)
+    end)
+
+    it("should initialize setters and getters for each column", function()
+        local state = st.new()
+        for cid = 0, 31 do
+            assert.is_function(state._setters[cid])
+            assert.is_function(state._getters[cid])
+        end
+    end)
+
+    it("should set and get a component", function()
+        local state = st.new()
+        local uid = 1
+        local cid = 0
+        local component = {test = true}
+        state._setters[cid](uid, component)
+        assert.are.equal(component, state._getters[cid](uid))
+    end)
+
+    it("should remove a component", function()
+        local state = st.new()
+        local uid = 1
+        local cid = 0
+        local component = {test = true}
+        state._setters[cid](uid, component)
+        state._setters[cid](uid, nil)
+        assert.is_nil(state._getters[cid](uid))
+    end)
+
+    it("should call destructor when removing a component", function()
+        local destructor_called = false
+        local custom_config = {
+            _not_replicate = 0,
+            _replicate = 0,
+            _destructors = {
+                [0] = function() destructor_called = true end
+            },
+            _component_names = {"TestComponent"}
+        }
+        local state = st.new(custom_config)
+        local uid = 1
+        local cid = 0
+        state._setters[cid](uid, {test = true})
+        state._setters[cid](uid, nil)
+        assert.is_true(destructor_called)
+    end)
+
+    it("should handle replication flags correctly", function()
+        local custom_config = {
+            _not_replicate = 0,
+            _replicate = 1,
+            _destructors = {},
+            _component_names = {"TestComponent"}
+        }
+        local state = st.new(custom_config)
+        local uid = 1
+        local cid = 0
+        state._setters[cid](uid, {test = true})
+        assert.is_not_nil(state._log[1])
+        assert.are.equal(st.OP_SET_CID, state._log[1])
+    end)
+
+    it("should freeze the returned State object", function()
+        local state = st.new()
+        assert.is_true(table.isfrozen(state))
+    end)
+end)

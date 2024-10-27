@@ -1,0 +1,133 @@
+--!nonstrict
+--!nolint
+local __DEV__ = true
+---@ref: https://lunarmodules.github.io/luafilesystem/manual.html
+local lfs = require("lfs")
+---@ref: https://lua-curl.github.io/lcurl/modules/cURL.html
+local curl = require("curl")
+
+local fmt = string.format
+local color = {z = "\27[0m", r = "\27[31m", g = "\27[32m", y = "\27[33m"}
+
+local function INFO(context, ok, err)
+    assert(context, "context needed")
+    if not __DEV__ then
+        return
+    end
+    if not ok then
+        print(context, color.r .. "INFO:" .. color.z .. err)
+    end
+end
+
+-----------------------------
+-- Var
+-----------------------------
+local OUT_PATH = "./src/server/data"
+
+local TABLE_ID = "1YGaxI_hy99FGCGx3uaXQ3SZWGXOYsKE2VMYUzn3mnH8"
+assert(#TABLE_ID > 16, "provide the table id!")
+
+-- LuaFormatter off
+local SHEETS = {
+    -- sheet = {gid, range}
+    Ability = {0,          "A1:J4"},
+    Test    = {1182022631, "A1:B2"},
+    STM     = {94892050,   "A1:P16"}
+}
+-- LuaFormatter on
+
+-----------------------------
+-- Const
+-----------------------------
+local URL_ROOT = "https://docs.google.com/spreadsheets/d"
+
+local HEADER = [=[
+-- stylua: ignore
+return { csv = [[
+]=]
+
+local FOOTER = "\n]]}\n"
+
+local function get_url(sheet, gid, range)
+    return fmt("%s/%s/export?format=csv&gid=%s&range=%s!%s", URL_ROOT, TABLE_ID, tostring(gid), sheet, range)
+end
+
+local function get_edit_url(sheet, gid, range)
+    return __DEV__ and fmt("---@ref: %s/%s/edit#gid=%s?range=%s!%s\n", URL_ROOT, TABLE_ID, tostring(gid), sheet, range) or ""
+end
+
+local TEMP = os.tmpname()
+INFO("lfs.mkdir " .. TEMP, lfs.mkdir(TEMP))
+
+
+local function write(context, data)
+    -- remove `CR`
+    data = data:gsub("\r\n", "\n")
+    local body = get_edit_url(context.sheet, context.gid, context.range) .. HEADER .. data .. FOOTER
+    --[[
+    print(body)
+    --]]
+    local fname = TEMP .. "/" .. context.sheet .. ".lua"
+    local f = io.open(fname, "wb")
+    if not f then
+        print("can't open file:" .. fname)
+        return false
+    end
+    local ok, err = f:write(body)
+    if not ok then
+        print("write error:", err)
+        return false
+    end
+    f:flush()
+    f:close()
+    return true
+end
+
+-----------------------------
+-- Do grab
+-----------------------------
+-- try to create out-dir
+INFO("lfs.mkdir " .. OUT_PATH, lfs.mkdir(OUT_PATH))
+-- LuaFormatter off
+for sheet, record in pairs(SHEETS) do
+    local gid, range = table.unpack(record)
+    curl.easy()
+        :setopt_url(get_url(sheet, gid, range))
+        :setopt_writefunction(write, {sheet = sheet, gid = gid, range = range})
+        :setopt(curl.OPT_FOLLOWLOCATION, 1)
+        :perform()
+        :close()
+end
+-- LuaFormatter on
+
+-- move from temp to out-dir
+for file in lfs.dir(TEMP) do
+    if file == "." or file == ".." then
+        goto continue
+    end
+    local source = TEMP .. "/" .. file
+    if __DEV__ then
+        local dest = OUT_PATH .. "/" .. file
+        print(color.g .. "++" .. color.z .. " " .. color.y .. file .. color.z)
+        if os.rename(dest, dest) then -- file exists
+            local ok, err, n = os.execute("diff --color=auto " .. dest .. " " .. source)
+            if not ok then
+                if err ~= "exit" then
+                    error(err .. "(" .. n .. ")")
+                -- err == "exit" --> we have a difference
+                end
+            end
+        end
+    end
+    -- mv [OPTION]... -t DIRECTORY SOURCE.
+    local command = fmt("mv -b --force --update -t %s %s", OUT_PATH, source)
+    local ok, err = os.execute(command)
+    if not ok then
+        error(command .. ":" .. err)
+    end
+    ::continue::
+end
+INFO("lfs.rmdir: " .. TEMP, lfs.rmdir(TEMP))
+
+print(color.y .. "\n[get data -- ok]" .. color.z)
+

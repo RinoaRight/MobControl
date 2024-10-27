@@ -1,0 +1,4 @@
+---@see: (sep 2023)  https://devforum.roblox.com/t/releasing-character-physics-controllers/2623426
+-----@see: https://create.roblox.com/docs/physics/character-controllers et.el
+---@see: (2022- now) https://devforum.roblox.com/t/chickynoid-server-authoritative-character-replacement/1660558
+---@see: (~now) https://devforum.roblox.com/t/i-spot-a-luacharactercontroller-actor-characters-character-abilities-and-footplanter/3074054

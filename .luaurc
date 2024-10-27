@@ -1,0 +1,22 @@
+{
+    "languageMode": "strict",
+    "lint": {
+        "*": true,
+        "LocalUnused": true,
+        "BuiltinGlobalWrite": false
+    },
+    "lintErrors": false,
+    "typeErrors": false,
+    "globals": [
+        "warn",
+        "expect",
+        "game",
+        "script",
+        "Vector3",
+        "__DEV__",
+        "DEBUG",
+        "it",
+        "describe",
+        "itSKIP"
+    ]
+}
