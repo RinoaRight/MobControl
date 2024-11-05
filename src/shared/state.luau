@@ -1,5 +1,5 @@
 --!strict
---!native
+--!~native
 --!optimize 2
 
 -- MIT License

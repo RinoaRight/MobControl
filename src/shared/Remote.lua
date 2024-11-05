@@ -108,7 +108,7 @@ local m = {} :: {
     EncodePacket: (...arg) -> bin,
 }
 
-if game and game.RunService:IsServer() then
+if workspace and game:GetService("RunService"):IsServer() then
     local US2CC = Instance.new("UnreliableRemoteEvent")
     US2CC.Parent = script
     US2CC.Name = "US2CC"

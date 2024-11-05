@@ -33,7 +33,7 @@ local ERR_PREFIX = "Error: Disposer: "
 export type disposable = Instance | RBXScriptConnection | fun | table | thread
 type inner = map<any, disposable?>
 
---[[ stylua: ignore]] if not game then (function() script = require("script") end)() end
+--[[ stylua: ignore]] script = script or require'script'
 local roflake = require(script.Parent.roflake)
 
 local cant_dispose = function(val: any)

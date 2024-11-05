@@ -35,20 +35,34 @@ local shared = game.ReplicatedStorage.shared
 local enum = require(shared.enum)
 local _iota = enum.iota
 local _flag = enum.flag
-local _Id = require(shared.Id)
+local Id = require(shared.Id)
 local state = require(shared.state)
 local _signal = require(shared.signal)
 local _ulid = require(shared.ulid)
 local _roflake = require(shared.roflake)
 local remote = require(shared.Remote)
 local disposer = require(shared.disposer)
-
+local logger = require(shared.logger)
+local log = logger.create("PlayerStateService"):set_delimiter(" "):set_prettifier(Id.pp)
 
 -------------------
 -- Server Modules
 -------------------
 local server = game.ServerScriptService.server
 local _Market = require(server.Market)
+
+local STORE_ID = "test"
+
+local STORE
+if workspace and not _USE_MOCK_DATASTORE then
+    local DataStoreService = game:GetService("DataStoreService")
+    STORE = DataStoreService:GetDataStore(STORE_ID)
+else
+    local MockDataStore = require(shared.MockDataStore)
+    MockDataStore.InitState("") -- <== load from b64 encoded store
+    type DataStore = MockDataStore.DataStore
+    STORE = MockDataStore:GetDataStore(STORE_ID)
+end
 
 -------------------
 -- Types
@@ -73,6 +87,11 @@ export type PlayerState = {
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
     __index: any,
 }
+
+local function fill_state(player_state: PlayerState)
+    log:assert(not player_state.state:env("READY"), "already loaded")
+    local data, info = STORE:GetAsync(player_state.state_store_key)
+end
 
 -----------------------------
 -- Module
