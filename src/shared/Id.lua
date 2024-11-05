@@ -17,9 +17,12 @@ type int = integer
 type u32 = uint
 type i32 = int
 type u16 = uint
-type kind = int | str
-type u8 = uint
-type id = u16
+type kind = idk.kind
+type ord = idk.ord
+type idk = idk.idk
+type id = idk.id
+type flag = idk.flag
+
 type array<a> = { a }
 type table = { [any]: any }
 type map<k, v> = { [k]: v }
@@ -79,7 +82,11 @@ local function _check_arg<a>(o: a): ()
     return o == Id and error("remove `:` from call", 3)
 end
 
-function Id.lookup_by_kind_name(name: str): enum.Enum
+--- Retrieves an Enum object by its kind name
+--- @param name string The name of the kind to look up
+--- @return Enum The corresponding enum object
+--- @throws Error if the kind name is not found
+function Id.enum_by_kind_name(name: str): enum.Enum
     _check_arg(name)
     local kind = Id.Kind[name] :: id
     return kind and KIND_TO_ENUM[kind] or error("can't find: " .. name)
@@ -87,7 +94,9 @@ end
 
 do
     local _id_full_name_cache: { [id]: str } = {}
-
+    --- Gets the full name of an id
+    --- @param id any The id to get the name for
+    --- @return string The full name of the id, or string representation if not an id
     function Id.name(id: any): str
         _check_arg(id)
         if not idk.is(id) then
@@ -105,6 +114,10 @@ do
     end
 end
 
+--- Gets the key (short name) for an id
+--- @param id id The id to get the key for
+--- @return string The key of the id, or "?{id}" if invalid
+--- @throws Error if the input is not a valid id
 function Id.key(id: id)
     _check_arg(id)
     assert(idk.plausible(id), "not an id")
@@ -115,22 +128,65 @@ function Id.key(id: id)
     end
     return enum:key(id)
 end
-Id.is_id = idk.is_id
-Id.is_flag = idk.is_flags
-Id.is_flags = Id.is_flag
-Id.flag_or = idk.flag_or
-Id.flag_test = idk.flag_test
-Id.flag_set = idk.flag_set
 
+do
+    --- Checks if a value is a plausible id
+    --- @param o any The value to check
+    --- @return boolean True if the value is a plausible id
+    Id.is = idk.plausible
+
+    --- Checks if a value is a valid id (stricter than is())
+    --- @param id any The value to check
+    --- @return boolean True if the value is a valid id
+    Id.is_id = idk.is_id
+
+    --- Checks if a value is a valid flag
+    --- @param flag any The value to check
+    --- @return boolean True if the value is a valid flag
+    Id.is_flag = idk.is_flags
+
+    --- Combines multiple flags using OR operation
+    --- @param flag flag The first flag
+    --- @param ... flag Additional flags to combine
+    --- @return id The combined flag value
+    Id.flag_or = idk.flag_or
+
+    ---Tests if flags are set
+    --- @param flag flag The flags to test
+    --- @param ... flag The flags to check for
+    --- @return boolean True if all specified flags are set
+    Id.flag_test = idk.flag_test
+
+    --- Sets or unsets a flag in a flag combination
+    --- @param flags flag The current flags
+    --- @param flag flag The flag to modify
+    --- @param state boolean True to set the flag, false to unset
+    --- @return flag The modified flags
+    Id.flag_set = idk.flag_set
+
+    --- Splits a combined flag into individual flags
+    --- @param flag flag The combined flags to split
+    --- @return ...flag The individual flags
+    Id.flag_split = idk.flag_split
+
+--- Counts the number of flags set in a flag combination
+--- @param flag flag The combined flags to count
+--- @return integer The number of flags that are set
+    Id.flag_count = idk.flag_count
+end
+
+--- Pretty prints any value, with special handling for ids, flags, roflakes, and structs
+--- @param o any The value to pretty print
+--- @return string The formatted string representation
 function Id.pp(o: any): str
     _check_arg(o)
     if idk.plausible(o) then
         if idk.is_flags(o) then
-            local count = idk.flags_count(o)
+            local count = idk.flag_count(o)
             if count < 2 then
                 return Id.name(o)
             end
-            local flags = { idk.flags_split(o) } :: any
+            local flags = { idk.flag_split(o) } :: any
             flags[1] = Id.name(flags[1])
             for i = 2, count do
                 flags[i] = Id.key(flags[i])
@@ -156,11 +212,20 @@ function Id.pp(o: any): str
     return tostring(o)
 end
 
+--- Creates an id from a kind and ordinal number
+--- @param of_kind integer The kind to create the id for
+--- @param ord integer The ordinal number
+--- @return id The created id
 function Id.from_ordinal(of_kind: int, ord: int): id
     _check_arg(of_kind)
     return idk.encode(of_kind, ord)
 end
 
+--- Gets the ordinal number from an id
+--- @param id id The id to get the ordinal from
+--- @param of_kind? integer Optional kind to verify against
+--- @return integer The ordinal number
+--- @throws Error if id is invalid or kind doesn't match
 function Id.to_ordinal(id: id, of_kind: int?)
     _check_arg(id)
     assert(idk.plausible(id), "not an id")
@@ -171,6 +236,11 @@ function Id.to_ordinal(id: id, of_kind: int?)
     return ord
 end
 
+--- Calculates the distance between two ids of the same kind
+--- @param a id The first id
+--- @param b id The second id
+--- @return integer The distance between the ids
+--- @throws Error if either input is invalid or kinds don't match
 function Id.distance(a: id, b: id)
     _check_arg(a)
     assert(Id.is_id(a), "arg 1 not an id")
@@ -181,7 +251,10 @@ function Id.distance(a: id, b: id)
     return bi - ai
 end
 
-function Id.peek(id: id): str?
+--- Gets the string representation (key) of an id or flag if available
+--- @param id any The id or flag to peek at
+--- @return string? The string representation (key), or nil if not available
+function Id.peek(id: any): str?
     _check_arg(id)
     if idk.plausible(id) then
         local k, _ = decode(id)
@@ -191,12 +264,19 @@ function Id.peek(id: id): str?
     return nil
 end
 
+--- Gets the enum object associated with an id
+--- @param id id The id or flag to get the enum for
+--- @return Enum The associated enum object
+--- @throws Error if no enum is found for the id's kind
 function Id.enum(id: id): enum.Enum
     _check_arg(id)
     local k, _i = decode(id)
     return assert(KIND_TO_ENUM[k])
 end
 
+--- Gets the kind of an id or flag
+--- @param id? id The id to get the kind from
+--- @return kind The kind of the id, or NONE if invalid/nil
 function Id.kind(id: id?)
     _check_arg(id)
     if id and idk.plausible(id) then
@@ -205,6 +285,11 @@ function Id.kind(id: id?)
     return Id.Kind.NONE
 end
 
+--- Casts an id to a different kind
+--- @param id id The id to cast
+--- @param kind kind The target kind
+--- @return id The cast id
+--- @throws Error if the cast is invalid
 function Id.cast_id_to_kind(id: id, kind: kind): id
     _check_arg(id)
     local key = Id.key(id)
@@ -221,7 +306,9 @@ function Id.cast_id_to_kind(id: id, kind: kind): id
     return other[key]
 end
 
--- `Id.kind.xxx` or `kind.xxx` -> id
+--- Parses a string representation of an id
+--- @param str string The string to parse (format: "Id.kind.xxx" or "kind.xxx")
+--- @return id? The parsed id, or nil if invalid format
 function Id.parse(str): id?
     local m, kind, id = string.match(str, "(%w+)[.](%w+)[.]?(%w*)")
     if id == "" then
@@ -229,14 +316,9 @@ function Id.parse(str): id?
     elseif m ~= "Id" then
         return nil
     end
-    local k = Id.Kind[kind]
-    if not k then
-        return nil
-    end
-    local e = KIND_TO_ENUM[k]
+    local e = Id.enum_by_kind_name(kind :: str)
     return if e ~= nil then e:peek(id) :: id? else nil
 end
-
 -----------------------------
 -----------------------------
 -- Id Declarations

@@ -25,8 +25,9 @@ type u9 = uint
 export type kind = u9
 export type ord = u9
 export type bits = u9
-type id = u20
-type flag = u20
+export type id = u20
+export type flag = u20
+export type idk = id | flag
 type array<a> = { a }
 type map<k, v> = { [k]: v }
 type table = map<any, any>
@@ -51,15 +52,13 @@ m.MAX_KIND = MAX_ORD
 m.MIN_ORD = MIN_ORD
 m.MAX_ORD = MAX_ORD
 
-
-
 local function encode(kind: kind, ord: ord): id
     assert(MIN_ORD <= ord and ord <= MAX_ORD, "ord out of range")
     assert(MIN_ORD <= kind and kind <= MAX_ORD, "kind out of range")
     return bit32.bor(0x80000, bit32.lshift(kind, 10), ord)
 end
 
-local function encode_flag(kind: kind, bits: ord): flag
+local function encode_flag(kind: kind, bits: bits): flag
     return bit32.bor(encode(kind, bits), FLAG_BIT)
 end
 
@@ -120,7 +119,7 @@ do -- iota and flags
         return id
     end
 
-    function m.flag(kind: num | any): flag
+    function m.flag(kind: kind | any?): flag
         if type(kind) == "number" then
             assert(MIN_ORD <= kind and kind <= MAX_ORD, "not a valid kind")
             iter = coroutine.wrap(function()
@@ -191,7 +190,7 @@ do
         end
     end
 
-    function m.flags_split(flags: flag): ...flag
+    function m.flag_split(flags: flag): ...flag
         local kind, bits = decode(flags)
         if bits == 0 or has_single_bit(bits) then
             return flags
@@ -214,11 +213,10 @@ do
     end
     table.freeze(POPCOUNT_U9)
 
-    function m.flags_count(flags: flag): int
+    function m.flag_count(flags: flag): int
         local kind, bits = decode(flags)
         return POPCOUNT_U9[bits]
     end
-
 end
 -----------------------------
 -- Quick test
@@ -309,8 +307,8 @@ repeat -- usage example and test
     assert(not m.flag_test(flags, Id.PetF.EQUIPPED))
 
     local pet_flags = m.flag_or(Id.PetF.EQUIPPED, Id.PetF.ENABLED, Id.PetF.BOUGHT)
-    assert(m.flags_count(pet_flags) == 3, "flags count failed")
-    local a, b, c = m.flags_split(pet_flags)
+    assert(m.flag_count(pet_flags) == 3, "flags count failed")
+    local a, b, c = m.flag_split(pet_flags)
     assert(a == Id.PetF.EQUIPPED)
     assert(b == Id.PetF.ENABLED)
     assert(c == Id.PetF.BOUGHT)
