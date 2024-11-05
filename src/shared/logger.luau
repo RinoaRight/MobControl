@@ -927,7 +927,7 @@ function Logger.set_prettifier(self: Logger, prettifier: prettifier?): Logger
 end
 
 function Logger.set_delimiter(self: Logger, delimiter: str?): Logger
-    self._internal._delimiter = delimiter or "\t"
+    self._internal._delimiter = delimiter or " "
     return self
 end
 

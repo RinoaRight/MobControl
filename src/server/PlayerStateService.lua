@@ -30,12 +30,12 @@ type array<a> = { a }
 type map<k, v> = { [k]: v }
 local _fmt = string.format
 
---[[ stylua: ignore]] if not game then (function() game = require("game") end)() end
+--[[ stylua: ignore]] game = game or require("game")
 local shared = game.ReplicatedStorage.shared
 local enum = require(shared.enum)
 local _iota = enum.iota
-local _flag = enum.flag
 local Id = require(shared.Id)
+local SharedConfig = require(shared.SharedConfig)
 local state = require(shared.state)
 local _signal = require(shared.signal)
 local _ulid = require(shared.ulid)
@@ -43,7 +43,7 @@ local _roflake = require(shared.roflake)
 local remote = require(shared.Remote)
 local disposer = require(shared.disposer)
 local logger = require(shared.logger)
-local log = logger.create("PlayerStateService"):set_delimiter(" "):set_prettifier(Id.pp)
+local log = logger.create("PlayerStateService"):set_prettifier(Id.pp)
 
 -------------------
 -- Server Modules
@@ -59,7 +59,7 @@ if workspace and not _USE_MOCK_DATASTORE then
     STORE = DataStoreService:GetDataStore(STORE_ID)
 else
     local MockDataStore = require(shared.MockDataStore)
-    MockDataStore.InitState("") -- <== load from b64 encoded store
+    MockDataStore.InitState(SharedConfig.Save) -- <== load from b64 encoded store
     type DataStore = MockDataStore.DataStore
     STORE = MockDataStore:GetDataStore(STORE_ID)
 end

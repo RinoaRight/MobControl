@@ -57,6 +57,13 @@ local __DEV__ = not workspace or game:GetService("RunService"):IsStudio()
 --- - 1101_1111 (reserved)
 ]=]
 
+--[=[ performance (state snapshot 32K)
+--- +----------------------------+-----------+----------+----------+
+--- | lpack 32K                  | μ      10 |  636 μs  |   3.3 KB | gc: 10 μs
+--- | lpack-32K+base64           | μ      10 |  888 μs  | 135.4 KB | gc: 16 μs
+--- +----------------------------+-----------+----------+----------+
+]=]
+
 type str = string
 type bool = boolean
 type num = number
@@ -75,7 +82,9 @@ type pack64 = str
 type base64 = str
 local fmt = string.format
 
-local _scratch_buffer = buffer.create(0x8000)
+
+--- @note: buffer reallocation is expensive, try to use default value pretty big for your dataset
+local _scratch_buffer = buffer.create(0x10000) -- 64K
 local _scratch_array = table.create(16) :: { any }
 local MAX_INT = 2 ^ 32 - 1
 local MIN_INT = -MAX_INT
@@ -85,15 +94,16 @@ local MIN_F64_TO_F32 = -MAX_F64_TO_F32
 -----------------------------
 -- Utility
 -----------------------------
-local function grow(b: buf, len: int): buf
+local function grow(b: buf, len: int, opt: "exact"?): buf
     if len < buffer.len(b) then
         return b
     end
     local size = buffer.len(b)
-    size = if size >= 0x8_0000 then len else bit32.lshift(1, 32 - bit32.countlz(math.max(len, 2 * size) - 1))
+    -- exact len, or next power of 2
+    size = if opt == "exact" then len else bit32.lshift(1, 32 - bit32.countlz(math.max(len, 2 * size) - 1))
     local fresh = buffer.create(size)
     buffer.copy(fresh, 0, b)
-    -- warn("grow to:", size)
+    warn("grow to:", size)
     return fresh
 end
 
@@ -554,7 +564,7 @@ end
 
 -- assume sting to encode in [0, count-1]
 local function _enc64(bytes: buf, count: int): (buf, int, int)
-    local buf = grow(bytes, count + encoded_len(count))
+    local buf = grow(bytes, count + encoded_len(count), "exact")
     local by3 = 3 * math.floor(count / 3)
     local ri, wi = 0, count
     while ri < by3 do
@@ -593,7 +603,7 @@ local function _dec64(s64: str, scratch: buf?): (buf, int)
     assert(strlen >= 4 and strlen % 4 == 0, "base64 length must be a multiple of 4")
     local buf: buf -- read/write buffer
     if type(scratch) == "buffer" then
-        buf = grow(scratch, strlen)
+        buf = grow(scratch, strlen, "exact")
         buffer.writestring(buf, 0, s64)
     else
         buf = buffer.fromstring(s64)
@@ -645,6 +655,7 @@ m.__index = m
 local function _pack_tuple8(b: buf, offset: int, ...)
     local n = select("#", ...)
     assert(n <= 255, "tuple can only hold up to 255 elements")
+    b = grow(b, 2)
     buffer.writeu8(b, offset, 0b_1101_0011)
     buffer.writeu8(b, offset + 1, n)
     offset += 2
@@ -740,7 +751,7 @@ end
 --- @return ...any The unpacked tuple values.
 function m.unpack_tuple(data: string): ...any
     local len = #data
-    local b = grow(_scratch_buffer, len)
+    local b = grow(_scratch_buffer, len, "exact")
     buffer.writestring(b, 0, data, len)
     return _unpack_tuple8(b, 0)
 end
@@ -765,7 +776,7 @@ m.base64 = {}
 --- @return str The base64 encoded string.
 function m.base64.encode(data: str): str
     local len = #data
-    local bytes = grow(_scratch_buffer, len + encoded_len(len))
+    local bytes = grow(_scratch_buffer, len + encoded_len(len), "exact")
     buffer.writestring(bytes, 0, data, len)
     local out, from, to = _enc64(bytes, len)
     return buffer.readstring(out, from, to - from)

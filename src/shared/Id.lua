@@ -431,11 +431,25 @@ Id.S2S = enum.with_id "Id.S2S" {
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)
 
+-- stylua: ignore
 -----------------------------
+-- C2S
 -----------------------------
--- Flags
+Id.C2S = enum.with_id "Id.C2S" {
+    NONE = iota(Id.Kind.C2S, 0),
+}
+KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
+export type C2S = typeof(Id.C2S)
+
+-- stylua: ignore
 -----------------------------
+-- S2C
 -----------------------------
+Id.S2C = enum.with_id "Id.S2C" {
+    NONE = iota(Id.Kind.S2C, 0),
+}
+KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
+export type S2C = typeof(Id.S2C)
 
 -----------------------------
 -- Quick test

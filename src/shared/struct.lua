@@ -36,6 +36,7 @@ local lpack = require(script.Parent.lpack)
 local m = {}
 m.__index = m
 
+-- map of struct id to corresponding struct's metatable
 local M = {} :: map<id, table>
 
 local function make_index(def)
@@ -54,23 +55,6 @@ end
 
 local function readonly(_)
     error("struct is read-only")
-end
-
-local function _make_newindex(def)
-    return function(self, k, v)
-        local idx = rawget(def, k)
-        local frozen = table.isfrozen(self)
-        if type(idx) == "number" then
-            if frozen then
-                error("struct is read-only", 2)
-            else
-                rawset(self, idx, v)
-            end
-        elseif frozen then
-        else
-            error(`no such field '{k}'`, 2)
-        end
-    end
 end
 
 -- stylua: ignore
@@ -112,7 +96,7 @@ local function set_props(self, mt, props)
 end
 
 function m.define<A>(tag: id)
-    type S = A & { set: (self: A, props: props<num>) -> A } & { num }
+    type S = A & { set: (self: S, props: props<num>) -> S }-- & { num }
     return function(def: A): ((props: A?) -> S, (o: any) -> S)
         local mt = def :: any
         local n = 0
@@ -130,10 +114,10 @@ function m.define<A>(tag: id)
             return n
         end
         mt.__eq = struct_eq
-        mt.set = function(self, props)
+        mt.set = function(self: S, props)
             local o = table.clone(self :: any)
             set_props(o, mt, props)
-            return table.freeze(setmetatable(o, mt)) :: any
+            return (table.freeze(setmetatable(o, mt)) :: any) :: S
         end
         M[tag] = table.freeze(mt)
         return function(props) -- ctor
@@ -165,10 +149,23 @@ function m.is(o: any)
     return false
 end
 
+--- Packs a struct to a binary string representation.
+---
+--- This function uses the `lpack` library
+---
+--- @param o table The Lua table to pack.
+--- @return string The binary string representation of the input table.
 function m.pack(o)
     return lpack.pack(o)
 end
 
+--- Unpacks a binary string representation of a struct into a table.
+---
+--- This function uses the `lpack` library to unpack the binary string into a Lua table.
+--- The unpacked table is then wrapped in a metatable that provides read-only access to the struct fields.
+---
+--- @param s str The binary string representation of the struct.
+--- @return table The table representing the unpacked struct.
 function m.unpack<a>(s: str)
     local o = lpack.unpack(s)
     if type(o) ~= "table" or #o <= 1 then
@@ -182,6 +179,15 @@ function m.unpack<a>(s: str)
     return table.freeze(setmetatable(o, mt))
 end
 
+--- Unpacks a binary string representation of a struct into a typed table.
+---
+--- This function uses the `lpack` library to unpack the binary string into a Lua table.
+--- The unpacked table is then wrapped in a metatable that provides read-only access to the struct fields.
+--- The `cast` function is used to convert the unpacked table to the desired type `A`.
+---
+--- @param s str The binary string representation of the struct.
+--- @param cast (any) -> A The function to cast the unpacked table to the desired type.
+--- @return A The table representing the unpacked struct, cast to the desired type.
 function m.unpack_typed<A>(s: str, cast: (any) -> A)
     local o = lpack.unpack(s)
     if type(o) ~= "table" or #o <= 1 then
@@ -202,6 +208,7 @@ do
             assert(from == 1, "first index in struct must be 1")
             _current = 1
         else
+            assert(_current ~= nil, "first index in struct must be 1")
             _current += 1
         end
         return _current
@@ -213,7 +220,8 @@ end
 -----------------------------
 _G.__DEV__ = not game
 do
-    local cr, cast = m.define(901) {
+    local TAG = 901
+    local cr, cast = m.define(TAG) {
         One = 1,
         Two = 2,
         Three = 3,
@@ -230,7 +238,7 @@ do
         xx.Two = 14
     end))
     local y = x:set { One = 42, Three = 11 }
-    -- print(y.One)
+    assert(y.One == 42)
     assert(x ~= y)
     local z = cr { One = 1, Two = 2, Three = x.Three }
     assert(z.One == 1)
@@ -238,6 +246,9 @@ do
     local a = cr { One = 1, Two = 2, Three = 3 }
     local b = cr { One = 1, Two = 2, Three = 3 }
     assert(a == b)
+    b = b:set{ One = 11 }
+    assert(b.One == 11)
+    assert(b[#b+1] == TAG)
 end
 
 warn("[struct -- ok]")
