@@ -1,6 +1,6 @@
 --!strict
---!~native
 --!optimize 2
+-- no sense to use !native directive, it's not faster
 
 -- MIT License
 -- Copyright (c) 2024 Andrew Zhilin (https://github.com/zoon)
@@ -76,7 +76,10 @@ local OPS = setmetatable({
     [OP_DETACH] = "DETACH",
     [OP_ATTACH] = "ATTACH",
     [OP_MODIFY] = "MODIFY",
-}, { __index = function(_, k) return "unknown op:'" .. tostring(k) .. "'" end })
+}, { __index = function(_, k)
+        return "unknown op:'" .. tostring(k) .. "'"
+    end
+})
 
 --- @readonly `(uid, mask, meta, ...component)*`
 local HEADER_SAVE = ".sv"
@@ -100,6 +103,31 @@ local scratch_buf = buffer.create(32)
 -----------------------------
 
 -- stylua: ignore
+
+-- This type `Common<Self>` defines a set of common functionality for both the
+-- `Main` and `Replica` types. It provides methods for interacting with the
+-- state, such as getting and setting components, selecting entities based on
+-- queries, and formatting the state for debugging purposes.
+
+-- The `env` method allows accessing and optionally updating the environment
+-- associated with the state.
+
+-- The `has`, `get`, and `getter` methods provide ways to check if an entity
+-- exists, retrieve a component, and create a getter function for components.
+
+-- The `set` and `setter` methods allow setting a component on an entity and
+-- creating a setter function for components.
+
+-- The `size` method returns the number of entities and components in the state.
+
+-- The `select` method provides a way to query the state and iterate over the
+-- resulting entities and components.
+
+-- The `format_*` methods provide various ways to format the state for debugging
+-- purposes, such as formatting individual entities, the entire state, and the
+-- transaction log.
+
+-- The `names` method returns the names of the components in the state.
 type Common<Self> = {
     env:          (self: Self, key: str, new_value: any?) -> any,
     has:          (self: Self, uid, cid?) -> bool,
@@ -131,14 +159,40 @@ type CommonInternal<Self> = Common<Self> & {
     _storage: storage,
 }
 
--- stylua: ignore
+---  The `Main` type represents the main state of the application. It extends the
+--- `Common` type and provides additional functionality for constructing the
+--- state, managing snapshots and saves, and deleting entities.
+---
+---  The `constructor` method is used to create a new instance of the `Main`
+--- state, taking a list of component IDs or attributes as arguments. It returns
+--- a tuple containing a function to create new entities and a mask representing
+--- the components in the state.
+---
+---  The `flash` method is used to move the internal replication log out of the
+--- state, returning the log as a transactions object.
+---
+---  The `snapshot` method is used to create a snapshot of the current state,
+--- which can be used for replication purposes. It takes an optional
+--- "discard-log" parameter to indicate that the replication log should be
+--- discarded after the snapshot is created.
+---
+---  The `save` method is used to create a save of the current state, which can
+--- be used for persistence purposes. It returns the transactions that represent
+--- the save.
+---
+---  The `load` method is used to load a saved state, taking the transactions
+--- representing the saved state as an argument. It returns a new instance of
+--- the `Main` state with the loaded data.
+---
+---  The `delete` method is used to delete an entity from the state, taking the
+--- unique identifier (UID) of the entity as an argument. stylua: ignore
 export type Main = Common<Main> & {
-    constructor:  (self: MainSelf, ...cid | attribute) -> ((uid | gen, ...component) -> uid, mask),
-    flash:        (self: MainSelf) -> transactions?, -- move internal replication log out of state
-    snapshot:     (self: MainSelf, opt: "discard-log"?) -> transactions, -- create snapshot (replication)
-    save:         (self: MainSelf) -> transactions, -- create save (persistance)
-    load:         (self: MainSelf, transactions) -> MainSelf, -- load save
-    delete:       (self: MainSelf, uid) -> (),
+    constructor: (self: MainSelf, ...cid | attribute) -> ((uid | gen, ...component) -> uid, mask),
+    flash: (self: MainSelf) -> transactions?, -- move internal replication log out of state
+    snapshot: (self: MainSelf, opt: "discard-log"?) -> transactions, -- create snapshot (replication)
+    save: (self: MainSelf) -> transactions, -- create save (persistance)
+    load: (self: MainSelf, transactions) -> MainSelf, -- load save
+    delete: (self: MainSelf, uid) -> (),
 }
 
 type MainInternal = Main & CommonInternal<MainSelf> & {
@@ -163,6 +217,7 @@ type ReplicaInternal = Replica & CommonInternal<ReplicaSelf> & {
     _callback_masks: { mask },
     -- array of triplets (op|cid, uid, old_component)
     _deferred_changes: { any },
+    _setter_in_use: bool, -- flag to prevent calling set from callbacks (to prevent infinite recursion)
 }
 
 ---[[ dev mode
@@ -177,10 +232,10 @@ local ReplicaState = {} :: ReplicaSelf;
 
 --[[ prod mode
 __DEV__ = false or _G.__DEV__
-type MainSelf = State<MainSelf> & Main
+type MainSelf = Common<MainSelf> & Main
 local MainState = {}
 MainState.__index = MainState
-type ReplicaSelf = State<ReplicaSelf> & Replica
+type ReplicaSelf = Common<ReplicaSelf> & Replica
 local ReplicaState = {}
 ReplicaState.__index = ReplicaState
 --]]
@@ -213,7 +268,7 @@ export type ConfigBuilder = {
 
 export type Destroy<T> = (self: T) -> ()
 
-export type Index<T> = { Release: Destroy<Index<T>>, count: () -> int} & { T }
+export type Index<T> = { Release: Destroy<Index<T>>, count: () -> int } & { T }
 
 export type Query = {
     iterate_index: (Common<any>, Index<uid>, mask) -> ((Index<uid>, uid?) -> (uid?, ...component), Index<uid>),
@@ -259,6 +314,7 @@ local function args_take(from: uint, to: uint, ...: any): ...any
     end
 end
 
+-- Counts the number of 1 bits in a 32-bit integer
 local function popcount32(x: u32): u32
     x = x - bit32.band(bit32.rshift(x, 1), 0x55555555)
     x = bit32.band(x, 0x33333333) + bit32.band(bit32.rshift(x, 2), 0x33333333)
@@ -266,6 +322,9 @@ local function popcount32(x: u32): u32
     return bit32.rshift(bit32.band(x * 0x01010101, 0xFFFFFFFF), 24)
 end
 
+-- Performs a deep clone of a table, userdata, or value type
+-- @param obj: The object to clone
+-- @return A deep copy of the input object
 local function deep_clone<T>(obj: T): T
     if type(obj) == "table" then
         obj = table.clone(obj) :: typeof(obj)
@@ -283,6 +342,9 @@ local function deep_clone<T>(obj: T): T
     return obj
 end
 
+-- Recursively freezes a table and all nested tables
+-- @param obj: The object to freeze
+-- @return The frozen object
 local function deep_freeze<T>(obj: T): T
     if type(obj) == "table" and not table.isfrozen(obj) then
         for k, v in pairs(obj) do
@@ -293,6 +355,9 @@ local function deep_freeze<T>(obj: T): T
     return obj
 end
 
+-- Checks if a table is an array (consecutive numeric indices)
+-- @param o: The table to check
+-- @return boolean indicating if the table is an array
 local function is_array(o: any)
     if type(o) ~= "table" then
         return false
@@ -308,11 +373,20 @@ local function wrong_order(a: any, suspect: num?, ...: cid?): cid?
     return if suspect == nil or suspect <= a then suspect else wrong_order(suspect, ...)
 end
 
+--- Formats a component ID with optional name lookup
+--- @param cid: Component ID
+--- @param names: Optional map of component IDs to names
+--- @return Formatted string representation
 local function format_cid(cid: cid, names: names?)
     check_cid(cid)
     return names and names[cid] or fmt("#%.2d", cid)
 end
---- @note: `sit|---`: for shared or internal and transient respectively
+
+--- Formats metadata bits into a string representation
+---
+--- 's': shared, 'i': internal, 't': transient
+--- @param meta: Metadata bitmask
+--- @return String in format "sit" where each position shows - or corresponded letter
 local function format_meta(meta: mask)
     assert(meta == bit32.band(meta, 0b_111), "too many bits in meta")
     buffer.fill(scratch_buf, 0, 0)
@@ -489,8 +563,8 @@ local function attach_many_factory(storage: storage, ...: cid): ((uid, ...compon
     end, n
 end
 
---- @note: use it before or after write to storage, according to operator: after
--- ON_ATTACH, before ON_DETACH or ON_MODIFY
+--- @note: use it before or after write to storage, according to operator:
+--- after ON_ATTACH, before ON_DETACH or ON_MODIFY
 local function defer_many_op(uid: uid, op: op, changes: transactions, storage: storage, cids: array<cid>)
     for _, cid in cids do
         local component = storage[cid][uid]
@@ -785,20 +859,11 @@ do
         table.insert(__index_pool, self)
     end
     -- alias for Maid
-    Index.Delete = Index.Release;
+    Index.Delete = Index.Release
     Index.count = function()
         return #__index_pool
     end
 end
-
-local idx:Index<int> = Index.acquire()
-local idx2:Index<int> = Index.acquire()
-local idx3:Index<int> = Index.acquire()
-print(idx.count())
-idx:Release()
-idx2:Release()
-idx3:Release()
-print(idx.count())
 
 -----------------------------
 -- Config Builder
@@ -1491,6 +1556,9 @@ local function replica_create_factory(self: ReplicaInternal, mask: mask, log: tr
 end
 
 -- stylua: ignore
+--- Initializes a replica state from a snapshot
+--- @param snapshot: Transaction log containing initial state
+--- @return self for method chaining
 function ReplicaState.init(self: ReplicaInternal, snapshot: transactions)
     assert(type(snapshot) == "table", "invalid snapshot (type)")
     assert(self:size() == 0, "acceptor state must be empty")
@@ -1524,6 +1592,8 @@ function ReplicaState.init(self: ReplicaInternal, snapshot: transactions)
 end
 
 -- stylua: ignore
+--- Updates replica state by applying a transaction log
+--- @param log: Optional transaction log to apply
 function ReplicaState.update(self: ReplicaInternal, log: transactions?)
     if not log or #log == 0 then
         return
@@ -1593,7 +1663,6 @@ function ReplicaState.update(self: ReplicaInternal, log: transactions?)
         elseif op == OP_DELETE then
             replica_delete(self, uid)
         end
-
     end -- while
     assert(p >= n, "log entries exceed expected count")
     process_deferred_changes(self) -- we apply changes after state is stabilized
@@ -1618,7 +1687,7 @@ local function replica_set_callback(self: ReplicaInternal, cid: cid, mask: mask,
         warn("callback was not set for cid: " .. self:format_cid(cid))
         return mask
     else
-        callbacks[cid] = nil
+        callbacks[cid] = false
         return bit32.replace(mask, 0, cid, 1)
     end
 end
@@ -1677,6 +1746,21 @@ function m.main(config: Config?): MainSelf
             local meta = metas[uid] or 0
             local is_replicable = not (is_local or bit32.btest(meta, META_INTERNAL))
             local old = column[uid]
+            if old == value then
+                if __DEV__ and is_replicable then
+                    --- @note: The user can modify the object and reassign it to the
+                    --- component, expecting this operation to be replicated, but
+                    --- that won't happen. It's generally a bad idea to store mutable data in state.
+                    --- The only exception is Instance, but it should not be is_replicable.
+                    local t = type(value)
+                    --- @todo: should we be more strict?
+                    if (t == "table" and not table.isfrozen(value :: any)) or (t == "userdata") then
+                        local fmt_str = "cid: %*: reassigning the same object of the reference's type: '%*'."
+                        error(fmt(fmt_str, format_cid(cid, config._component_names), typeof(value)), 3)
+                    end
+                end
+                return -- early return
+            end
             if value == nil then
                 if bit32.btest(mask, bit) then
                     if __DEV__ then
@@ -1690,7 +1774,7 @@ function m.main(config: Config?): MainSelf
                 else -- if value == nil and mask not set for this cid: we do nothing
                     assert(old == nil, "sanity check")
                 end
-            elseif old ~= value then -- assume value ~= nil
+            else -- assume old ~= value
                 masks[uid] = bit32.bor(mask, bit)
                 if is_replicable then
                     table.insert(log, bit32.bor(if old == nil then OP_ATTACH else OP_MODIFY, cid))
@@ -1698,22 +1782,12 @@ function m.main(config: Config?): MainSelf
                     log_component(log, value)
                     meta = bit32.bor(meta, META_SHARED)
                 end
-            elseif __DEV__ and is_replicable and column[uid] == value then
-                --- @note: The user can modify the object and reassign it to the
-                --- component, expecting this operation to be replicated, but
-                --- that won't happen.
-                local t = type(value)
-                --- @todo: should be more strict
-                if (t == "table" and not table.isfrozen(value :: any)) or (t == "userdata") then
-                    local fmt_str = "cid: %*: reassigning the same object of the reference's type: '%*'."
-                    error(fmt(fmt_str, format_cid(cid, config._component_names), typeof(value)), 3)
-                end
-            end
-            if old ~= nil and destructor then
-                pcall_destructor(cid, component_names, destructor, old)
             end
             metas[uid] = meta
             column[uid] = value
+            if old ~= nil and destructor then
+                pcall_destructor(cid, component_names, destructor, old)
+            end
         end
     end
     local self = {} :: MainInternal
@@ -1726,6 +1800,7 @@ function m.main(config: Config?): MainSelf
     self._log = log
     return table.freeze(setmetatable(self, MainState)) :: any
 end
+
 function m.replica(config: Config?): ReplicaSelf
     config = config or DEFAULT_CONFIG
     assert(config, "type coercion")
@@ -1745,7 +1820,7 @@ function m.replica(config: Config?): ReplicaSelf
     local on_attach = (table.create(31, false) :: any) :: { on_attach }
     local on_detach = (table.create(31, false) :: any) :: { on_detach }
     local on_modify = (table.create(31, false) :: any) :: { on_modify }
-
+    local setter_in_use = false
     for cid = 0, 31 do
         --- @note: we create columns only for named components (config)
         if not config._component_names[cid] then
@@ -1762,6 +1837,10 @@ function m.replica(config: Config?): ReplicaSelf
         end
         local destructor = config._destructors[cid]
         setters[cid] = function(uid: uid, value: component)
+            if setter_in_use then
+                error("setter called recursively", 3)
+            end
+            setter_in_use = true
             --- @note: we can create entity without constructor just by the setter
             local mask = masks[uid] or 0
             local old = column[uid]
@@ -1770,7 +1849,7 @@ function m.replica(config: Config?): ReplicaSelf
                     if __DEV__ then
                         assert(old ~= nil, "sanity check")
                     end
-                    masks[uid] = bit32.bxor(mask, bit) -- assume bit is set
+                    masks[uid] = bit32.bxor(mask, bit) -- assume bit was set
                     column[uid] = nil
                     --- @note: on_detach is a dynamic method, unlike the destructor
                     if on_detach[cid] then
@@ -1788,9 +1867,10 @@ function m.replica(config: Config?): ReplicaSelf
                 if old == nil and on_attach[cid] then
                     pcall_callback(uid, cid, OP_ATTACH, config, on_attach[cid], value, nil)
                 elseif old ~= nil and on_modify[cid] then
-                    pcall_callback(uid, cid, OP_MODIFY, config, on_attach[cid], value, old)
+                    pcall_callback(uid, cid, OP_MODIFY, config, on_modify[cid], value, old)
                 end
             end
+            setter_in_use = false
         end
     end
     local self = {} :: ReplicaInternal
@@ -1822,40 +1902,45 @@ local C = {
     SS = 31,
 }
 
+-- stylua: ignore
+local _Id = {
+    GEM    = 10_001,
+    GOLD   = 10_002,
+    SILVER = 10_003,
+}
+
 local _fresh = 0
-local function toy_uid(): str
+local function _toy_uid(): str
     _fresh += 1
     return fmt("fresh!%.4d", _fresh)
 end
 
-local Id = {
-    GEM = 1101,
-    GOLD = 1102,
-    SILVER = 1103,
-}
+local function _toy_destructor(o: component)
+    print("destructor", o)
+end
 
-local test_main_config, repl = ConfigBuilder.create()
+local _test_main_config, repl = ConfigBuilder.create()
     :set_component_names(C)
     :set_persistent_flag(C.Id, C.A, C.B, C.C, C.X)
     :set_replication_flag(C.Id, C.A, C.B, C.C)
-    :set_destructor(C.SS, print)
+    :set_destructor(C.SS, _toy_destructor)
     :set_read_only_flag(C.Id)
     :build_with_replica()
 local _test_replica_conf = repl:build()
 --]]
 
----[[
+--[[ operations
 do
-    local st = m.main(test_main_config)
+    local st = m.main(_test_main_config)
     local sta = st :: any
     for name, id in C do
         assert(sta._config._component_names[id] == name, "sanity check")
         assert(sta._storage[id] ~= nil, "sanity check")
     end
     local row = st:constructor(C.Id, C.A, C.B)
-    local uid1 = row("GEMS", Id.GEM, 10, 100)
-    local uid2 = row("GOLD", Id.GOLD, 100, 1000)
-    local uid3 = row("SILVER", Id.SILVER, 1000, 10000)
+    local uid1 = row("GEMS", _Id.GEM, 10, 100)
+    local uid2 = row("GOLD", _Id.GOLD, 100, 1000)
+    local uid3 = row("SILVER", _Id.SILVER, 1000, 10000)
     local snap = st:snapshot()
     print("log after snap")
     print(st:format_log())
@@ -1877,15 +1962,15 @@ do
         :set_on_detach(C.Id, function(...)
             print("Id on_detach", ...)
         end)
-        :set_on_modify(C.B, function(...)
-            print("B on_modify", ...)
+        :set_on_modify(C.B, function(uid, new, old)
+            print("on modify", uid, "C.B", old, "->", new)
         end)
     repl1:init(snap)
     print(repl1:format_state("*"))
     repl1:update(st:flash() or {})
     print(repl1:format_state("*"))
     local r_row, r_row_mask = repl1:constructor(C.Id, C.X)
-    print(repl1: format_mask(r_row_mask))
+    print(repl1:format_mask(r_row_mask))
     local r_uid1 = r_row("G-x", 2000, "xxx")
     local r_uid2 = r_row("G-y", 3000, "yyy")
     repl1:delete(r_uid2)
@@ -1894,59 +1979,63 @@ do
     warn("--")
     for uid, id, a in st:select(C.Id, C.A, "not", C.SS) do
         print(">", uid, "id", id, "A", a)
-        st:set(uid, C.SS, "+ss")
+        st:set(uid, C.SS, "+ss " .. uid)
     end
     for uid, id, a, ss in st:select(C.Id, C.A, C.SS) do
         print(">>", uid, "id", id, "A", a, "ss", ss)
     end
+    for uid, id, a, ss in st:select(C.Id, C.A, C.SS) do
+        st:delete(uid)
+    end
+    repl1:update(st:flash() or {})
 end
 --]]
 
----[[ perf
---[==[ stylua: ignore]==] script = script or require'script'
+--[=[ performance
+--[[ stylua: ignore]] script = script or require'script'
 local perfn = require(script.Parent.perfn)
 local N = 1000
 local M = 10
 local _test_main_conf1, repl1 = ConfigBuilder.create()
     :set_component_names(C)
     :set_persistent_flag(C.Id, C.A, C.B, C.C, C.X)
-    :set_destructor(C.SS, print)
+    :set_destructor(C.SS, function(o) print("call destructor", o) end)
     :set_read_only_flag(C.Id)
     :build_with_replica()
-local test_replica_conf1 = repl1:build()
+local _test_replica_conf1 = repl1:build()
 
-local st1 = m.replica(test_replica_conf1)
--- local st1 = m.main(_test_main_conf1)
-local ctor3 = st1:constructor(C.A, C.B, C.C)
+local _st1 = m.main(_test_main_conf1)
+local ctor3 = _st1:constructor(C.A, C.B, C.C)
+
 for i = 1, N do
-    ctor3(toy_uid, 1, 2, 3)
+    ctor3(_toy_uid, 1, 2, 3)
 end
 local sum = 0
 perfn()
 perfn("new", function(i)
-    local _ = m.main(test_main_config)
+    local _ = m.main(_test_main_config)
 end, M)
 perfn("new+1K ctor3", function(i)
-    local st1 = m.main(test_main_config)
+    local st1 = m.main(_test_main_config)
     local ctor3 = st1:constructor(C.A, C.B, C.C)
     for i = 1, N do
-        ctor3(toy_uid, 1, 2, 3)
+        ctor3(_toy_uid, 1, 2, 3)
     end
 end, M)
 
 perfn("select3-1K", function()
     sum = 0
-    for uid, a, b, c in st1:select(C.A, C.B, C.C) do
+    for uid, a, b, c in _st1:select(C.A, C.B, C.C) do
         sum += (a + b + c)
     end
 end, M)
 assert(sum == 6 * N)
 
-local get3 = st1:getter(C.A, C.B, C.C)
-local set3 = st1:setter(C.A, C.B, C.C)
+local get3 = _st1:getter(C.A, C.B, C.C)
+local set3 = _st1:setter(C.A, C.B, C.C)
 perfn("index3-1K", function()
     sum = 0
-    local index = Query.query(st1, C.A, C.B, C.C)
+    local index = Query.query(_st1, C.A, C.B, C.C)
     for _, uid in ipairs(index) do
         local a, b, c = get3(uid)
         sum += (a + b + c)
@@ -1956,7 +2045,7 @@ end, M)
 assert(sum == 6 * N)
 perfn("index3-1K+set3", function()
     sum = 0
-    local index = Query.query(st1, C.A, C.B, C.C)
+    local index = Query.query(_st1, C.A, C.B, C.C)
     for _, uid in ipairs(index) do
         local a, b, c = get3(uid)
         sum += (a + b + c)
@@ -1966,8 +2055,8 @@ perfn("index3-1K+set3", function()
 end, M)
 perfn("index0-1K", function()
     sum = 0
-    local get1 = st1:getter(C.A)
-    local index = Query.query(st1)
+    local get1 = _st1:getter(C.A)
+    local index = Query.query(_st1)
     for _, uid in ipairs(index) do
         sum += get1(uid)
     end
@@ -1975,16 +2064,15 @@ perfn("index0-1K", function()
 end, M)
 
 local _count = 0
-perfn("3K index insert", function()
+perfn("3K insert in Index", function()
     local arr = Index.acquire()
-    for i = 1, 3*N do
+    for i = 1, 3 * N do
         table.insert(arr, i)
     end
     arr:Release()
-    _count = arr.count()
 end, M)
--- print("#", _count)
---]]
+--]=]
+
 -----------------------------
 -- Exports
 -----------------------------
