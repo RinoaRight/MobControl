@@ -25,7 +25,7 @@ type arg = string | number | boolean | table | Vector3
 type snapshot = array<any>
 
 
---[[ stylua: ignore]] if not game then script = require("script") end
+--[[ stylua: ignore]] script = script or require'script'
 local disposer = require(script.Parent.disposer)
 type Disposable = disposer.disposable
 
@@ -50,17 +50,12 @@ local function pack_args(...: arg): array<arg>
 end
 
 local function encode_packet(...: arg): bin
-    return lpack.pack(pack_args(...))
+    return lpack.pack_tuple(...)
 end
 
-local function decode_packet(data: bin): (array<arg>?, str)
-    local ok, result = pcall(lpack.unpack, data)
-    if not ok then
-        return nil, "lpack: unpack error: " .. result
-    end
-    return (result :: any) :: array<arg>, "ok"
+local function decode_packet(data: bin): ...any
+    return lpack.unpack_tuple(data)
 end
-
 
 --- @fixme use lpack.tuple8
 local function wait_on_event(event: RBXScriptSignal, timeout: num, on_fail: Disposable?): ...any
@@ -131,8 +126,7 @@ if workspace and game:GetService("RunService"):IsServer() then
                 print(err, "Server.Broadcast", Id.name(event), "args:", ...)
             end
         end
-        local packet = encode_packet(...)
-        _broadcast_rtx:FireAllClients(event, packet)
+        _broadcast_rtx:FireAllClients(event, encode_packet(...))
     end
 
     function m.Server.Handshake(player, load, on)
@@ -141,10 +135,10 @@ if workspace and game:GetService("RunService"):IsServer() then
         local hsh = create_remote_event(HANDSHAKE_PREFIX .. player_id)
         local rtx = create_remote_event("*")
         local nonce0 = math.random(0xff, 0xfff_ffff)
+        -- TODO:
         local fire_client = function(event: id, inst: Instance?, ...)
             assert(inst == nil or typeof(inst) == "Instance", "first arg must be an Instance? type")
-            local packet = encode_packet(...)
-            rtx:FireClient(player, event :: any, inst, packet)
+            rtx:FireClient(player, event :: any, inst, encode_packet(...))
         end
         -- yields
         local ok, state, data = pcall(load, player, fire_client)
@@ -153,15 +147,10 @@ if workspace and game:GetService("RunService"):IsServer() then
             disposer.dispose(hsh)
             error("load state error: " .. state :: str)
         end
-        local rtx_sub = rtx.OnServerEvent:Connect(function(p: Player, event: id, packet: base64)
+        local rtx_sub = rtx.OnServerEvent:Connect(function(p: Player, event: id, packet: bin)
             assert(p == player, "wrong player using rtx")
-            local args, decode_err = decode_packet(packet)
-            if not args then
-                error(decode_err)
-            else
                 local handler = on[event] or error("no handler for event id:" .. event)
-                handler(state, table.unpack(args))
-            end
+                handler(state, decode_packet(packet))
         end)
         local dispose = function()
             disposer.dispose(rtx_sub)
@@ -190,29 +179,24 @@ else -- CLIENT
         assert(rtx and typeof(rtx) == "Instance" and rtx:IsA("RemoteEvent"), "bad rtx")
         assert(us2cc and typeof(us2cc) == "Instance" and us2cc:IsA("UnreliableRemoteEvent"), "bad us2cc")
         local fire_server: FireServer = function(event: id, ...: arg)
-            local packet = encode_packet(...)
-            rtx:FireServer(event, packet)
+            rtx:FireServer(event, encode_packet(...))
         end
-        local args, decode_err = decode_packet(packet)
-        if not args then
-            error(decode_err)
-        end
-        local state_snapshot: array<any>, nonce: int = table.unpack(args :: array<any>)
+        local state_snapshot: array<any>, nonce: int = decode_packet(packet)
         -- yields
         local ok, state = pcall(load, fire_server, state_snapshot)
         if not ok then
             error("load error: " .. state :: str)
         end
-        local rtx_sub = rtx.OnClientEvent:Connect(function(event: id, inst: Instance?, packet: base64)
+        local rtx_sub = rtx.OnClientEvent:Connect(function(event: id, inst: Instance?, packet: bin)
             local args, decode_err = decode_packet(packet)
             if not args then
                 error(decode_err)
             else
                 local handler = on[event] or error("no handler for event id:" .. event)
                 if inst == nil then
-                    handler(state, table.unpack(args))
+                    handler(state, decode_packet(packet))
                 else
-                    handler(state, inst, table.unpack(args))
+                    handler(state, inst, decode_packet(packet))
                 end
             end
         end)
@@ -232,18 +216,10 @@ else -- CLIENT
                 end
                 return
             end
-            local args, decode_err = decode_packet(packet)
-            if not args then
-                error(decode_err)
-            end
-            assert(args)
-            callback(table.unpack(args))
+            callback(decode_packet(packet))
         end)
     end
 end
-
-m.EncodePacket = encode_packet
-m.DecodePacket = decode_packet
 
 warn("[remote -- ok]")
 return table.freeze(m)
