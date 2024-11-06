@@ -93,8 +93,8 @@ function m.load(csv: str, opt: "keep-falsy"?): DataTable
         assert(#dims == 2, "first cell must be like X/Y")
         local row_dim: str, col_dim: str = table.unpack(string.split(assert(rows[1][1], "first cell must be like X/Y"), "/"))
         local data: DataTable = {
-            col = Id.lookup_by_kind_name(col_dim),
-            row = Id.lookup_by_kind_name(row_dim),
+            col = Id.enum_by_kind_name(col_dim),
+            row = Id.enum_by_kind_name(row_dim),
             height = #rows - 1,
             width = #rows[1] - 1,
         }
@@ -150,7 +150,7 @@ end
 -----------------------------
 -- Quick test
 -----------------------------
---[[
+---[[
 local AbilityCSV = require("../server/data/Ability")
 luapp.set_id_resolver(Id.pp)
 local data = m.load(AbilityCSV.csv)
