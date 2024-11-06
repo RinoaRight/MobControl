@@ -150,7 +150,7 @@ end
 -----------------------------
 -- Quick test
 -----------------------------
----[[
+--[[ fixme: game require!
 local AbilityCSV = require("../server/data/Ability")
 luapp.set_id_resolver(Id.pp)
 local data = m.load(AbilityCSV.csv)
