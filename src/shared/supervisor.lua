@@ -51,7 +51,7 @@ type loop_record = {
 
 export type supervisor = {
     name: (supervisor, id: uid?) -> str,
-    start: (supervisor, worker, period: num, name: str?) -> uid,
+    start: (supervisor, worker, period: num?, name: str?) -> uid,
     cancel: (supervisor, uid) -> bool,
     _super_id: uid,
     _name: str?,
@@ -111,6 +111,12 @@ function supervisor.name(self: supervisor, id: uid?)
     return if r.name then r.id .. "(" .. r.name .. ")" else r.id
 end
 
+---  Starts a new worker loop in the supervisor.
+--- @param self The supervisor instance
+--- @param worker The worker function to run in the loop. Takes delta time as argument.
+--- @param period Optional period in seconds between worker calls. Defaults to 0.
+--- @param name Optional name for the loop for debugging purposes
+--- @return The unique ID of the created loop
 function supervisor.start(self: supervisor, worker: worker, period: num?, name: str?)
     local r: loop_record = {
         worker = worker,
@@ -124,7 +130,6 @@ function supervisor.start(self: supervisor, worker: worker, period: num?, name: 
     restart(self, r)
     return r.id
 end
-
 function supervisor.cancel(self: supervisor, loop_id: uid): bool
     local rec = self._loops[loop_id]
     self._loops[loop_id] = nil

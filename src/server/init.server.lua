@@ -18,18 +18,21 @@ type dim = id | int
 local _fmt = string.format
 --[[ stylua: ignore]] game = game or require'game'
 local shared = game.ReplicatedStorage.shared
-local luapp = require(shared.luapp)
+local _luapp = require(shared.luapp)
 local logger = require(shared.logger)
 local Id = require(shared.Id)
 local log = logger.create("server"):set_delimiter(" "):set_prettifier(Id.pp)
 local data_table = require(shared.data_table)
+local supervisor = require(shared.supervisor)
+local Remote = require(shared.Remote)
 -- server
 local server = game.ServerScriptService.server
+local PSS = require(server.PlayerStateService)
+local Market = require(server.Market)
+local TaskPool = require(shared.TaskPool)
+type PlayerState = PSS.PlayerState
 local _AbilityCVS = require(server.data.Ability)
 local _STMCSV = require(server.data.STM)
-local Disposer = require(shared.disposer)
-local En = require(shared.enum)
-local RunService = game:GetService("RunService")
 if game.PhysicsService then
     local phys = game.PhysicsService
     log:debug("PhysicsService:IsCollisionGroupRegistered('Clones')", phys.IsCollisionGroupRegistered, phys, "Clones")
@@ -37,138 +40,98 @@ end
 -- stylua: ignore
 
 --[[
-luapp.set_id_resolver(Id.pp)
-print(">>", luapp.pp(data_table.load(_AbilityCVS.csv)))
-print(">>", luapp.pp(data_table.load(_STMCSV.csv)))
+_luapp.set_id_resolver(Id.pp)
+print(">>", _luapp.pp(data_table.load(_AbilityCVS.csv)))
+print(">>", _luapp.pp(data_table.load(_STMCSV.csv)))
 --]]
-warn("[server -- started]")
+-----------------------------
+-- Server
+-----------------------------
+local STATES = {} :: { [number]: PlayerState }
 
-local workerMaid = Disposer.new()
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
-local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
-local GROUND_INIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
-
-local FIELD_NAMES = En.with_id "*" {
-    FIRST = 1,
-    SECOND = 2,
-    MIDDLE = 3,
-    FOURTH = 4,
-    FIFTH = 5,
-}
-
--- stylua: ignore
-local GROUND_UNITS = {
-    {                                             zOffset = GROUND_INIT_LENGTH * -2 },
-    {                                             zOffset = -GROUND_INIT_LENGTH},
-    { unit = GROUND_UNIT_FOLDER.GroundUnit_Start, zOffset = 0},
-    {                                             zOffset = GROUND_INIT_LENGTH },
-    {                                             zOffset = GROUND_INIT_LENGTH * 2 },
-}
-local startingPos = GROUND_UNITS[3].unit.Position
-
-local DRIVING_BOX_TEMPLATE = assert(ReplicatedStorage.DrivingBox)
-local DRIVING_BOX_INSTANCE = DRIVING_BOX_TEMPLATE:Clone()
-local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
-DRIVING_BOX_INSTANCE.Parent = game.Workspace
-local DRIVING_BOX_ATT = Instance.new("Attachment") :: Attachment
-DRIVING_BOX_ATT.Parent = DRIVING_BOX_FRONT
-
-local CLONES = {}
-
-local subscribeTrigger
-
-local function deleteGroundUnit(groundUnit: Part, index: int)
-    GROUND_UNITS[index].unit = nil
-    groundUnit:Destroy()
+local function get_state(player_id: int): PlayerState?
+    return STATES[player_id]
 end
 
-local function spawnGroundUnit(groundUnit: Part, index: int, refPos: Vector3)
-    GROUND_UNITS[index].unit = groundUnit
-    groundUnit.CFrame = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
-    local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
-    trigger.CFrame = CFrame.new(9, 20.5, groundUnit.Position.Z + 245)
-    groundUnit.Parent = GROUND_UNIT_FOLDER
+if not workspace then
+    log:warn("Server can't be started without Roblox -- exit")
+    return
 end
 
-subscribeTrigger = function(index, groundUnit)
-    local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
-    workerMaid.trigger = trigger.Touched:Connect(function(triggerer)
-        if triggerer == DRIVING_BOX_FRONT then
-            subscribeTrigger(FIELD_NAMES.FOURTH, GROUND_UNITS[FIELD_NAMES.FOURTH].unit)
-            trigger:Destroy()
-            deleteGroundUnit(GROUND_UNITS[FIELD_NAMES.FIRST].unit, FIELD_NAMES.FIRST)
-            -- shift all other units in the data table accordingly
-            GROUND_UNITS[FIELD_NAMES.FIRST].unit = GROUND_UNITS[FIELD_NAMES.SECOND].unit
-            GROUND_UNITS[FIELD_NAMES.SECOND].unit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
-            GROUND_UNITS[FIELD_NAMES.MIDDLE].unit = GROUND_UNITS[FIELD_NAMES.FOURTH].unit
-            GROUND_UNITS[FIELD_NAMES.FOURTH].unit = GROUND_UNITS[FIELD_NAMES.FIFTH].unit
-            local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
-            spawnGroundUnit(GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
+-----------------------------
+-- Update Loops
+-----------------------------
+local ServerSupervisor = supervisor.create(0.1)
+local _loop_update_states = ServerSupervisor:start(function(_dt)
+    for _, state in STATES do
+        local update_log = state.state:flash()
+        if update_log then
+            state:NotifyClient(Id.S2C.UPDATE_STATE, update_log)
         end
-    end)
-end
-
--- init first batch of ground units and fill in the data table
-local firstUnit = GROUND_UNIT_TEMPLATE:Clone()
-local secondUnit = GROUND_UNIT_TEMPLATE:Clone()
-local fourthUnit = GROUND_UNIT_TEMPLATE:Clone()
-local fifthUnit = GROUND_UNIT_TEMPLATE:Clone()
-subscribeTrigger(FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
-spawnGroundUnit(firstUnit, FIELD_NAMES.FIRST, startingPos)
-spawnGroundUnit(secondUnit, FIELD_NAMES.SECOND, startingPos)
-spawnGroundUnit(fourthUnit, FIELD_NAMES.FOURTH, startingPos)
-spawnGroundUnit(fifthUnit, FIELD_NAMES.FIFTH, startingPos)
-
-local function onDescendantAdded(descendant)
-	-- Set collision group for any part descendant
-	if descendant:IsA("BasePart") then
-		-- descendant.CollisionGroup = "Clones"
-	end
-end
-
-local function onCloneCharacterAdded(character)
-	-- Process existing and new descendants for physics setup
-	for _, descendant in character:GetDescendants() do
-		onDescendantAdded(descendant)
-	end
-	character.DescendantAdded:Connect(onDescendantAdded)
-end
-
-game.Players.PlayerAdded:Connect(function(player)
-    repeat
-        wait()
-    until player.Character
-    local char = player.Character
-    local playerAtt = Instance.new("Attachment") :: Attachment
-    local rootPart = assert(char.HumanoidRootPart) :: Part
-    playerAtt.CFrame = (rootPart :: Part).CFrame
-    playerAtt.Parent = char.HumanoidRootPart
-    local alignConst = Instance.new("AlignOrientation")
-    alignConst.Parent = workspace
-    alignConst.Attachment0 = playerAtt
-    alignConst.Attachment1 = DRIVING_BOX_ATT
-
-    -- clone the player's character
-    char.Archivable = true -- Make sure archivable is true
-    local cloneChar = char:Clone()
-    cloneChar.Name = "Clone"
-    onCloneCharacterAdded(cloneChar)
-    cloneChar.Parent = workspace.Clones
-    table.insert(CLONES, cloneChar)
-    local cloneRootPart = assert(cloneChar.HumanoidRootPart) :: Part
-    cloneRootPart.CFrame = CFrame.new(rootPart.Position.X + 5, rootPart.Position.Y, rootPart.Position.Z + 20) * CFrame.Angles(0, math.rad(180), 0)
-    local cloneAtt = Instance.new("Attachment") :: Attachment
-    cloneAtt.CFrame = (cloneRootPart :: Part).CFrame
-    cloneAtt.Parent = cloneRootPart
-    local cloneAlignConst = Instance.new("AlignOrientation")
-    cloneAlignConst.Name = "CloneAlignConstraint"
-    cloneAlignConst.Parent = workspace
-    cloneAlignConst.Attachment0 = cloneAtt
-    cloneAlignConst.Attachment1 = playerAtt
+    end
 end)
+
+----------------------------
+-- Event Handling
+-----------------------------
+-----------------------------
+-- C2S
+-----------------------------
+local on = {} :: Remote.OnRemoteEvent<PlayerState>
+
+on[Id.C2S._NONE] = function(player_state, event_id, ...)
+    log:debug(Id.C2S._NONE, player_state.player_id, event_id, ...)
+end
+
+-------------------
+-- S2S
+-------------------
+local s2s = {} :: map<id, (PlayerState, ...any) -> ()>
+s2s[Id.S2S._NONE] = function(player_state, ...)
+    log:debug(Id.S2S._NONE, player_state.player_id, ...)
+end
+s2s[Id.S2S.PASS_GRANTED] = function(player_state, event_id, player_id)
+    log:error(Id.S2S.PASS_GRANTED, "TODO")
+end
+
+s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
+    log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
+end
+
+game.Players.PlayerAdded:Connect(function(player) end)
 
 game.Players.PlayerRemoving:Connect(function(player)
     -- TODO: remove his clones from CLONES
 end)
+
+-----------------------------
+-- Player Connect
+-----------------------------
+
+game.Players.PlayerAdded:Connect(function(player)
+    local _fire_client, disposer, state = Remote.Server.Handshake(player, PSS.load, on)
+    STATES[player.UserId] = state :: PlayerState
+    state.maid.remote_disposer = disposer
+    -- WorldService.AddPlayer(state)
+    -- Market.CheckPassesOnInit(state.player_id, function(store_id) error("TODO") end)
+end)
+
+    -----------------------------
+    -- Player Disconnect
+    -----------------------------
+    game.Players.PlayerRemoving:Connect(function(player)
+        local state = STATES[player.UserId]
+        if not state then
+            return
+        end
+        STATES[player.UserId] = nil
+        TaskPool.call(function()
+            state:Save()
+            task.wait()
+            -- WorldService.RemovePlayer(state)
+            state:Destroy()
+        end)
+    end)
+
+
+warn("[server -- started]")

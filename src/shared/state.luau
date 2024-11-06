@@ -188,6 +188,12 @@ type CommonInternal<Self> = Common<Self> & {
 --- unique identifier (UID) of the entity as an argument. stylua: ignore
 export type Main = Common<Main> & {
     constructor: (self: MainSelf, ...cid | attribute) -> ((uid | gen, ...component) -> uid, mask),
+    --- Flushes the log of the main state and returns a shallow copy of the log.
+    ---
+    --- This function is only available in the "main" mode of the state. If the log is
+    --- empty, this function will return `nil`.
+    ---
+    --- @return transactions? A shallow copy of the log, or `nil` if the log is empty.
     flash: (self: MainSelf) -> transactions?, -- move internal replication log out of state
     snapshot: (self: MainSelf, opt: "discard-log"?) -> transactions, -- create snapshot (replication)
     save: (self: MainSelf) -> transactions, -- create save (persistance)
@@ -220,7 +226,7 @@ type ReplicaInternal = Replica & CommonInternal<ReplicaSelf> & {
     _setter_in_use: bool, -- flag to prevent calling set from callbacks (to prevent infinite recursion)
 }
 
----[[ dev mode
+--[[ dev mode
 __DEV__ = true
 type MainSelf = CommonInternal<MainSelf> & MainInternal
 local MainState = {} :: MainSelf;
@@ -230,8 +236,8 @@ local ReplicaState = {} :: ReplicaSelf;
 (ReplicaState :: any).__index = ReplicaState
 --]]
 
---[[ prod mode
-__DEV__ = false or _G.__DEV__
+---[[ prod mode
+__DEV__ = true or _G.__DEV__
 type MainSelf = Common<MainSelf> & Main
 local MainState = {}
 MainState.__index = MainState
@@ -1139,7 +1145,10 @@ function State.set(self: CommonInternal<any>, uid: uid, cid: cid, c: component):
             warn(`uid: {format_uid(uid, self._config._pretty_printer)} not found`)
         end
     end
-    local setter = assert(self._setters[cid], "read-only")
+    local setter = self._setters[cid]
+    if not setter then
+        check_cid(cid)
+    end
     setter(uid, c)
 end
 
@@ -1351,6 +1360,7 @@ function MainState.constructor(self: MainInternal, ...: cid | attribute)
     end
     return ctor, mask
 end
+
 
 function MainState.flash(self: MainInternal): transactions?
     assert(self._config._mode == "main", "only main state can have a log")

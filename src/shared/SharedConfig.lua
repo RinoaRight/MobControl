@@ -94,6 +94,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     TTE             = iota'', -- epoch
     -- values
     Value           = iota'', -- number
+    Total           = iota'', -- number
     Bitset          = iota'', -- uint32
     Instance        = iota'', -- Instance(client)
     WorldGui        = iota'', -- any
@@ -101,19 +102,21 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).
 --     NOTE: W.TTL is a wall time
 export type PlayerStateCId = typeof(PlayerState.CId)
+
 -- stylua: ignore
 do
     local C = PlayerState.CId
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(C.Id, C.TTL, C.TTE, C.Value, C.Bitset)
-        :set_persistent_flag(C.Id, C.TTL, C.TTE, C.Value, C.Bitset)
+        :set_replication_flag(C.Id, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_persistent_flag(C.Id, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
         :build_with_replica()
 
     PlayerState.main_config = main_config
     PlayerState.replica_config = repl:build()
     print("---- PlayerState ----")
+    warn("Components: ", C)
     warn(state.Util.format_config(PlayerState.main_config))
     warn(state.Util.format_config(PlayerState.replica_config))
 end
