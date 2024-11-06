@@ -18,6 +18,7 @@ local _USE_MOCK_DATASTORE = not IS_ROBLOX or MOCK_DATASTORE_IN_STUDIO_FLAG
 local _DUMP_AFTER_SESSION = true
 
 type str = string
+type uid = string
 type bool = boolean
 type num = number
 type integer = num
@@ -28,22 +29,25 @@ type u8 = uint
 type id = int
 type array<a> = { a }
 type map<k, v> = { [k]: v }
-local _fmt = string.format
+local fmt = string.format
 
---[[ stylua: ignore]] if not game then (function() game = require("game") end)() end
+--[[ stylua: ignore]] game = game or require("game")
 local shared = game.ReplicatedStorage.shared
 local enum = require(shared.enum)
 local _iota = enum.iota
-local _flag = enum.flag
 local Id = require(shared.Id)
+local lpack = require(shared.lpack)
+local SharedConfig = require(shared.SharedConfig)
 local state = require(shared.state)
 local _signal = require(shared.signal)
 local _ulid = require(shared.ulid)
 local _roflake = require(shared.roflake)
-local remote = require(shared.Remote)
+local Remote = require(shared.Remote)
 local disposer = require(shared.disposer)
 local logger = require(shared.logger)
-local log = logger.create("PlayerStateService"):set_delimiter(" "):set_prettifier(Id.pp)
+local log = logger.create("PlayerStateService"):set_prettifier(Id.pp)
+local str = require(shared.str)
+local C = SharedConfig.PlayerState.CId
 
 -------------------
 -- Server Modules
@@ -52,6 +56,7 @@ local server = game.ServerScriptService.server
 local _Market = require(server.Market)
 
 local STORE_ID = "test"
+local TIMEOUT = 15.00 -- sec
 
 local STORE
 if workspace and not _USE_MOCK_DATASTORE then
@@ -59,7 +64,7 @@ if workspace and not _USE_MOCK_DATASTORE then
     STORE = DataStoreService:GetDataStore(STORE_ID)
 else
     local MockDataStore = require(shared.MockDataStore)
-    MockDataStore.InitState("") -- <== load from b64 encoded store
+    MockDataStore.InitState(SharedConfig.Save) -- <== load from b64 encoded store
     type DataStore = MockDataStore.DataStore
     STORE = MockDataStore:GetDataStore(STORE_ID)
 end
@@ -67,30 +72,88 @@ end
 -------------------
 -- Types
 -------------------
-type State = state.Main
 type enum = enum.Enum
 type disposer = disposer.Disposer
 
 export type PlayerStateService = {
-    load: (Player, remote.FireClient) -> (PlayerState, array<any>),
+    load: (Player, Remote.FireClient) -> (PlayerState, array<any>),
     format: (PlayerState) -> str,
 }
 
 export type PlayerState = {
     player_id: int,
     state_store_key: str,
-    state: State,
-    disposer: disposer,
-    fire_client: remote.FireClient,
+    state: state.Main,
+    character: Model,
+    humanoid: Humanoid,
+    root: BasePart,
+    maid: disposer,
+    fire_client: Remote.FireClient,
     Save: (self: PlayerState) -> (),
     Destroy: (self: PlayerState) -> (),
+    NotifyClient: (self: PlayerState, event_id: id, ...any) -> (),
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
+    DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
     __index: any,
 }
+
+-- note: was warm_up cache
+local function update_ids(main: state.Main)
+    local function merge(ids: enum.Enum, ctor: (id) -> (), limit: id?)
+        for _, id in ids:ids() do
+            if limit and id > limit then
+                break
+            end
+            if not main:has(id) then
+                ctor(id)
+            end
+        end
+    end
+    local _countable = main:constructor(C.Value, C.Total)
+    merge(Id.Countable, function(id) _countable(id, 0, 0) end)
+    -- todo: many many ids
+    log:debug(main:format_uid(Id.Countable.COIN))
+end
+
+local function create_state(player_state: PlayerState)
+    log:debug("~~ Making initial state for player:", player_state.player_id)
+    update_ids(player_state.state)
+    -- give some goodies to player
+    player_state:AddCountable(Id.Countable.COIN, 100)
+end
 
 local function fill_state(player_state: PlayerState)
     log:assert(not player_state.state:env("READY"), "already loaded")
     local data, info = STORE:GetAsync(player_state.state_store_key)
+    log:debug("store info-key", info)
+    if data then
+        local ok, err0 = pcall(function()
+            local ok, save_or_err: str? = pcall(lpack.unpack, data, "base64" :: any)
+            if not ok then
+                log:throw(save_or_err :: str)
+            else
+                log:assert(type(save_or_err) == "table", "wrong data layout")
+                player_state.state:load(save_or_err :: any)
+            end
+        end)
+        if ok then
+            update_ids(player_state.state)
+        else
+            -- NOTE: remove damaged state, kick player
+            -- TODO: use hexify instead of '%q;
+            STORE:RemoveVersionAsync(player_state.state_store_key, info.Version)
+            log:error("damaged save for player id: %*, error: %*", player_state.player_id, err0)
+            log:error(info.CreatedTime, info.UpdatedTime, info.Version, info:GetUserIds(), info:GetMetadata())
+            log:error( str.hexify(data))
+            local player = game:GetService("Players"):GetPlayerByUserId(player_state.player_id)
+            if player then
+                local msg = fmt("Error during loading save file: %*, error: %*", player_state.state_store_key, err0)
+                player:Kick(msg)
+            end
+        end
+    else -- no save found
+        create_state(player_state)
+    end
 end
 
 -----------------------------
@@ -101,15 +164,20 @@ m.__index = m
 local PlayerState = {} :: PlayerState
 PlayerState.__index = PlayerState
 
-function m.load(player: Player, fire_client: remote.FireClient): (PlayerState, array<any>)
-    local state = state.main() --- @todo: config
+function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, array<any>)
+    local state = state.main(SharedConfig.PlayerState.main_config)
+    local char = player.Character or player.CharacterAdded:Wait()
     local player_state: PlayerState = table.freeze(setmetatable({
         player_id = player.UserId,
-        state = state, -- TODO:
-        disposer = disposer.new(),
+        state_store_key = tostring(player.UserId),
+        state = state,
+        character = char,
+        humanoid = char:WaitForChild("Humanoid", TIMEOUT) :: Humanoid,
+        root = char:WaitForChild("HumanoidRootPart", TIMEOUT) :: BasePart,
+        maid = disposer.new(),
         fire_client = fire_client,
     }, PlayerState)) :: any
-    -- fill_state(player_state)
+    fill_state(player_state)
     local snapshot = state:snapshot("discard-log")
     return player_state, snapshot
 end
@@ -117,6 +185,58 @@ end
 -----------------------------
 -- PlayerState
 -----------------------------
+
+function PlayerState.Save(self: PlayerState): ()
+    local store_key = self.state_store_key
+    local save = self.state:save()
+    local data = lpack.pack(save, "base64")
+    ---[[DEBUG:]] _debug(data)
+    log:info("Saving state ...")
+    local info = STORE:SetAsync(store_key, data)
+    log:info("State saved", info)
+    if _USE_MOCK_DATASTORE and _DUMP_AFTER_SESSION then
+        local out = STORE:DumpStore()
+        --- @note warn for use in production
+        log:warn(">>> MockDataStore:", "\n", out)
+    end
+end
+
+
+function PlayerState.Destroy(self: PlayerState): ()
+    self.maid:Destroy()
+end
+
+function PlayerState.NotifyClient(self: PlayerState, event_id: id, ...:any): ()
+    self.fire_client(event_id, nil, ...)
+end
+
+function PlayerState.AddCountable(self: PlayerState, countable_id: id, amount: int): ()
+    log:assert(Id.kind(countable_id) == Id.Kind.Countable, "not a countable id", countable_id)
+    log:assert(type(amount) == "number", "count must be a number")
+    if amount == 0 then
+        return -- do nothing
+    end
+    log:assert(amount > 0, "count always positive number")
+    local current = self.state:get(countable_id, C.Value)
+    local total = self.state:get(countable_id, C.Total)
+    self.state:set(countable_id, C.Value, current + amount)
+    self.state:set(countable_id, C.Total, total + amount)
+end
+
+function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount: int): (bool, id?, id?)
+    log:assert(Id.kind(countable_id) ~= Id.Kind.Countable, "not a countable id", countable_id)
+    log:assert(type(amount) == "number", "count must be a number")
+    if amount == 0 then
+        return true
+    end
+    log:assert(amount > 0, "count always positive number")
+    local current = self.state:get(countable_id, C.Value)
+    if current < amount then
+        return false, Id.ServerError.NOT_ENOUGH, countable_id
+    end
+    self.state:set(countable_id, current - amount)
+    return true
+end
 
 -----------------------------
 -- Quick test

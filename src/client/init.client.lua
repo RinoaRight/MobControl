@@ -55,6 +55,37 @@ local SoundService = game:GetService("SoundService")
 local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
 
+-----------------------------
+-- Net handlers
+-----------------------------
+local on = {} :: Remote.OnRemoteEvent<state.Replica>
+
+on[Id.S2C.UPDATE_STATE] = function(state: state.Replica, update_log)
+    state:update(update_log)
+    -- ON_STATE_UPDATE(state, WORLD_STATE)
+end
+
+
+-----------------------------
+-- Handshake
+-----------------------------
+local ENV_READY = "READY"
+local ENV_FIRE_SERVER = "FIRE_SERVER"
+local PLAYER_STATE = state.replica(SharedConfig.PlayerState.replica_config)
+local C = SharedConfig.PlayerState.CId
+PLAYER_STATE:env(ENV_READY, false)
+local load = function(fire: FireServer, snapshot)
+    local state = PLAYER_STATE
+    state:init(snapshot)
+    state:env(ENV_FIRE_SERVER, fire)
+    state:env(ENV_READY, true)
+    -- RemoteClient.ConnectToBroadcast(on_cc)
+     return state
+end
+
+local _fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
+
+
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LOCAL_PLAYER = Players.LocalPlayer
