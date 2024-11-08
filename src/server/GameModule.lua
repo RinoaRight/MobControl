@@ -92,7 +92,6 @@ local function subscribeTrigger(index, groundUnit)
             GROUND_UNITS[FIELD_NAMES.FOURTH].unit = GROUND_UNITS[FIELD_NAMES.FIFTH].unit
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
             spawnGroundUnit(GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
-            print(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position - GROUND_UNITS[FIELD_NAMES.FIRST].unit.Position, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position - GROUND_UNITS[FIELD_NAMES.FIFTH].unit.Position)
         end
     end)
 end

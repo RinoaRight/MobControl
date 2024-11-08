@@ -111,7 +111,7 @@ end
 
 GameModule.init()
 -- TODO: uncomment when world state is ready
--- local _ = ServerSupervisor:start(GameModule.MoveDrivingBox())
+local _ = ServerSupervisor:start(GameModule.MoveDrivingBox(WorldService.world))
 -----------------------------
 -- Player Connect
 -----------------------------

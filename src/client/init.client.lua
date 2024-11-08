@@ -115,7 +115,7 @@ repeat
 until LOCAL_PLAYER.Character
 local LOCAL_CHARACTER = LOCAL_PLAYER.Character
 local LOCAL_HUMANOID = LOCAL_PLAYER.Character:WaitForChild("Humanoid")
--- local LOCAL_HUMANOID_ROOT_PART = LOCAL_PLAYER.Character:WaitForChild("HumanoidRootPart")
+local LOCAL_HUMANOID_ROOT_PART = assert(LOCAL_PLAYER.Character:WaitForChild("HumanoidRootPart"))
 -- local PLAYER_SPAWN_POS = LOCAL_CHARACTER.Position
 local DRIVING_BOX_INSTANCE = workspace:FindFirstChild("DrivingBox")
 repeat
@@ -135,7 +135,7 @@ end
 
 startRunAnim(LOCAL_CHARACTER)
 -- TODO: refactor normally
-Clones.CreateClone()
+Clones.CreateClone(LOCAL_HUMANOID_ROOT_PART)
 
 RunService.Heartbeat:Connect(function(dt)
     local players = game:GetService("Players"):GetPlayers()

@@ -30,14 +30,15 @@ local state = require(shared.state)
 
 local m = {}
 
-function m.CreateClone()
+function m.CreateClone(LOCAL_HUMANOID_ROOT_PART: Part)
     TaskPool.spawn(function()
         local LOCAL_PLAYER = game.Players.LocalPlayer
         local DRIVING_BOX_ATT = workspace:WaitForChild("DrivingBox", 10):FindFirstChild("Attachment")
         local playerAtt = Instance.new("Attachment") :: Attachment
-        local rootPart = (LOCAL_PLAYER.root) :: Part
-        playerAtt.CFrame = (rootPart :: Part).CFrame
-        playerAtt.Parent = rootPart
+        -- TODO: not finding humanoid, check it
+        -- local rootPart = (LOCAL_PLAYER:WaitForChild("Character", 10):WaitForChild("HumanoidRootPart", 10)) :: Part
+        playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
+        playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
         local alignConst = Instance.new("AlignOrientation")
         alignConst.Parent = workspace
         alignConst.Attachment0 = playerAtt
@@ -52,7 +53,7 @@ function m.CreateClone()
         -- table.insert(CLONES, cloneChar)
         local _cloneHumanoid = cloneChar:WaitForChild("Humanoid", 10) :: Humanoid
         local cloneRootPart = cloneChar:WaitForChild("HumanoidRootPart", 10) :: Part
-        cloneRootPart.CFrame = CFrame.new(rootPart.Position.X + 5, rootPart.Position.Y, rootPart.Position.Z + 20) --* CFrame.Angles(0, math.rad(180), 0)
+        cloneRootPart.CFrame = CFrame.new(LOCAL_HUMANOID_ROOT_PART.Position.X + 5, LOCAL_HUMANOID_ROOT_PART.Position.Y, LOCAL_HUMANOID_ROOT_PART.Position.Z + 20) --* CFrame.Angles(0, math.rad(180), 0)
         local cloneAtt = Instance.new("Attachment") :: Attachment
         cloneAtt.CFrame = (cloneRootPart :: Part).CFrame
         cloneAtt.Parent = cloneRootPart
