@@ -52,6 +52,7 @@ local Kind = table.freeze {
     NONE        = enum.iota(idk.MIN_KIND, 1, idk.MAX_KIND),
     Struct      = enum.iota'',
     ServerError = enum.iota'',
+    Boost       = enum.iota'',
     Pet         = enum.iota'',
     Egg         = enum.iota'',
     Area        = enum.iota'',
@@ -366,6 +367,17 @@ export type Struct = typeof(Id.Struct)
 
 -- stylua: ignore
 -----------------------------
+-- Boost
+-----------------------------
+Id.Boost = enum.with_id "Id.Boost" {
+    NONE           = iota(Id.Kind.Boost, 0),
+    ADD_CLONE      = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Boost] = Id.Boost
+export type Boost = typeof(Id.Boost)
+
+-- stylua: ignore
+-----------------------------
 -- Pet
 -----------------------------
 Id.Pet = enum.with_id "Id.Pet" {
@@ -520,7 +532,7 @@ export type STMState = typeof(Id.STMState)
 Id.S2S = enum.with_id "Id.S2S" {
     _NONE = iota(Id.Kind.S2S, 0),
     PASS_GRANTED      = iota'',
-    PURCHASE_FINISHED = iota''
+    PURCHASE_FINISHED = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)

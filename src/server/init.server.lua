@@ -33,6 +33,9 @@ local TaskPool = require(shared.TaskPool)
 type PlayerState = PSS.PlayerState
 local _AbilityCVS = require(server.data.Ability)
 local _STMCSV = require(server.data.STM)
+local GameModule = require(server.GameModule)
+local RunService = game:GetService("RunService")
+
 if game.PhysicsService then
     local phys = game.PhysicsService
     log:debug("PhysicsService:IsCollisionGroupRegistered('Clones')", phys.IsCollisionGroupRegistered, phys, "Clones")
@@ -98,15 +101,18 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
 end
 
-game.Players.PlayerAdded:Connect(function(player) end)
-
-game.Players.PlayerRemoving:Connect(function(player)
-    -- TODO: remove his clones from CLONES
-end)
-
+GameModule.init()
+-- TODO: uncomment when world state is ready
+-- local _ = ServerSupervisor:start(GameModule.MoveDrivingBox())
 -----------------------------
 -- Player Connect
 -----------------------------
+-- place here all the logic that needs to be executed on player connect
+local function init_player(player_state: PlayerState)
+    return function()
+        -- TODO:
+    end
+end
 
 game.Players.PlayerAdded:Connect(function(player)
     local _fire_client, disposer, state = Remote.Server.Handshake(player, PSS.load, on)
@@ -114,24 +120,25 @@ game.Players.PlayerAdded:Connect(function(player)
     state.maid.remote_disposer = disposer
     -- WorldService.AddPlayer(state)
     -- Market.CheckPassesOnInit(state.player_id, function(store_id) error("TODO") end)
+    TaskPool.defer(init_player(state))
 end)
 
-    -----------------------------
-    -- Player Disconnect
-    -----------------------------
-    game.Players.PlayerRemoving:Connect(function(player)
-        local state = STATES[player.UserId]
-        if not state then
-            return
-        end
-        STATES[player.UserId] = nil
-        TaskPool.call(function()
-            state:Save()
-            task.wait()
-            -- WorldService.RemovePlayer(state)
-            state:Destroy()
-        end)
+-----------------------------
+-- Player Disconnect
+-----------------------------
+game.Players.PlayerRemoving:Connect(function(player)
+    -- TODO: remove his clones from CLONES of other's players' clients
+    local state = STATES[player.UserId]
+    if not state then
+        return
+    end
+    STATES[player.UserId] = nil
+    TaskPool.call(function()
+        state:Save()
+        task.wait()
+        -- WorldService.RemovePlayer(state)
+        state:Destroy()
     end)
-
+end)
 
 warn("[server -- started]")

@@ -54,6 +54,7 @@ local supervisor = require(shared.supervisor)
 local SoundService = game:GetService("SoundService")
 local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
+local Clones = require(script.Clones)
 
 -----------------------------
 -- Net handlers
@@ -61,10 +62,9 @@ local ContentProvider = game:GetService("ContentProvider")
 local on = {} :: Remote.OnRemoteEvent<state.Replica>
 
 on[Id.S2C.UPDATE_STATE] = function(state: state.Replica, update_log)
-    state:update(update_log)
+    -- state:update(update_log)
     -- ON_STATE_UPDATE(state, WORLD_STATE)
 end
-
 
 -----------------------------
 -- Handshake
@@ -80,11 +80,10 @@ local load = function(fire: FireServer, snapshot)
     state:env(ENV_FIRE_SERVER, fire)
     state:env(ENV_READY, true)
     -- RemoteClient.ConnectToBroadcast(on_cc)
-     return state
+    return state
 end
 
 local _fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
-
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -102,7 +101,6 @@ repeat
 until DRIVING_BOX_INSTANCE
 local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
 
-
 -- load run animation
 local animateScript = LOCAL_CHARACTER:WaitForChild("Animate")
 local RUN_ANIM_NAME = "RunAnim"
@@ -114,12 +112,10 @@ local function startRunAnim(character)
 end
 
 startRunAnim(LOCAL_CHARACTER)
+-- TODO: refactor normally
+Clones.CreateClone()
 
-
-local oldPos = DRIVING_BOX_INSTANCE.Position
 RunService.Heartbeat:Connect(function(dt)
-    DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z + 0.5)
-    oldPos = DRIVING_BOX_INSTANCE.Position
     local players = game:GetService("Players"):GetPlayers()
     if #players < 1 then
         return
@@ -132,12 +128,15 @@ RunService.Heartbeat:Connect(function(dt)
             local char = player.Character
             playerRootPart = assert(char.HumanoidRootPart) :: Part
         end
-        -- refactor this logic to Ecs to make clones follow its corresponding player
+        -- TODO: refactor this logic to Ecs to make clones follow its corresponding player
         for i, clone in ipairs(clones) do
             local pos = playerRootPart.Position
-            local cloneRootPart = clone.HumanoidRootPart
+            local cloneRootPart = clone:FindFirstChild("HumanoidRootPart")
+            if not cloneRootPart then
+                continue
+            end
             -- TODO: refactor formation
-            cloneRootPart.CFrame = CFrame.new(pos.X - 5*i, pos.Y, pos.Z - 5) * CFrame.Angles(0, math.rad(180), 0)
+            cloneRootPart.CFrame = CFrame.new(pos.X - 5 * i, pos.Y, pos.Z + 5) --* CFrame.Angles(0, math.rad(180), 0)
         end
     end
 end)
