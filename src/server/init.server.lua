@@ -22,13 +22,14 @@ local _luapp = require(shared.luapp)
 local logger = require(shared.logger)
 local Id = require(shared.Id)
 local log = logger.create("server"):set_delimiter(" "):set_prettifier(Id.pp)
-local data_table = require(shared.data_table)
+local _data_table = require(shared.data_table)
 local supervisor = require(shared.supervisor)
 local Remote = require(shared.Remote)
 -- server
 local server = game.ServerScriptService.server
 local PSS = require(server.PlayerStateService)
-local Market = require(server.Market)
+local _Market = require(server.Market)
+local WorldService = require(server.WorldService)
 local TaskPool = require(shared.TaskPool)
 type PlayerState = PSS.PlayerState
 local _AbilityCVS = require(server.data.Ability)
@@ -64,9 +65,16 @@ end
 local ServerSupervisor = supervisor.create(0.1)
 local _loop_update_states = ServerSupervisor:start(function(_dt)
     for _, state in STATES do
-        local update_log = state.state:flash()
-        if update_log then
-            state:NotifyClient(Id.S2C.UPDATE_STATE, update_log)
+        local update_state_log = state.state:flash()
+        local update_world_log = WorldService.world:flash()
+        if update_state_log then
+            state:NotifyClient(Id.S2C.UPDATE_STATE, update_state_log)
+        end
+        if not state.state:env("WORLD_READY") then
+            state:NotifyClient(Id.S2C.INIT_WORLD, WorldService.world:snapshot())
+            state.state:env("WORLD_READY", true)
+        elseif update_world_log then
+            state:NotifyClient(Id.S2C.UPDATE_WORLD, update_world_log)
         end
     end
 end)

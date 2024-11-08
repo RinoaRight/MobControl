@@ -55,6 +55,22 @@ local SoundService = game:GetService("SoundService")
 local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
 
+
+local ENV_READY = "READY"
+local ENV_FIRE_SERVER = "FIRE_SERVER"
+local ENV_WORLD_READY = "WORLD_READY"
+
+
+-----------------------------
+-- States
+-----------------------------
+local PLAYER_STATE = state.replica(SharedConfig.PlayerState.replica_config)
+local C = SharedConfig.PlayerState.CId
+PLAYER_STATE:env(ENV_READY, false)
+local WORLD = state.replica(SharedConfig.World.replica_config)
+local W = SharedConfig.World.CId
+WORLD:env(ENV_WORLD_READY, false)
+
 -----------------------------
 -- Net handlers
 -----------------------------
@@ -62,23 +78,28 @@ local on = {} :: Remote.OnRemoteEvent<state.Replica>
 
 on[Id.S2C.UPDATE_STATE] = function(state: state.Replica, update_log)
     state:update(update_log)
-    -- ON_STATE_UPDATE(state, WORLD_STATE)
 end
 
+on[Id.S2C.INIT_WORLD] = function(state: state.Replica, world_snapshot)
+    WORLD:init(world_snapshot)
+    WORLD:env(ENV_WORLD_READY, true)
+    log:debug("~~~", WORLD:format_state("*"))
+end
+
+on[Id.S2C.UPDATE_WORLD] = function(state: state.Replica, update_log)
+    WORLD:update(update_log)
+end
 
 -----------------------------
 -- Handshake
 -----------------------------
-local ENV_READY = "READY"
-local ENV_FIRE_SERVER = "FIRE_SERVER"
-local PLAYER_STATE = state.replica(SharedConfig.PlayerState.replica_config)
-local C = SharedConfig.PlayerState.CId
-PLAYER_STATE:env(ENV_READY, false)
+
 local load = function(fire: FireServer, snapshot)
     local state = PLAYER_STATE
-    state:init(snapshot)
-    state:env(ENV_FIRE_SERVER, fire)
-    state:env(ENV_READY, true)
+    PLAYER_STATE:init(snapshot)
+    PLAYER_STATE:env(ENV_FIRE_SERVER, fire)
+    PLAYER_STATE:env(ENV_READY, true)
+    log:debug("~~~", PLAYER_STATE:format_state("*"))
     -- RemoteClient.ConnectToBroadcast(on_cc)
      return state
 end
@@ -144,8 +165,8 @@ end)
 
 -- move driver box
 local isRunAnimActive
-local infrequientLoop = supervisor.create(1, "client-infrequient")
-infrequientLoop:start(function(dt)
+local infrequentLoop = supervisor.create(1, "client-infrequent")
+infrequentLoop:start(function(dt)
     for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
         if v.Name == RUN_ANIM_NAME then
             isRunAnimActive = true
