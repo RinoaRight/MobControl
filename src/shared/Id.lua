@@ -62,6 +62,7 @@ local Kind = table.freeze {
     Pass        = enum.iota'',
     PassF       = enum.iota'',
     Countable   = enum.iota'',
+    Weapon      = enum.iota'',
     STMState    = enum.iota'',
     -- protocol:
     S2S         = enum.iota(110, 1, idk.MAX_KIND),
@@ -484,6 +485,16 @@ Id.Countable = enum.with_id "Id.Countable" {
 KIND_TO_ENUM[Id.Kind.Countable] = Id.Countable
 export type Countable = typeof(Id.Countable)
 
+-- stylua: ignore
+-----------------------------
+-- Weapon
+-----------------------------
+Id.Weapon = enum.with_id "Id.Weapon" {
+    _NONE = iota(Id.Kind.Weapon, 0),
+    BASIC = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Weapon] = Id.Weapon
+export type Weapon = typeof(Id.Weapon)
 
 -- stylua: ignore
 -----------------------------
@@ -542,7 +553,9 @@ export type S2S = typeof(Id.S2S)
 -- C2S
 -----------------------------
 Id.C2S = enum.with_id "Id.C2S" {
-    _NONE = iota(Id.Kind.C2S, 0),
+    _NONE       = iota(Id.Kind.C2S, 0),
+    BULLET_SHOT = iota'',               -- pos
+
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
 export type C2S = typeof(Id.C2S)
@@ -553,9 +566,9 @@ export type C2S = typeof(Id.C2S)
 -----------------------------
 Id.S2C = enum.with_id "Id.S2C" {
     _NONE         = iota(Id.Kind.S2C, 0),
-    UPDATE_STATE = iota'',
-    INIT_WORLD   = iota'',
-    UPDATE_WORLD = iota'',
+    UPDATE_STATE  = iota'',
+    INIT_WORLD    = iota'',
+    UPDATE_WORLD  = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)

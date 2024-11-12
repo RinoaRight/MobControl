@@ -35,8 +35,6 @@ function m.CreateClone(LOCAL_HUMANOID_ROOT_PART: Part)
         local LOCAL_PLAYER = game.Players.LocalPlayer
         local DRIVING_BOX_ATT = workspace:WaitForChild("DrivingBox", 10):FindFirstChild("Attachment")
         local playerAtt = Instance.new("Attachment") :: Attachment
-        -- TODO: not finding humanoid, check it
-        -- local rootPart = (LOCAL_PLAYER:WaitForChild("Character", 10):WaitForChild("HumanoidRootPart", 10)) :: Part
         playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
         playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
         local alignConst = Instance.new("AlignOrientation")
@@ -44,6 +42,7 @@ function m.CreateClone(LOCAL_HUMANOID_ROOT_PART: Part)
         alignConst.Attachment0 = playerAtt
         alignConst.Attachment1 = DRIVING_BOX_ATT
         -- clone the player's character
+        -- TODO: refactor into cloning each player's character and taking the coordinate from state
         local character = LOCAL_PLAYER.character
         character.Archivable = true
         local cloneChar = character:Clone()

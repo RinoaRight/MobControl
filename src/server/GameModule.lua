@@ -137,3 +137,5 @@ end
 
 print("[Game Module -- started]")
 return m
+-- TODO: adding boosts with an attribute == boost_id
+-- boost:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], boost_id)

@@ -42,6 +42,11 @@ local En = require(script.Parent.enum)
 local iota = En.iota
 local state = require(script.Parent.state)
 
+m.BULLET_BASE_TTL = 80
+m.ATTRIBUTES_NAMES = {
+    [Id.Kind.Boost] = "BOOST",
+}
+
 -----------------------------
 -- WorldState
 -----------------------------

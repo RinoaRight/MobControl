@@ -31,6 +31,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local shared = ReplicatedStorage.shared
 local Id = require(shared.Id)
+local S = require(shared.StaticData)
 
 local logger = require(shared.logger)
 
@@ -38,6 +39,7 @@ local log = logger.create("init.client"):set_delimiter(" "):set_prettifier(Id.pp
 local trace = log:make_level_logger("trace")
 
 local perfn = require(shared.perfn)
+local roflake = require(shared.roflake)
 local state = require(shared.state)
 local Remote = require(shared.Remote)
 local RemoteClient = Remote.Client :: Remote.Client<state.Replica>
@@ -54,13 +56,16 @@ local supervisor = require(shared.supervisor)
 local SoundService = game:GetService("SoundService")
 local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
+local UserInputService = game:GetService("UserInputService")
 local Clones = require(script.Clones)
-
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
 local ENV_WORLD_READY = "WORLD_READY"
 
+local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
+local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
+local active_bullets_table = {}
 
 -----------------------------
 -- States
@@ -105,7 +110,7 @@ local load = function(fire: FireServer, snapshot)
     return state
 end
 
-local _fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
+local fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -134,7 +139,7 @@ local function startRunAnim(character)
 end
 
 startRunAnim(LOCAL_CHARACTER)
--- TODO: refactor normally
+-- TODO: refactor creating clones into normal logic: pick up boost = create clone depending on a boost's value
 Clones.CreateClone(LOCAL_HUMANOID_ROOT_PART)
 
 RunService.Heartbeat:Connect(function(dt)
@@ -161,6 +166,8 @@ RunService.Heartbeat:Connect(function(dt)
             cloneRootPart.CFrame = CFrame.new(pos.X - 5 * i, pos.Y, pos.Z + 5) --* CFrame.Angles(0, math.rad(180), 0)
         end
     end
+
+    -- TODO: move all bullets (from world state) forward with BulkMoveTo + check for collisions and TTL + move to Replicated Storage
 end)
 
 -- move driver box
@@ -173,6 +180,7 @@ infrequentLoop:start(function(dt)
             break
         end
     end
+    -- TODO: animations of other players
     if not isRunAnimActive then
         startRunAnim(LOCAL_CHARACTER)
     end
@@ -187,3 +195,35 @@ infrequentLoop:start(function(dt)
         end
     end
 end, 1, "test")
+
+-- TODO: sub to an event that others player's gun had changed ( to change the gun's animation )
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+        local bullet
+        if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
+            bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
+        else
+            bullet = Instance.new("Part")
+            bullet.Name = "Bullet"
+            bullet.Size = Vector3.new(0.1, 0.1, 0.1)
+        end
+        local pos = LOCAL_HUMANOID_ROOT_PART.Position + LOCAL_HUMANOID_ROOT_PART.CFrame.LookVector * 2
+        bullet.Parent = ACTIVE_BULLETS_REPOSITORY
+        bullet.Position = pos
+        local rayOrigin = pos
+        local rayDirection = Vector3.new(pos.X, pos.Y, pos.Z + SharedConfig.BULLET_BASE_TTL)
+        local raycastResult = workspace:Raycast(rayOrigin, rayDirection)
+        local ttl = roflake.time() + SharedConfig.BULLET_BASE_TTL
+        if raycastResult and raycastResult:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+            -- boost is going to be hit
+            -- TODO: refactor, get the weapon from the player Ecs
+            local weapon_id = Id.Weapon.BASIC
+            local dist = (raycastResult.Position - pos).Magnitude
+            local speed = S.Weapon[weapon_id].speed
+            ttl = roflake.time() + (dist / speed)
+        end
+        table.insert(active_bullets_table, {bullet = bullet, ttl = ttl})
+        fire_server(Id.C2S.BULLET_SHOT, LOCAL_PLAYER.Position)
+    end
+end)
