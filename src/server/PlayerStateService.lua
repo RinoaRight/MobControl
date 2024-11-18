@@ -111,7 +111,7 @@ local function update_ids(main: state.Main)
     end
     local _countable = main:constructor(C.Value, C.Total)
     merge(Id.Countable, function(id) _countable(id, 0, 0) end)
-    -- todo: many many ids
+    -- TODO: weapon (id, speed, damage, cooldown) and others
     log:debug(main:format_uid(Id.Countable.COIN))
 end
 

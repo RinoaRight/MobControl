@@ -94,10 +94,11 @@ on[Id.C2S._NONE] = function(player_state, event_id, ...)
     log:debug(Id.C2S._NONE, player_state.player_id, event_id, ...)
 end
 
-on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, pos, ...)
-    log:debug(Id.C2S._NONE, player_state.player_id, event_id, ...)
-    -- TODO: verify that the bullet collides and after <bullet speed> time, reduce hp form the booster
+on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, ...)
+    -- log:debug(Id.C2S._NONE, player_state.player_id, event_id, ...)
+    -- TODO: verify that the bullet collides and after <bullet speed> time, reduce hp from the booster
     -- TODO: if the bullet doesn't collide, do nothing
+    -- TODO: after hp <= 0, remove the booster and add the boost
 end
 
 -------------------
@@ -115,8 +116,7 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
 end
 
-GameModule.init()
--- TODO: uncomment when world state is ready
+GameModule.init(WorldService.world, get_state)
 local _ = ServerSupervisor:start(GameModule.MoveDrivingBox(WorldService.world))
 -----------------------------
 -- Player Connect

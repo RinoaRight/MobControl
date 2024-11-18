@@ -1931,10 +1931,10 @@ end
 
 local _test_main_config, repl = ConfigBuilder.create()
     :set_component_names(C)
-    :set_persistent_flag(C.Id, C.A, C.B, C.C, C.X)
-    :set_replication_flag(C.Id, C.A, C.B, C.C)
+    :set_persistent_flag(C.RefId, C.A, C.B, C.C, C.X)
+    :set_replication_flag(C.RefId, C.A, C.B, C.C)
     :set_destructor(C.SS, _toy_destructor)
-    :set_read_only_flag(C.Id)
+    :set_read_only_flag(C.RefId)
     :build_with_replica()
 local _test_replica_conf = repl:build()
 --]]
@@ -1947,7 +1947,7 @@ do
         assert(sta._config._component_names[id] == name, "sanity check")
         assert(sta._storage[id] ~= nil, "sanity check")
     end
-    local row = st:constructor(C.Id, C.A, C.B)
+    local row = st:constructor(C.RefId, C.A, C.B)
     local uid1 = row("GEMS", _Id.GEM, 10, 100)
     local uid2 = row("GOLD", _Id.GOLD, 100, 1000)
     local uid3 = row("SILVER", _Id.SILVER, 1000, 10000)
@@ -1956,9 +1956,9 @@ do
     print(st:format_log())
     print(st:format_state("*"))
     -- print(st:format_log(snap))
-    print(st:get(uid1, C.Id))
+    print(st:get(uid1, C.RefId))
     do -- read-only field
-        local ok, err: any = pcall(st.set, st, uid1, C.Id, 100)
+        local ok, err: any = pcall(st.set, st, uid1, C.RefId, 100)
         assert(not ok and err:find("read.only"))
     end
     st:set(uid1, C.A, 111)
@@ -1966,10 +1966,10 @@ do
     st:set(uid2, C.B, 2000)
     st:delete(uid3)
     local repl1 = m.replica(_test_replica_conf)
-        :set_on_attach(C.Id, function(...)
+        :set_on_attach(C.RefId, function(...)
             print("Id on_attach", ...)
         end)
-        :set_on_detach(C.Id, function(...)
+        :set_on_detach(C.RefId, function(...)
             print("Id on_detach", ...)
         end)
         :set_on_modify(C.B, function(uid, new, old)
@@ -1979,7 +1979,7 @@ do
     print(repl1:format_state("*"))
     repl1:update(st:flash() or {})
     print(repl1:format_state("*"))
-    local r_row, r_row_mask = repl1:constructor(C.Id, C.X)
+    local r_row, r_row_mask = repl1:constructor(C.RefId, C.X)
     print(repl1:format_mask(r_row_mask))
     local r_uid1 = r_row("G-x", 2000, "xxx")
     local r_uid2 = r_row("G-y", 3000, "yyy")
@@ -1987,14 +1987,14 @@ do
     repl1:set(r_uid1, C.X, 10000)
     print(repl1:format_state("*"))
     warn("--")
-    for uid, id, a in st:select(C.Id, C.A, "not", C.SS) do
+    for uid, id, a in st:select(C.RefId, C.A, "not", C.SS) do
         print(">", uid, "id", id, "A", a)
         st:set(uid, C.SS, "+ss " .. uid)
     end
-    for uid, id, a, ss in st:select(C.Id, C.A, C.SS) do
+    for uid, id, a, ss in st:select(C.RefId, C.A, C.SS) do
         print(">>", uid, "id", id, "A", a, "ss", ss)
     end
-    for uid, id, a, ss in st:select(C.Id, C.A, C.SS) do
+    for uid, id, a, ss in st:select(C.RefId, C.A, C.SS) do
         st:delete(uid)
     end
     repl1:update(st:flash() or {})
@@ -2008,9 +2008,9 @@ local N = 1000
 local M = 10
 local _test_main_conf1, repl1 = ConfigBuilder.create()
     :set_component_names(C)
-    :set_persistent_flag(C.Id, C.A, C.B, C.C, C.X)
+    :set_persistent_flag(C.RefId, C.A, C.B, C.C, C.X)
     :set_destructor(C.SS, function(o) print("call destructor", o) end)
-    :set_read_only_flag(C.Id)
+    :set_read_only_flag(C.RefId)
     :build_with_replica()
 local _test_replica_conf1 = repl1:build()
 

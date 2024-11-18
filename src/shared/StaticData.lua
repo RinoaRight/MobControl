@@ -25,7 +25,13 @@ local m = {}
 m.__index = m
 
 m.Weapon = {
-    [Id.Weapon.BASIC] = {speed = 10, damage = 10, cooldown = 1}, -- units/sec, hp, secs
+	[Id.Weapon.BASIC] = { baseSpeed = 20, damage = 10, cooldown = 1 }, -- units/sec, hp, secs
+}
+
+-- stylua: ignore
+m.Boost = {
+    [Id.Boost.ADD_CLONE]         = {valueRange = {1, 4}, hpRange = {50, 100}}, 
+    [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}}, 
 }
 
 return m

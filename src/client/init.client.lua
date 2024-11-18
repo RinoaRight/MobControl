@@ -30,6 +30,7 @@ local DEBUG = false
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local shared = ReplicatedStorage.shared
+local Array = require(shared.array)
 local Id = require(shared.Id)
 local S = require(shared.StaticData)
 
@@ -65,7 +66,7 @@ local ENV_WORLD_READY = "WORLD_READY"
 
 local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
 local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
-local active_bullets_table = {}
+local activeBulletsDataTable = {}
 
 -----------------------------
 -- States
@@ -162,12 +163,34 @@ RunService.Heartbeat:Connect(function(dt)
             if not cloneRootPart then
                 continue
             end
-            -- TODO: refactor formation
-            cloneRootPart.CFrame = CFrame.new(pos.X - 5 * i, pos.Y, pos.Z + 5) --* CFrame.Angles(0, math.rad(180), 0)
+            -- TODO: refactor formation +  refactor to bulkMoveTO
+            cloneRootPart.CFrame = CFrame.new(pos.X - 5 * i, pos.Y, pos.Z + 5)
         end
     end
 
-    -- TODO: move all bullets (from world state) forward with BulkMoveTo + check for collisions and TTL + move to Replicated Storage
+    local activeBullets = {}
+    local targets = {}
+    local now = roflake.time()
+    for i, bulletData in ipairs(activeBulletsDataTable) do
+        local bullet = bulletData.bullet :: Part
+        local speedPerFrame = (bulletData.speed :: num) / 24
+        local target = CFrame.new((bullet.CFrame.Position :: Vector3) + (bullet.CFrame.LookVector :: Vector3) * speedPerFrame)
+        local booster = bulletData.booster
+        local ttl = bulletData.ttl
+        if booster then
+        end
+        if (booster and booster.Position.Z >= bullet.Position.Z) or now >= ttl then
+            -- bullet collided with the booster or timed-out, delete it
+            Array.swap_remove(activeBulletsDataTable, i)
+            bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+        else
+            table.insert(activeBullets, bullet)
+            table.insert(targets, target)
+        end
+    end
+
+    -- TODO: fake other players' bullets? (knowing their position and weapon from world state)
+    workspace:BulkMoveTo(activeBullets, targets, Enum.BulkMoveMode.FireCFrameChanged)
 end)
 
 -- move driver box
@@ -199,31 +222,41 @@ end, 1, "test")
 -- TODO: sub to an event that others player's gun had changed ( to change the gun's animation )
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
         local bullet
         if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
             bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
         else
             bullet = Instance.new("Part")
             bullet.Name = "Bullet"
-            bullet.Size = Vector3.new(0.1, 0.1, 0.1)
+            bullet.Size = Vector3.new(0.2, 0.2, 0.2)
+            bullet.Anchored = true
         end
         local pos = LOCAL_HUMANOID_ROOT_PART.Position + LOCAL_HUMANOID_ROOT_PART.CFrame.LookVector * 2
         bullet.Parent = ACTIVE_BULLETS_REPOSITORY
         bullet.Position = pos
         local rayOrigin = pos
-        local rayDirection = Vector3.new(pos.X, pos.Y, pos.Z + SharedConfig.BULLET_BASE_TTL)
+        local rayDirection = Vector3.new(pos.X, pos.Y, pos.Z + SharedConfig.BULLET_BASE_DISTANCE)
         local raycastResult = workspace:Raycast(rayOrigin, rayDirection)
-        local ttl = roflake.time() + SharedConfig.BULLET_BASE_TTL
-        if raycastResult and raycastResult:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+        -- TODO: refactor, get the weapon from the player Ecs
+        local weapon_id = Id.Weapon.BASIC
+        -- TODO: refactor speed. is to be taken from C.Weapon
+        local speed = S.Weapon[weapon_id].baseSpeed + LOCAL_HUMANOID_ROOT_PART.Velocity.Magnitude
+        local ttl = roflake.time() + math.abs(SharedConfig.BULLET_BASE_DISTANCE/ speed)
+        local booster = nil
+        if raycastResult then
             -- boost is going to be hit
-            -- TODO: refactor, get the weapon from the player Ecs
-            local weapon_id = Id.Weapon.BASIC
-            local dist = (raycastResult.Position - pos).Magnitude
-            local speed = S.Weapon[weapon_id].speed
-            ttl = roflake.time() + (dist / speed)
+            local raycastInstance = raycastResult.Instance
+            booster = raycastInstance
+            -- TODO: FIXIT. returns uppertorso
+            if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+                local dist = (raycastResult.Position - pos).Magnitude
+                ttl = roflake.time() + (dist / speed)
+                booster = raycastInstance
+            end
         end
-        table.insert(active_bullets_table, {bullet = bullet, ttl = ttl})
-        fire_server(Id.C2S.BULLET_SHOT, LOCAL_PLAYER.Position)
+        table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = ttl, booster = booster})
+        -- TODO: send only when it's hit
+        fire_server(Id.C2S.BULLET_SHOT, pos)
     end
 end)

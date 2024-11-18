@@ -18,8 +18,6 @@ type fun = (...any) -> ...any
 type map<k, v> = { [k]: v }
 local _fmt = string.format
 
-
-
 type v3 = Vector3
 type cf = CFrame
 local ZERO = Vector3.new(0, 0, 0)
@@ -49,21 +47,24 @@ local m = {}
 m.W = W
 m.world = state.main(SharedConfig.World.main_config)
 
+local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.WeaponRefID)
+function m.addBooster(serverInstance: any, boostRefid: id, value: num, hp: num, gunId: id)
+	local guid = _roflake.uida
+	serverInstance.Name = guid
+	if not gunId then
+		gunId = _Id.Weapon.DEFAULT
+	end
+	if boostRefid == _Id.Boost.ADD_CLONE then
+		-- TODO: set to playerstate
+	elseif boostRefid == _Id.Boost.BULLET_SPEED_MULT then
+		-- TODO: set to playerstate
+	elseif boostRefid == _Id.Boost.CHANGE_WEAPON then
+		-- TODO: set to playerstate
+	end
+	return _booster(guid, boostRefid, value, hp, gunId) :: str | id
+end
 -------------------
 -- Methods
 -------------------
 
-
-
 return m
-
-
-
-
-
-
-
-
-
-
-

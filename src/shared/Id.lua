@@ -20,8 +20,8 @@ type u16 = uint
 type kind = idk.kind
 type ord = idk.ord
 type idk = idk.idk
-type id = idk.id
-type flag = idk.flag
+export type id = idk.id
+export type flag = idk.flag
 
 type array<a> = { a }
 type table = { [any]: any }
@@ -371,8 +371,10 @@ export type Struct = typeof(Id.Struct)
 -- Boost
 -----------------------------
 Id.Boost = enum.with_id "Id.Boost" {
-    NONE           = iota(Id.Kind.Boost, 0),
-    ADD_CLONE      = iota'',
+    NONE                = iota(Id.Kind.Boost, 0),
+    ADD_CLONE           = iota'',
+    BULLET_SPEED_MULT   = iota'',
+    CHANGE_WEAPON          = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Boost] = Id.Boost
 export type Boost = typeof(Id.Boost)
@@ -490,8 +492,9 @@ export type Countable = typeof(Id.Countable)
 -- Weapon
 -----------------------------
 Id.Weapon = enum.with_id "Id.Weapon" {
-    _NONE = iota(Id.Kind.Weapon, 0),
-    BASIC = iota'',
+    _NONE   = iota(Id.Kind.Weapon, 0),
+    DEFAULT = iota'',
+    BASIC   = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Weapon] = Id.Weapon
 export type Weapon = typeof(Id.Weapon)

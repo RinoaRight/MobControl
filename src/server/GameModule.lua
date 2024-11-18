@@ -29,6 +29,12 @@ local En = require(shared.enum)
 local _iota = En.iota
 local _flag = En.flag
 local disposer = require(shared.disposer)
+local SharedConfig = require(shared.SharedConfig)
+local W = SharedConfig.World.CId
+local state = require(shared.state)
+local roflake = require(shared.roflake)
+local WorldService = require(server.WorldService)
+local S = require(shared.StaticData)
 
 type PlayerState = PSS.PlayerState
 
@@ -41,13 +47,13 @@ local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_INIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
 
-local FIELD_NAMES = En.with_id "*" {
-    FIRST = 1,
-    SECOND = 2,
-    MIDDLE = 3,
-    FOURTH = 4,
-    FIFTH = 5,
-}
+local FIELD_NAMES = En.with_id("*")({
+	FIRST = 1,
+	SECOND = 2,
+	MIDDLE = 3,
+	FOURTH = 4,
+	FIFTH = 5,
+})
 
 -- stylua: ignore
 local GROUND_UNITS = {
@@ -67,33 +73,56 @@ local DRIVING_BOX_ATT = Instance.new("Attachment") :: Attachment
 DRIVING_BOX_ATT.Parent = DRIVING_BOX_FRONT
 
 local function deleteGroundUnit(groundUnit: Part, index: int)
-    groundUnit:Destroy()
+	groundUnit:Destroy()
 end
 
-local function spawnGroundUnit(groundUnit: Part, index: int, refPos: Vector3)
-    GROUND_UNITS[index].unit = groundUnit
-    groundUnit.CFrame = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
-    local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
-    trigger.CFrame = CFrame.new(9, 20.5, groundUnit.Position.Z - 245)
-    groundUnit.Parent = GROUND_UNIT_FOLDER
+local function setBooster(instance: BasePart)
+	-- TODO: actual range of selection
+	local refID = math.random(Id.Boost.ADD_CLONE, Id.Boost.ADD_CLONE)
+	local value = math.random(S.Boost[refID].valueRange[1], S.Boost[refID].valueRange[2])
+	local hp = math.random(S.Boost[refID].hpRange[1], S.Boost[refID].hpRange[2])
+	local gunId = nil
+    -- TODO: Fill in the data in booster's GUI
+	if refID == Id.Boost.ADD_CLONE then
+		-- TODO:
+	elseif refID == Id.Boost.BULLET_SPEED_MULT then
+        -- TODO:
+	elseif refID == Id.Boost.CHANGE_WEAPON then
+		-- TODO: actual range of selection
+		gunId = math.random(Id.Weapon.DEFAULT, Id.Weapon.DEFAULT)
+	end
+	instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
+	WorldService.addBooster(instance, refID, value, hp, gunId)
 end
 
-local function subscribeTrigger(index, groundUnit)
-    local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
-    workerMaid.trigger = trigger.Touched:Connect(function(triggerer)
-        if triggerer == DRIVING_BOX_FRONT then
-            subscribeTrigger(FIELD_NAMES.FOURTH, GROUND_UNITS[FIELD_NAMES.FOURTH].unit)
-            trigger:Destroy()
-            deleteGroundUnit(GROUND_UNITS[FIELD_NAMES.FIRST].unit, FIELD_NAMES.FIRST)
-            -- shift all other units in the data table accordingly
-            GROUND_UNITS[FIELD_NAMES.FIRST].unit = GROUND_UNITS[FIELD_NAMES.SECOND].unit
-            GROUND_UNITS[FIELD_NAMES.SECOND].unit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
-            GROUND_UNITS[FIELD_NAMES.MIDDLE].unit = GROUND_UNITS[FIELD_NAMES.FOURTH].unit
-            GROUND_UNITS[FIELD_NAMES.FOURTH].unit = GROUND_UNITS[FIELD_NAMES.FIFTH].unit
-            local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
-            spawnGroundUnit(GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
-        end
-    end)
+local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)
+	GROUND_UNITS[index].unit = groundUnit
+	groundUnit.CFrame = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
+	local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
+	trigger.CFrame = CFrame.new(9, 20.5, groundUnit.Position.Z - 245)
+	groundUnit.Parent = GROUND_UNIT_FOLDER
+	local boosterLeft = groundUnit:FindFirstChild("BoosterLeft") :: BasePart
+	local boosterRight = groundUnit:FindFirstChild("BoosterRight") :: BasePart
+	setBooster(boosterLeft)
+	setBooster(boosterRight)
+end
+
+local function subscribeTrigger(worldState: state.Main, index, groundUnit)
+	local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
+	workerMaid.trigger = trigger.Touched:Connect(function(triggerer)
+		if triggerer == DRIVING_BOX_FRONT then
+			subscribeTrigger(worldState, FIELD_NAMES.FOURTH, GROUND_UNITS[FIELD_NAMES.FOURTH].unit)
+			trigger:Destroy()
+			deleteGroundUnit(GROUND_UNITS[FIELD_NAMES.FIRST].unit, FIELD_NAMES.FIRST)
+			-- shift all other units in the data table accordingly
+			GROUND_UNITS[FIELD_NAMES.FIRST].unit = GROUND_UNITS[FIELD_NAMES.SECOND].unit
+			GROUND_UNITS[FIELD_NAMES.SECOND].unit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
+			GROUND_UNITS[FIELD_NAMES.MIDDLE].unit = GROUND_UNITS[FIELD_NAMES.FOURTH].unit
+			GROUND_UNITS[FIELD_NAMES.FOURTH].unit = GROUND_UNITS[FIELD_NAMES.FIFTH].unit
+			local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
+			spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
+		end
+	end)
 end
 
 -- local function onDescendantAdded(descendant)
@@ -111,29 +140,30 @@ end
 --     character.DescendantAdded:Connect(onDescendantAdded)
 -- end
 
-
 local m = {}
 
-function m.init()
-    -- init first batch of ground units and fill in the data table
-    local firstUnit = GROUND_UNIT_TEMPLATE:Clone()
-    local secondUnit = GROUND_UNIT_TEMPLATE:Clone()
-    local fourthUnit = GROUND_UNIT_TEMPLATE:Clone()
-    local fifthUnit = GROUND_UNIT_TEMPLATE:Clone()
-    subscribeTrigger(FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
-    spawnGroundUnit(firstUnit, FIELD_NAMES.FIRST, startingPos)
-    spawnGroundUnit(secondUnit, FIELD_NAMES.SECOND, startingPos)
-    spawnGroundUnit(fourthUnit, FIELD_NAMES.FOURTH, startingPos)
-    spawnGroundUnit(fifthUnit, FIELD_NAMES.FIFTH, startingPos)
+function m.init(worldState: state.Main, get_state: (player_id: int) -> PlayerState?)
+	-- init first batch of ground units and fill in the data table
+	local firstUnit = GROUND_UNIT_TEMPLATE:Clone()
+	local secondUnit = GROUND_UNIT_TEMPLATE:Clone()
+	local fourthUnit = GROUND_UNIT_TEMPLATE:Clone()
+	local fifthUnit = GROUND_UNIT_TEMPLATE:Clone()
+	subscribeTrigger(worldState, FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
+	spawnGroundUnit(worldState, firstUnit, FIELD_NAMES.FIRST, startingPos)
+	spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
+	spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
+	spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
 end
 
 local oldPos = DRIVING_BOX_INSTANCE.Position
 function m.MoveDrivingBox(world_state)
-    return function(dt)
-        DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
-        oldPos = DRIVING_BOX_INSTANCE.Position
-    end
+	return function(dt)
+		DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
+		oldPos = DRIVING_BOX_INSTANCE.Position
+	end
 end
+
+function m.onBulletHit(bullet_starting_pos) end
 
 print("[Game Module -- started]")
 return m

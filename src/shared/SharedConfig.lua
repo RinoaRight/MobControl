@@ -42,7 +42,7 @@ local En = require(script.Parent.enum)
 local iota = En.iota
 local state = require(script.Parent.state)
 
-m.BULLET_BASE_TTL = 80
+m.BULLET_BASE_DISTANCE = -80 -- == distance, in units
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
@@ -62,7 +62,12 @@ m.World = World
 -----------------------------
 -- stylua: ignore
 World.CId = En.with_id("World.CId") {
-    Position  = iota(0), -- vector
+    RefId          = iota(1),  -- id
+    HP             = iota'',   -- number
+    Value          = iota'',   -- number
+    WeaponRefID    = iota'',   -- id
+    Position       = iota'',   -- vector
+    ServerInstance = iota'',   -- Instance
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId
@@ -93,7 +98,7 @@ m.PlayerState = PlayerState
 -- Components
 -------------------
 PlayerState.CId = En.with_id("PlayerState.Cid") {
-    Id              = iota(0, 1, 31),
+    RefId           = iota(0, 1, 31),
     -- timers
     TTL             = iota'', -- sec (*1)
     TTE             = iota'', -- epoch
@@ -114,8 +119,8 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(C.Id, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
-        :set_persistent_flag(C.Id, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
         :build_with_replica()
 
     PlayerState.main_config = main_config
