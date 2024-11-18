@@ -583,7 +583,7 @@ end
 local function pcall_destructor(cid: cid, names: names, dtor: (any) -> (), component: any)
     local ok, err: str? = pcall(dtor, component)
     if not ok then
-        warn(fmt("WARNING: destructor fail, cid: %*\n%*'", format_cid(cid, names), err), 3)
+        warn(fmt("ERROR: destructor fail, cid: %*\n%*'", format_cid(cid, names), err), 3)
     end
 end
 
@@ -614,7 +614,7 @@ local function pcall_callback(uid: uid, cid: cid, op: op, config: Config, callba
     if not ok then
         local names = config._component_names
         local pp = config._pretty_printer
-        warn(fmt("WARNING: op:%* callback fail, uid: %* cid: %* \n%*'", OPS[op], format_uid(uid, pp), format_cid(cid, names), err), 3)
+        warn(fmt("ERROR: op:%* callback fail, uid: %* cid: %* \n%*'", OPS[op], format_uid(uid, pp), format_cid(cid, names), err), 3)
     end
 end
 
@@ -1909,6 +1909,8 @@ local C = {
     B = 11,
     C = 12,
     X = 21,
+    QQ = 29,
+    RR = 30,
     SS = 31,
 }
 
@@ -1939,7 +1941,7 @@ local _test_main_config, repl = ConfigBuilder.create()
 local _test_replica_conf = repl:build()
 --]]
 
---[[ operations
+---[[ operations
 do
     local st = m.main(_test_main_config)
     local sta = st :: any
@@ -1998,6 +2000,12 @@ do
         st:delete(uid)
     end
     repl1:update(st:flash() or {})
+    repl1:set_on_modify(C.SS, function(uid, new, old)
+        repl1:set(uid, C.SS, "A")
+    end)
+    local r_ctor = repl1:constructor(C.SS)
+    r_ctor("id001", "A")
+    repl1:set("id001", C.SS, "B") --> pcall ERROR
 end
 --]]
 
