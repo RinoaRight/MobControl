@@ -196,7 +196,7 @@ export type Main = Common<Main> & {
     --- @return transactions? A shallow copy of the log, or `nil` if the log is empty.
     flash: (self: MainSelf) -> transactions?, -- move internal replication log out of state
     snapshot: (self: MainSelf, opt: "discard-log"?) -> transactions, -- create snapshot (replication)
-    save: (self: MainSelf) -> transactions, -- create save (persistance)
+    save: (self: MainSelf) -> transactions, -- create save (persistence)
     load: (self: MainSelf, transactions) -> MainSelf, -- load save
     delete: (self: MainSelf, uid) -> (),
 }
@@ -264,7 +264,7 @@ export type ConfigBuilder = {
     set_destructor: (self: ConfigBuilder, cid: cid, dtor: Destroy<any>) -> ConfigBuilder,
     set_pretty_printer: (self: ConfigBuilder, pp: pp) -> ConfigBuilder,
     set_replication_flag: (self: ConfigBuilder, ...cid) -> ConfigBuilder, -- cid level replication
-    set_persistent_flag: (self: ConfigBuilder, ...cid) -> ConfigBuilder, -- cid level persistance
+    set_persistent_flag: (self: ConfigBuilder, ...cid) -> ConfigBuilder, -- cid level persistence
     set_read_only_flag: (self: ConfigBuilder, ...cid) -> ConfigBuilder, -- cid level write protection
     set_component_names: (self: ConfigBuilder, names: map<any, any>) -> ConfigBuilder,
     build_with_replica: (self: ConfigBuilder) -> (Config, ConfigBuilder),
