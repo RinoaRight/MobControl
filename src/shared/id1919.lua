@@ -40,10 +40,9 @@ local fmt = string.format
 local m = {}
 m.__index = m
 
-local FLAG_BIT = 0x200
-local ID_TEST = 0x80000
-local FLAGS_TEST = bit32.bor(ID_TEST, FLAG_BIT)
-local IDK_TEST = ID_TEST
+local FLAG_BIT = 0x200 -- bit 10
+local IDK_BIT = 0x80000 -- bit 20
+local FLAGS_TEST = bit32.bor(IDK_BIT, FLAG_BIT) -- bit 20 and 10
 local MIN_ORD = 0
 local MAX_ORD = 511
 
@@ -62,14 +61,12 @@ local function encode_flag(kind: kind, bits: bits): flag
     return bit32.bor(encode(kind, bits), FLAG_BIT)
 end
 
-local MIN_ID = encode(MIN_ORD, MIN_ORD)
-local MAX_ID = encode_flag(MAX_ORD, MAX_ORD)
-warn(fmt("id1919: note: id is in [0x%X .. 0x%X]", MIN_ID, MAX_ID))
-m.MIN_ID = MIN_ID
-m.MAX_ID = MAX_ID
+local MIN_IDK = encode(MIN_ORD, MIN_ORD)
+local MAX_IDK = encode_flag(MAX_ORD, MAX_ORD)
+warn(fmt("id1919: note: id is in [0x%X .. 0x%X]", MIN_IDK, MAX_IDK))
 
 local function decode(id: id): (kind, ord | bits)
-    assert(MIN_ID <= id and id <= MAX_ID)
+    assert(MIN_IDK <= id and id <= MAX_IDK)
     return bit32.band(0x1ff, bit32.rshift(id, 10)), bit32.band(0x1ff, id)
 end
 
@@ -81,9 +78,10 @@ m.encode = encode
 m.decode = decode
 
 local function plausible(id: any): bool
-    -- number, integer, bit 20 is 1, all higher are 0
-    return type(id) == "number" and math.ceil(id) == id and bit32.btest(id, ID_TEST) and id <= MAX_ID
+    -- number, integer, in range
+    return type(id) == "number" and MIN_IDK <= id and id <= MAX_IDK and math.ceil(id) == id
 end
+assert(not plausible(-1))
 
 function m.is_flags(id: any): bool
     return plausible(id) and bit32.btest(id, FLAGS_TEST)
