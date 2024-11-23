@@ -139,6 +139,7 @@ local function init_player(player_state: PlayerState)
 end
 
 game.Players.PlayerAdded:Connect(function(player)
+    log:debug("PlayerAdded %* id: %*", player, player.UserId)
     local _fire_client, disposer, state = Remote.Server.Handshake(player, PSS.load, on)
     STATES[player.UserId] = state :: PlayerState
     state.maid.remote_disposer = disposer
