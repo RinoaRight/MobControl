@@ -36,6 +36,7 @@ local _AbilityCVS = require(server.data.Ability)
 local _STMCSV = require(server.data.STM)
 local GameModule = require(server.GameModule)
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 if game.PhysicsService then
     local phys = game.PhysicsService
@@ -96,7 +97,7 @@ end
 
 on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, ...)
     -- log:debug(Id.C2S._NONE, player_state.player_id, event_id, ...)
-    -- TODO: verify that the bullet collides and after <bullet speed> time, reduce hp from the booster
+    -- TODO: call verify that the bullet collides and after <bullet speed> time, reduce hp from the booster
     -- TODO: if the bullet doesn't collide, do nothing
     -- TODO: after hp <= 0, remove the booster and add the boost
 end
@@ -117,7 +118,16 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
 end
 
 GameModule.init(WorldService.world, get_state)
-local _ = ServerSupervisor:start(GameModule.MoveDrivingBox(WorldService.world))
+local _ = ServerSupervisor:start(GameModule.StartMainLoop(WorldService.world))
+
+local function onPlayerAdded(player)
+end
+
+for _, player in Players:GetPlayers() do
+    onPlayerAdded(player)
+end
+Players.PlayerAdded:Connect(onPlayerAdded)
+
 -----------------------------
 -- Player Connect
 -----------------------------

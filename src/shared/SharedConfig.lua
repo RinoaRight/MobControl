@@ -63,9 +63,9 @@ m.World = World
 -- stylua: ignore
 World.CId = En.with_id("World.CId") {
     RefId          = iota(1),  -- id
-    HP             = iota'',   -- number
     Value          = iota'',   -- number
-    WeaponRefID    = iota'',   -- id
+    HP             = iota'',   -- number
+    BoostContent   = iota'',   -- id
     Position       = iota'',   -- vector
     ServerInstance = iota'',   -- Instance
 }
@@ -107,6 +107,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     Total           = iota'', -- number
     Bitset          = iota'', -- uint32
     Instance        = iota'', -- Instance(client)
+    CurrentWeapon   = iota'', 
     WorldGui        = iota'', -- any
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).

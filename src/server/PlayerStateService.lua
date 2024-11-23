@@ -94,6 +94,7 @@ export type PlayerState = {
     NotifyClient: (self: PlayerState, event_id: id, ...any) -> (),
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
     DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
+    ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
     __index: any,
 }
 
@@ -118,8 +119,7 @@ end
 local function create_state(player_state: PlayerState)
     log:debug("~~ Making initial state for player:", player_state.player_id)
     update_ids(player_state.state)
-    -- give some goodies to player
-    player_state:AddCountable(Id.Countable.COIN, 100)
+    -- TODO: give some goodies to player
 end
 
 local function fill_state(player_state: PlayerState)
@@ -237,6 +237,11 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
     self.state:set(countable_id, current - amount)
     return true
 end
+
+function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
+    self.state:set(C.CurrentWeapon, weapon_id)
+end
+
 
 -----------------------------
 -- Quick test

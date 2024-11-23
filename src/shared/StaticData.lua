@@ -16,7 +16,8 @@ type guid = str
 type uid = str | id
 local _fmt = string.format
 
-local shared = game.ReplicatedStorage.shared
+local ReplicatedStorage = game.ReplicatedStorage
+local shared = ReplicatedStorage.shared
 local Id = require(shared.Id)
 -----------------------------
 -- Module
@@ -24,8 +25,12 @@ local Id = require(shared.Id)
 local m = {}
 m.__index = m
 
+m.Animation = {
+    [Id.Animation.HOLD] = "rbxassetid://14928151227"
+}
+
 m.Weapon = {
-	[Id.Weapon.BASIC] = { baseSpeed = 20, damage = 10, cooldown = 1 }, -- units/sec, hp, secs
+	[Id.Weapon.BASIC] = { baseSpeed = 20, damage = 10, cooldown = 1, instance = ReplicatedStorage.Weapons.Pistol }, -- units/sec, hp, secs
 }
 
 -- stylua: ignore

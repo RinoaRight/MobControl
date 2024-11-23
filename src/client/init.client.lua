@@ -136,12 +136,26 @@ local RUN_ANIM = animateScript:WaitForChild("run"):WaitForChild(RUN_ANIM_NAME)
 
 local function startRunAnim(character)
     local runAnim = character.Humanoid:LoadAnimation(RUN_ANIM)
+    runAnim.Priority = Enum.AnimationPriority.Action4
     runAnim:Play(0.100000001, 1, 2)
 end
 
-startRunAnim(LOCAL_CHARACTER)
--- TODO: refactor creating clones into normal logic: pick up boost = create clone depending on a boost's value
-Clones.CreateClone(LOCAL_HUMANOID_ROOT_PART)
+-- TODO: wrap it into onPlayerConnect
+do
+    local LOCAL_PLAYER = game.Players.LocalPlayer
+    local DRIVING_BOX_ATT = workspace:WaitForChild("DrivingBox", 10):FindFirstChild("Attachment")
+    local playerAtt = Instance.new("Attachment") :: Attachment
+    playerAtt.Name = "CloneGuideAtt"
+    playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
+    playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
+    local alignConst = Instance.new("AlignOrientation")
+    alignConst.Parent = workspace
+    alignConst.Attachment0 = playerAtt
+    alignConst.Attachment1 = DRIVING_BOX_ATT
+    startRunAnim(LOCAL_CHARACTER)
+    -- TODO: refactor = move it from here to a loop where all clones of all players are assigned their pos
+    Clones.CreateClone(LOCAL_PLAYER.UserId, LOCAL_CHARACTER)
+end
 
 RunService.Heartbeat:Connect(function(dt)
     local players = game:GetService("Players"):GetPlayers()
@@ -149,22 +163,31 @@ RunService.Heartbeat:Connect(function(dt)
         return
     end
 
-    local clones = workspace.Clones:GetChildren()
-    if #clones > 0 then
-        local playerRootPart
-        for _, player in ipairs(players) do
-            local char = player.Character
-            playerRootPart = assert(char.HumanoidRootPart) :: Part
-        end
-        -- TODO: refactor this logic to Ecs to make clones follow its corresponding player
-        for i, clone in ipairs(clones) do
-            local pos = playerRootPart.Position
-            local cloneRootPart = clone:FindFirstChild("HumanoidRootPart")
-            if not cloneRootPart then
-                continue
+    local clonesFolders = workspace.Clones:GetChildren()
+    for _, v in ipairs(clonesFolders) do
+        local clones = v:GetChildren()
+        if #clones > 0 then
+            local playerRootPart
+            for _, player in ipairs(players) do
+                local char = player.Character
+                playerRootPart = assert(char.HumanoidRootPart) :: Part
             end
-            -- TODO: refactor formation +  refactor to bulkMoveTO
-            cloneRootPart.CFrame = CFrame.new(pos.X - 5 * i, pos.Y, pos.Z + 5)
+            -- TODO: refactor this logic to: define wich player the clone belongs to (clone name == playerId) and make a formation
+            for i, clone in ipairs(clones) do
+                local pos = playerRootPart.Position
+                local cloneRootPart = clone:FindFirstChild("HumanoidRootPart")
+                if not cloneRootPart then
+                    continue
+                end
+                local cloneAnimTracks = clone.Humanoid:GetPlayingAnimationTracks()
+                if #cloneAnimTracks < 1 then
+                    startRunAnim(clone)
+                end
+                -- TODO: refactor formation +  refactor to bulkMoveTO
+                -- cloneRootPart.CFrame = CFrame.new(pos.X - 5 * i, pos.Y, pos.Z + 5)
+                local clonePos = Vector3.new(pos.X - 5 * i, pos.Y, pos.Z + 5)
+                cloneRootPart.CFrame = CFrame.lookAlong(clonePos, LOCAL_HUMANOID_ROOT_PART.CFrame.LookVector, Vector3.yAxis)
+            end
         end
     end
 
@@ -208,20 +231,14 @@ infrequentLoop:start(function(dt)
         startRunAnim(LOCAL_CHARACTER)
     end
 
-    local clones = workspace.Clones:GetChildren()
-    if #clones > 0 then
-        for i, clone in ipairs(clones) do
-            local cloneAnimTracks = clone.Humanoid:GetPlayingAnimationTracks()
-            if #cloneAnimTracks < 1 then
-                startRunAnim(clone)
-            end
-        end
+    if LOCAL_HUMANOID_ROOT_PART then
     end
 end, 1, "test")
 
 -- TODO: sub to an event that others player's gun had changed ( to change the gun's animation )
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    -- TODO: do auto shooting, not on mouse btn
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         local bullet
         if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
@@ -241,12 +258,14 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         -- TODO: refactor, get the weapon from the player Ecs
         local weapon_id = Id.Weapon.BASIC
         -- TODO: refactor speed. is to be taken from C.Weapon
+        -- TODO: take into consideration the cooldown
         local speed = S.Weapon[weapon_id].baseSpeed + LOCAL_HUMANOID_ROOT_PART.Velocity.Magnitude
-        local ttl = roflake.time() + math.abs(SharedConfig.BULLET_BASE_DISTANCE/ speed)
+        local ttl = roflake.time() + math.abs(SharedConfig.BULLET_BASE_DISTANCE / speed)
         local booster = nil
+        local raycastInstance
         if raycastResult then
             -- boost is going to be hit
-            local raycastInstance = raycastResult.Instance
+            raycastInstance = raycastResult.Instance
             booster = raycastInstance
             -- TODO: FIXIT. returns uppertorso
             if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
@@ -255,8 +274,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                 booster = raycastInstance
             end
         end
-        table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = ttl, booster = booster})
-        -- TODO: send only when it's hit
-        fire_server(Id.C2S.BULLET_SHOT, pos)
+        table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = ttl, booster = booster })
+        fire_server(Id.C2S.BULLET_SHOT, pos, raycastInstance)
     end
 end)

@@ -1142,7 +1142,7 @@ function State.set(self: CommonInternal<any>, uid: uid, cid: cid, c: component):
         assert_write_permission(nil, self._config._component_names, self._config._is_read_only, cid)
         local mask = self._masks[uid]
         if mask == nil then
-            warn(`uid: {format_uid(uid, self._config._pretty_printer)} not found`)
+            warn(`new entity created by setter, uid: '{format_uid(uid, self._config._pretty_printer)}'`)
         end
     end
     local setter = self._setters[cid]

@@ -35,6 +35,9 @@ local _disposer = require(shared.disposer)
 local _Remote = require(shared.Remote)
 local _signal = require(shared.signal)
 local _roflake = require(shared.roflake)
+local S = require(shared.StaticData)
+
+local WeaponsFolder = workspace.Weapons
 
 local PSS = require(server.PlayerStateService)
 type PlayerState = PSS.PlayerState
@@ -47,22 +50,32 @@ local m = {}
 m.W = W
 m.world = state.main(SharedConfig.World.main_config)
 
-local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.WeaponRefID)
-function m.addBooster(serverInstance: any, boostRefid: id, value: num, hp: num, gunId: id)
-	local guid = _roflake.uida
-	serverInstance.Name = guid
-	if not gunId then
-		gunId = _Id.Weapon.DEFAULT
-	end
-	if boostRefid == _Id.Boost.ADD_CLONE then
-		-- TODO: set to playerstate
-	elseif boostRefid == _Id.Boost.BULLET_SPEED_MULT then
-		-- TODO: set to playerstate
-	elseif boostRefid == _Id.Boost.CHANGE_WEAPON then
-		-- TODO: set to playerstate
-	end
-	return _booster(guid, boostRefid, value, hp, gunId) :: str | id
+-- TODO: loop that will check bullet ttl and collisions and do stuff corresponding to the booster destroyed
+-- if boostRefid == _Id.Boost.ADD_CLONE then
+--     -- TODO: set to playerstate
+-- elseif boostRefid == _Id.Boost.BULLET_SPEED_MULT then
+--     -- TODO: set to playerstate
+-- elseif boostRefid == _Id.Boost.CHANGE_WEAPON then
+--     if not boostContentId then
+--         boostContentId = _Id.Weapon.DEFAULT
+--     end
+--     -- TODO: set to playerstate, equip tool, load animation if there is not one, stop the one if there is, then play again
+--     local template = assert(S.Weapon[boostContentId].instance, "weapon model id not found")
+--     template:Clone().Parent = WeaponsFolder
+    
+-- end
+
+local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.BoostContent, W.ServerInstance)
+function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, boostContentId: id)
+    local guid = _booster(_roflake.uida, boostRefid, value, hp, boostContentId, serverInstance) :: str
+    serverInstance.Name = guid
+    return guid
 end
+
+function m.RemoveBooster(guid: guid)
+    m.world:delete(guid)
+end
+
 -------------------
 -- Methods
 -------------------
