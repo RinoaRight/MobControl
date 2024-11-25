@@ -64,6 +64,8 @@ local Kind = table.freeze {
     PassF           = enum.iota'',
     Countable       = enum.iota'',
     Weapon          = enum.iota'',
+    PlayerStats     = enum.iota'',
+    TimedEvent      = enum.iota'',
     STMState        = enum.iota'',
     -- protocol:
     S2S             = enum.iota(110, 1, idk.MAX_KIND),
@@ -502,6 +504,17 @@ export type Weapon = typeof(Id.Weapon)
 
 -- stylua: ignore
 -----------------------------
+-- Timed event
+-----------------------------
+Id.TimedEvent = enum.with_id "Id.TimedEvent" {
+    _NONE           = iota(Id.Kind.TimedEvent, 0),
+    WEAPON_COOLDOWN = iota'',
+}
+KIND_TO_ENUM[Id.Kind.TimedEvent] = Id.TimedEvent
+export type TimedEvent = typeof(Id.TimedEvent)
+
+-- stylua: ignore
+-----------------------------
 -- Animation
 -----------------------------
 Id.Animation = enum.with_id "Id.Animation" {
@@ -510,6 +523,17 @@ Id.Animation = enum.with_id "Id.Animation" {
 }
 KIND_TO_ENUM[Id.Kind.Animation] = Id.Animation
 export type Animation = typeof(Id.Animation)
+
+-- stylua: ignore
+-----------------------------
+-- Player stats
+-----------------------------
+Id.PlayerStats = enum.with_id "Id.PlayerStats" {
+    _NONE   = iota(Id.Kind.Animation, 0),
+    WEAPON  = iota'',
+}
+KIND_TO_ENUM[Id.Kind.PlayerStats] = Id.PlayerStats
+export type PlayerStats = typeof(Id.PlayerStats)
 
 -- stylua: ignore
 -----------------------------
@@ -568,8 +592,8 @@ export type S2S = typeof(Id.S2S)
 -- C2S
 -----------------------------
 Id.C2S = enum.with_id "Id.C2S" {
-    _NONE       = iota(Id.Kind.C2S, 0),
-    BULLET_SHOT = iota'',               -- pos, boosterInstance|nil
+    _NONE              = iota(Id.Kind.C2S, 0),
+    BULLET_SHOT        = iota'',               -- pos
 
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S

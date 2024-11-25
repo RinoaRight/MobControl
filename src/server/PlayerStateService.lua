@@ -48,6 +48,7 @@ local logger = require(shared.logger)
 local log = logger.create("PlayerStateService"):set_prettifier(Id.pp)
 local str = require(shared.str)
 local C = SharedConfig.PlayerState.CId
+local S = require(shared.StaticData)
 
 -------------------
 -- Server Modules
@@ -239,7 +240,8 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
 end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
-    self.state:set(C.CurrentWeapon, weapon_id)
+    self.state:set(Id.PlayerStats.WEAPON, C.ValueId, weapon_id)
+    self.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, S.Weapon[weapon_id].cooldown)
 end
 
 

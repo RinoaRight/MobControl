@@ -30,7 +30,7 @@ m.Animation = {
 }
 
 m.Weapon = {
-	[Id.Weapon.BASIC] = { baseSpeed = 20, damage = 10, cooldown = 1, instance = ReplicatedStorage.Weapons.Pistol }, -- units/sec, hp, secs
+	[Id.Weapon.BASIC] = { baseSpeed = 20, damage = 10, cooldown = .25, instance = ReplicatedStorage.Weapons.Pistol }, -- units/sec, hp, secs
 }
 
 -- stylua: ignore

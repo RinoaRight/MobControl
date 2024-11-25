@@ -35,6 +35,7 @@ local state = require(shared.state)
 local roflake = require(shared.roflake)
 local WorldService = require(server.WorldService)
 local S = require(shared.StaticData)
+local C = SharedConfig.PlayerState.CId
 
 type PlayerState = PSS.PlayerState
 
@@ -46,6 +47,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_INIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
+local BOOSTER_TEMPLATE = assert(ReplicatedStorage.Booster)
+local BOOSTER_OFFSET_X = 220
+local BOOSTER_OFFSET_Y = 9
+local BOOSTER_OFFSET_Z = -50
+local BOOSTER_GAP = 40
 
 local FIELD_NAMES = En.with_id("*")({
     FIRST = 1,
@@ -98,25 +104,24 @@ local function setBooster(instance: BasePart)
         boostContentId = math.random(Id.Weapon.DEFAULT, Id.Weapon.DEFAULT)
     end
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
-    -- TODO: currently it is setting boosters for solo player only, Refactor to multiplayer.
+    instance.CollisionGroup = "BulletCollidable"
     WorldService.AddBooster(instance, refID, value, hp, boostContentId)
 end
 
 local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)
     GROUND_UNITS[index].unit = groundUnit
-	local unitPos = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
+    local unitPos = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
     groundUnit.CFrame = unitPos
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     trigger.CFrame = CFrame.new(9, 20.5, unitPos.Z - 245)
     groundUnit.Parent = GROUND_UNIT_FOLDER
-	groundUnit.AssemblyLinearVelocity = groundUnit.CFrame.LookVector * 30
-    local boosterLeft = assert(groundUnit:FindFirstChild("BoosterLeft") :: BasePart)
-	boosterLeft.CFrame = CFrame.new(unitPos.X - 20, unitPos.Y + 20, unitPos.Z -50)
-    local boosterRight = assert(groundUnit:FindFirstChild("BoosterRight") :: BasePart)
-	boosterRight.CFrame = CFrame.new(unitPos.X + 20, unitPos.Y + 20, unitPos.Z -50)
-    -- TODO: currently it is setting boosters for solo player only, Refactor to multiplayer.
-    setBooster(boosterLeft)
-    setBooster(boosterRight)
+    groundUnit.AssemblyLinearVelocity = groundUnit.CFrame.LookVector * 30
+    for i = 1, 12 do --12 boosters
+        local booster = BOOSTER_TEMPLATE:Clone()
+        booster.CFrame = CFrame.new(BOOSTER_OFFSET_X - BOOSTER_GAP * (i - 1), BOOSTER_OFFSET_Y, unitPos.Z + BOOSTER_OFFSET_Z)
+        booster.Parent = groundUnit
+        setBooster(booster)
+    end
 end
 
 local function subscribeTrigger(worldState: state.Main, index, groundUnit)
@@ -137,32 +142,26 @@ local function subscribeTrigger(worldState: state.Main, index, groundUnit)
     end)
 end
 
--- local function onDescendantAdded(descendant)
---     -- Set collision group for any part descendant
---     if descendant:IsA("BasePart") then
---         -- descendant.CollisionGroup = "Clones"
---     end
--- end
-
--- local function onCloneCharacterAdded(character)
---     -- Process existing and new descendants for physics setup
---     for _, descendant in character:GetDescendants() do
---         onDescendantAdded(descendant)
---     end
---     character.DescendantAdded:Connect(onDescendantAdded)
--- end
-
 local m = {}
 
-function m.init(worldState: state.Main, get_state: (player_id: int) -> PlayerState?)
+function m.Init(worldState: state.Main, get_state: (player_id: int) -> PlayerState?)
     -- init first batch of ground units and fill in the data table
     local firstUnit = GROUND_UNIT_TEMPLATE:Clone()
     local secondUnit = GROUND_UNIT_TEMPLATE:Clone()
     local fourthUnit = GROUND_UNIT_TEMPLATE:Clone()
     local fifthUnit = GROUND_UNIT_TEMPLATE:Clone()
-	
+
+    -- init first ground unit
     subscribeTrigger(worldState, FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
-	GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
+    GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
+    local boosters = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit:GetChildren()
+    for i, booster in ipairs(boosters) do
+        if booster:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+            setBooster(booster)
+        end
+    end
+
+    -- spawn the rest of the first batch of ground units
     spawnGroundUnit(worldState, firstUnit, FIELD_NAMES.FIRST, startingPos)
     spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
     spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
@@ -170,7 +169,7 @@ function m.init(worldState: state.Main, get_state: (player_id: int) -> PlayerSta
 end
 
 local oldPos = DRIVING_BOX_INSTANCE.Position
-function m.StartMainLoop(world_state)
+function m.StartMainLoopWorld(world_state)
     return function(dt)
         -- driving box movement
         DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
@@ -178,7 +177,32 @@ function m.StartMainLoop(world_state)
     end
 end
 
+function m.StartMainLoopPlayer(player_state: PlayerState)
+    return function(dt)
+        -- weapon cooldown
+        local shot_ttl = player_state.state:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) :: num
+        shot_ttl -= dt
+        player_state.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, math.max(shot_ttl, 0))
+    end
+end
+
+function m.SetPlayerAlignment(player)
+    TaskPool.spawn(function()
+        local playerAtt = Instance.new("Attachment") :: Attachment
+        repeat
+            wait()
+        until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        local playerCharacter = player.Character :: Model
+        local playerRootPart = player.Character.HumanoidRootPart :: Part
+        playerAtt.CFrame = playerRootPart.CFrame
+        playerAtt.Parent = playerRootPart
+        local playerAlignConst = Instance.new("AlignOrientation")
+        playerAlignConst.Name = "PlayerAlignConstraint"
+        playerAlignConst.Parent = playerCharacter
+        playerAlignConst.Attachment0 = playerAtt
+        playerAlignConst.Attachment1 = DRIVING_BOX_ATT
+    end)
+end
+
 print("[Game Module -- started]")
 return m
--- TODO: adding boosts with an attribute == boost_id
--- boost:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], boost_id)

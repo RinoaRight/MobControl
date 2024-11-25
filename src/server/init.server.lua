@@ -37,10 +37,14 @@ local _STMCSV = require(server.data.STM)
 local GameModule = require(server.GameModule)
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local SharedConfig = require(shared.SharedConfig)
+local C = SharedConfig.PlayerState.CId
+local S = require(shared.StaticData)
 
 if game.PhysicsService then
     local phys = game.PhysicsService
     log:debug("PhysicsService:IsCollisionGroupRegistered('Clones')", phys.IsCollisionGroupRegistered, phys, "Clones")
+    log:debug("PhysicsService:IsCollisionGroupRegistered('BulletCollidable')", phys.IsCollisionGroupRegistered, phys, "BulletCollidable")
 end
 -- stylua: ignore
 
@@ -96,10 +100,16 @@ on[Id.C2S._NONE] = function(player_state, event_id, ...)
 end
 
 on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, ...)
-    -- log:debug(Id.C2S._NONE, player_state.player_id, event_id, ...)
+    log:debug(Id.C2S.BULLET_SHOT, player_state.player_id, event_id, ...)
+    local current_weapon_id = player_state.state:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
+    local cooldown = S.Weapon[current_weapon_id].cooldown
+    player_state.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, cooldown)
+
+    -- TODO: set tte for the next bullet
+
     -- TODO: call verify that the bullet collides and after <bullet speed> time, reduce hp from the booster
     -- TODO: if the bullet doesn't collide, do nothing
-    -- TODO: after hp <= 0, remove the booster and add the boost
+    -- TODO: after hp <= 0, remove the booster and add the boost to the player who's bullet it was
 end
 
 -------------------
@@ -117,10 +127,11 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
 end
 
-GameModule.init(WorldService.world, get_state)
-local _ = ServerSupervisor:start(GameModule.StartMainLoop(WorldService.world))
+GameModule.Init(WorldService.world, get_state)
+local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world))
 
 local function onPlayerAdded(player)
+    GameModule.SetPlayerAlignment(player)
 end
 
 for _, player in Players:GetPlayers() do
@@ -134,7 +145,8 @@ Players.PlayerAdded:Connect(onPlayerAdded)
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
-        -- TODO:
+        player_state:ChangeWeapon(Id.Weapon.BASIC)
+        local _ = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     end
 end
 
