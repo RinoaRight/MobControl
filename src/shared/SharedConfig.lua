@@ -36,7 +36,7 @@ local _fmt = string.format
 local m = {}
 m.__index = m
 -- stylua: ignore
-if not game then (function() script = require("script") :: any end)() end
+--[[ stylua: ignore]] script = script or require"script"
 local Id = require(script.Parent.Id)
 local En = require(script.Parent.enum)
 local iota = En.iota
