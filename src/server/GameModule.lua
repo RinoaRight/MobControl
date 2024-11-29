@@ -37,7 +37,6 @@ local WorldService = require(server.WorldService)
 local S = require(shared.StaticData)
 local C = SharedConfig.PlayerState.CId
 
-type PlayerState = PSS.PlayerState
 
 local CLONES = {}
 
@@ -82,7 +81,7 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     local children = groundUnit:GetChildren()
     for _, v in ipairs(children) do
         if v:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
-            WorldService.RemoveBooster(v.Name)
+            WorldService.RemoveEntity(v.Name)
         end
     end
     groundUnit:Destroy()
@@ -144,7 +143,7 @@ end
 
 local m = {}
 
-function m.Init(worldState: state.Main, get_state: (player_id: int) -> PlayerState?)
+function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     -- init first batch of ground units and fill in the data table
     local firstUnit = GROUND_UNIT_TEMPLATE:Clone()
     local secondUnit = GROUND_UNIT_TEMPLATE:Clone()
@@ -177,7 +176,7 @@ function m.StartMainLoopWorld(world_state)
     end
 end
 
-function m.StartMainLoopPlayer(player_state: PlayerState)
+function m.StartMainLoopPlayer(player_state: PSS.PlayerState)
     return function(dt)
         -- weapon cooldown
         local shot_ttl = player_state.state:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) :: num

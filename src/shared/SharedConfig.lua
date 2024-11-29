@@ -68,6 +68,8 @@ World.CId = En.with_id("World.CId") {
     BoostContent   = iota'',   -- id
     Position       = iota'',   -- vector
     ServerInstance = iota'',   -- Instance
+    PLayerId       = iota'',   -- number
+    WeaponId       = iota'',   -- id
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId

@@ -35,14 +35,17 @@ function m.CreateClone(playerId, playerCharacter: Model)
         -- clone the player's character
         playerCharacter.Archivable = true
         local cloneChar = playerCharacter:Clone()
-        local playerIdName = tostring(playerId)
-        cloneChar.Name = playerIdName
-        local playerFolderName = playerIdName .. "_Clones"
-        local folder = workspace:FindFirstChild(playerFolderName)
-        if not folder then
-            folder = Instance.new("Folder") :: Folder
+        -- local playerIdName = tostring(playerId)
+        -- cloneChar.Name = playerIdName
+        -- local playerFolderName = playerIdName .. "_Clones"
+        
+        local playerFolderName = "Clones"
+        -- local folder = workspace:FindFirstChild(playerFolderName)
+        local existingFolder = playerCharacter:FindFirstChild(playerFolderName) :: Folder?
+        local folder:Folder = existingFolder or Instance.new("Folder") :: Folder
+        if not existingFolder then
             folder.Name = playerFolderName
-            folder.Parent = workspace.Clones
+            folder.Parent = playerCharacter
         end
         cloneChar.Parent = folder
 
@@ -50,14 +53,6 @@ function m.CreateClone(playerId, playerCharacter: Model)
         local cloneRootPart = cloneChar:WaitForChild("HumanoidRootPart", 10) :: Part
         -- TODO: formation
         cloneRootPart.CFrame = CFrame.new(humanoidRootPart.Position.X + 5, humanoidRootPart.Position.Y, humanoidRootPart.Position.Z + 20)
-        -- local cloneAtt = Instance.new("Attachment") :: Attachment
-        -- cloneAtt.CFrame = (cloneRootPart :: Part).CFrame
-        -- cloneAtt.Parent = cloneRootPart
-        -- local cloneAlignConst = Instance.new("AlignOrientation")
-        -- cloneAlignConst.Name = "CloneAlignConstraint"
-        -- cloneAlignConst.Parent = workspace
-        -- cloneAlignConst.Attachment0 = cloneAtt
-        -- cloneAlignConst.Attachment1 = playerAtt
     end)
 end
 

@@ -115,7 +115,6 @@ end
 local fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local LOCAL_PLAYER = Players.LocalPlayer
 repeat
     wait()
@@ -155,7 +154,10 @@ do
     alignConst.Attachment1 = DRIVING_BOX_ATT
     startRunAnim(LOCAL_CHARACTER)
     -- TODO: refactor = move it from here to a loop where all clones of all players are assigned their pos
-    Clones.CreateClone(LOCAL_PLAYER.UserId, LOCAL_CHARACTER)
+    local players = game:GetService("Players"):GetPlayers()
+    for _, player in ipairs(players) do
+        Clones.CreateClone(player.UserId, player.Character)
+    end
 end
 
 local function fireBullet()
@@ -195,36 +197,49 @@ RunService.Heartbeat:Connect(function(dt)
         return
     end
 
-    local clonesFolders = workspace.Clones:GetChildren()
-    for _, v in ipairs(clonesFolders) do
-        local clones = v:GetChildren()
-        if #clones > 0 then
-            local playerRootPart
-            for _, player in ipairs(players) do
-                local char = player.Character
-                playerRootPart = assert(char.HumanoidRootPart) :: Part
+    local clonesRootParts = {}
+    local clonesTargets = {}
+    local playerRootPart
+    for _, player in ipairs(players) do
+        local char = player.Character
+        playerRootPart = assert(char.HumanoidRootPart) :: Part
+        local clonesFolder = char:FindFirstChild("Clones")
+        if not clonesFolder then
+            continue
+        end
+        local clones = clonesFolder:GetChildren()
+        if #clones < 1 then
+            continue
+        end
+        for i, clone in ipairs(clones) do
+            local pos = playerRootPart.Position
+            local cloneRootPart = clone:FindFirstChild("HumanoidRootPart")
+            if not cloneRootPart then
+                continue
             end
-            -- TODO: refactor this logic to: define wich player the clone belongs to (clone name == playerId) and make a formation
-            for i, clone in ipairs(clones) do
-                local pos = playerRootPart.Position
-                local cloneRootPart = clone:FindFirstChild("HumanoidRootPart")
-                if not cloneRootPart then
-                    continue
+            local isRunAnimActive = false
+            local cloneAnimTracks = clone.Humanoid:GetPlayingAnimationTracks()
+            for _, v in ipairs(cloneAnimTracks) do
+                if v.Name == RUN_ANIM_NAME then
+                    isRunAnimActive = true
+                    break
                 end
-                local cloneAnimTracks = clone.Humanoid:GetPlayingAnimationTracks()
-                if #cloneAnimTracks < 1 then
-                    startRunAnim(clone)
-                end
-                -- TODO: refactor formation +  refactor to bulkMoveTO
-                -- cloneRootPart.CFrame = CFrame.new(pos.X - 5 * i, pos.Y, pos.Z + 5)
-                local clonePos = Vector3.new(pos.X - 5 * i, pos.Y, pos.Z + 5)
-                cloneRootPart.CFrame = CFrame.lookAlong(clonePos, LOCAL_HUMANOID_ROOT_PART.CFrame.LookVector, Vector3.yAxis)
             end
+            if not isRunAnimActive then
+                startRunAnim(clone)
+            end
+
+            local clonePos = Vector3.new(pos.X - 5 * i, pos.Y, pos.Z + 5)
+            local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
+            -- cloneRootPart.CFrame = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
+            table.insert(clonesRootParts, cloneRootPart)
+            table.insert(clonesTargets, cloneTarget)
+            workspace:BulkMoveTo(clonesRootParts, clonesTargets, Enum.BulkMoveMode.FireCFrameChanged)
         end
     end
 
     local activeBullets = {}
-    local targets = {}
+    local bulletsTargets = {}
     local now = roflake.time()
     for i, bulletData in ipairs(activeBulletsDataTable) do
         local bullet = bulletData.bullet :: Part
@@ -240,12 +255,14 @@ RunService.Heartbeat:Connect(function(dt)
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
         else
             table.insert(activeBullets, bullet)
-            table.insert(targets, target)
+            table.insert(bulletsTargets, target)
         end
     end
 
-    -- TODO: fake other players' bullets? (knowing their position and weapon from world state)
-    workspace:BulkMoveTo(activeBullets, targets, Enum.BulkMoveMode.FireCFrameChanged)
+    -- TODO: fake other players' bullets? (knowing their position and weapon from world state). 
+    -- TODO: Can we create entities of other players in a player state, refenrencing them by their player_id 
+    -- and updating their weapon_id by a S2CC event?
+    workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets
     local weaponId = PLAYER_STATE:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
@@ -258,7 +275,9 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
--- move driver box
+-- diable jumping
+LOCAL_HUMANOID.JumpPower = 0
+
 local isRunAnimActive
 local infrequentLoop = supervisor.create(1, "client-infrequent")
 infrequentLoop:start(function(dt)
@@ -268,7 +287,6 @@ infrequentLoop:start(function(dt)
             break
         end
     end
-    -- TODO: animations of other players
     if not isRunAnimActive then
         startRunAnim(LOCAL_CHARACTER)
     end
@@ -276,5 +294,3 @@ infrequentLoop:start(function(dt)
     if LOCAL_HUMANOID_ROOT_PART then
     end
 end, 1, "test")
-
--- TODO: sub to an event that others player's gun had changed ( to change the gun's animation )

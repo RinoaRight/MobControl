@@ -114,6 +114,10 @@ local function update_ids(main: state.Main)
     local _countable = main:constructor(C.Value, C.Total)
     merge(Id.Countable, function(id) _countable(id, 0, 0) end)
     -- TODO: weapon (id, speed, damage, cooldown) and others
+    local _weapon = main:constructor(C.ValueId)
+    merge(Id.PlayerStats, function(id) _weapon(id, Id.Weapon.BASIC) end)
+    local _weapon_ttl = main:constructor(C.TTL)
+    merge(Id.TimedEvent, function(id) _weapon_ttl(id, 0) end)
     log:debug(main:format_uid(Id.Countable.COIN))
 end
 

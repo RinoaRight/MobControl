@@ -127,17 +127,20 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
 end
 
-GameModule.Init(WorldService.world, get_state)
-local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world))
-
-local function onPlayerAdded(player)
-    GameModule.SetPlayerAlignment(player)
+-- initialize main game loop
+do
+    TaskPool.spawn(function()
+        GameModule.Init(WorldService.world, get_state)
+        -- make sure that at least one player character is loaded
+        -- TODO: this is a hack, we should have a better way to do this
+        repeat
+            task.wait()
+        until next(STATES)
+        local playerState = get_state(next(STATES) :: int)
+        assert(playerState, "sanity check failed")
+        local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world))
+    end)
 end
-
-for _, player in Players:GetPlayers() do
-    onPlayerAdded(player)
-end
-Players.PlayerAdded:Connect(onPlayerAdded)
 
 -----------------------------
 -- Player Connect
@@ -155,8 +158,9 @@ game.Players.PlayerAdded:Connect(function(player)
     local _fire_client, disposer, state = Remote.Server.Handshake(player, PSS.load, on)
     STATES[player.UserId] = state :: PlayerState
     state.maid.remote_disposer = disposer
-    -- WorldService.AddPlayer(state)
+    WorldService.AddPlayer(state)
     -- Market.CheckPassesOnInit(state.player_id, function(store_id) error("TODO") end)
+    GameModule.SetPlayerAlignment(player)
     TaskPool.defer(init_player(state))
 end)
 

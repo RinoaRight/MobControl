@@ -529,7 +529,7 @@ export type Animation = typeof(Id.Animation)
 -- Player stats
 -----------------------------
 Id.PlayerStats = enum.with_id "Id.PlayerStats" {
-    _NONE   = iota(Id.Kind.Animation, 0),
+    _NONE   = iota(Id.Kind.PlayerStats, 0),
     WEAPON  = iota'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerStats] = Id.PlayerStats
