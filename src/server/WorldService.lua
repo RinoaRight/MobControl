@@ -36,6 +36,8 @@ local _Remote = require(shared.Remote)
 local _signal = require(shared.signal)
 local _roflake = require(shared.roflake)
 local S = require(shared.StaticData)
+local logger = require(shared.logger)
+local log = logger.create("WorldService"):set_delimiter(" "):set_prettifier(Id.pp)
 
 local WeaponsFolder = workspace.Weapons
 
@@ -80,6 +82,9 @@ local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId, W.
 function m.AddPlayer(state)
     local player_id = state.player_id
     local weapon_instance = S.Weapon[Id.Weapon.BASIC].instance
+    if m.world:has(player_id) then
+        log:error("non-unique uid: ", player_id, m.world.format_row, m.world, player_id)
+    end
     return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, weapon_instance, Id.Weapon.BASIC, S.Weapon[Id.Weapon.BASIC].cooldown)
 end
 

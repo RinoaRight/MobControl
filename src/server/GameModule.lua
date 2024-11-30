@@ -91,7 +91,7 @@ local function setBooster(instance: BasePart)
     local refID = math.random(Id.Boost.ADD_CLONE, Id.Boost.ADD_CLONE)
     local value = math.random(S.Boost[refID].valueRange[1], S.Boost[refID].valueRange[2])
     local hp = math.random(S.Boost[refID].hpRange[1], S.Boost[refID].hpRange[2])
-    local boostContentId = nil
+    local boostContentId = Id.Weapon._NONE -- FIXME: false?
     -- TODO: Fill in the data in booster's GUI
     if refID == Id.Boost.ADD_CLONE then
         -- TODO:
@@ -177,9 +177,11 @@ function m.StartMainLoopWorld(world_state: state.Main)
         local players = game:GetService("Players"):GetPlayers()
         for _, v in ipairs(players) do
             local player_id = v.UserId
-            local shot_ttl = world_state:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) or 0
-            shot_ttl -= dt
-            world_state:set(player_id, W.TTL, math.max(shot_ttl, 0))
+            if world_state:has(player_id) then
+                local shot_ttl = world_state:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) or 0
+                shot_ttl -= dt
+                world_state:set(player_id, W.TTL, math.max(shot_ttl, 0))
+            end
         end
     end
 end

@@ -1349,8 +1349,9 @@ function MainState.constructor(self: MainInternal, ...: cid | attribute)
             error(`{arity} args after 'uid' expected, got {n}`)
         end
         local uid = if type(u) == "function" then u() else u
-        assert(uid ~= nil, "uid is nil")
-        assert(not self._masks[uid], "non-unique uid")
+        if uid == nil or self._masks[uid] then
+            error(`uid is nil or non-unique: {self:format_uid(uid)}`)
+        end
         self._masks[uid] = mask
         self._metas[uid] = meta
         attach_n(uid, ...)

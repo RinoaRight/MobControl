@@ -91,7 +91,6 @@ end
 on[Id.S2C.INIT_WORLD] = function(state: state.Replica, world_snapshot)
     WORLD:init(world_snapshot)
     WORLD:env(ENV_WORLD_READY, true)
-    log:debug("~~~", WORLD:format_state("*"))
 end
 
 on[Id.S2C.UPDATE_WORLD] = function(state: state.Replica, update_log)
