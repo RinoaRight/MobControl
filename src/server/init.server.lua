@@ -104,12 +104,13 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, .
     local current_weapon_id = player_state.state:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
     local cooldown = S.Weapon[current_weapon_id].cooldown
     player_state.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, cooldown)
-
+    WorldService.SetTTL(player_state.player_id, cooldown)
     -- TODO: set tte for the next bullet
 
     -- TODO: call verify that the bullet collides and after <bullet speed> time, reduce hp from the booster
     -- TODO: if the bullet doesn't collide, do nothing
     -- TODO: after hp <= 0, remove the booster and add the boost to the player who's bullet it was
+    -- TODO: if it is the new weapon, set it to world state as well as the player's state
 end
 
 -------------------
@@ -142,13 +143,18 @@ do
     end)
 end
 
+local function change_weapon(player_state, weapon_id: id)
+    player_state:ChangeWeapon(weapon_id)
+    -- TODO: add to player in worldstate
+end
+
 -----------------------------
 -- Player Connect
 -----------------------------
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
-        player_state:ChangeWeapon(Id.Weapon.BASIC)
+        change_weapon(player_state, Id.Weapon.BASIC)
         local _ = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     end
 end
@@ -168,7 +174,7 @@ end)
 -- Player Disconnect
 -----------------------------
 game.Players.PlayerRemoving:Connect(function(player)
-    -- TODO: remove his clones from CLONES of other's players' clients
+    -- TODO: remove his clones from CLONES of other's players' clients (send S2CC)
     local state = STATES[player.UserId]
     if not state then
         return

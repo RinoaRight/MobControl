@@ -37,7 +37,6 @@ local WorldService = require(server.WorldService)
 local S = require(shared.StaticData)
 local C = SharedConfig.PlayerState.CId
 
-
 local CLONES = {}
 
 local workerMaid = disposer.new()
@@ -168,11 +167,20 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
 end
 
 local oldPos = DRIVING_BOX_INSTANCE.Position
-function m.StartMainLoopWorld(world_state)
+function m.StartMainLoopWorld(world_state: state.Main)
     return function(dt)
         -- driving box movement
         DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
         oldPos = DRIVING_BOX_INSTANCE.Position
+
+        -- ttls of all players' weapons
+        local players = game:GetService("Players"):GetPlayers()
+        for _, v in ipairs(players) do
+            local player_id = v.UserId
+            local shot_ttl = world_state:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) or 0
+            shot_ttl -= dt
+            world_state:set(player_id, W.TTL, math.max(shot_ttl, 0))
+        end
     end
 end
 

@@ -43,6 +43,7 @@ local iota = En.iota
 local state = require(script.Parent.state)
 
 m.BULLET_BASE_DISTANCE = -80 -- == distance, in units
+m.PLAYER_BASE_HP = 100
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
@@ -70,6 +71,7 @@ World.CId = En.with_id("World.CId") {
     ServerInstance = iota'',   -- Instance
     PLayerId       = iota'',   -- number
     WeaponId       = iota'',   -- id
+    TTL            = iota'',   -- sec (*1)
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId
@@ -79,7 +81,7 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(W)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(W.Position)
+        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContent, W.Position, W.PLayerId, W.WeaponId, W.TTL)
         :build_with_replica()
 
     World.main_config = main_config

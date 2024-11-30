@@ -160,7 +160,7 @@ do
     end
 end
 
-local function fireBullet()
+local function fireBulletPlayer(player)
     local bullet
     if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
         bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
@@ -171,7 +171,9 @@ local function fireBullet()
         bullet.Size = Vector3.new(0.2, 0.2, 0.2)
         bullet.Anchored = true
     end
-    local pos = LOCAL_HUMANOID_ROOT_PART.Position + LOCAL_HUMANOID_ROOT_PART.CFrame.LookVector * 2
+    local player_char = player.Character
+    local rootPart = assert(player_char.HumanoidRootPart) :: BasePart
+    local pos = rootPart.Position + rootPart.CFrame.LookVector * 2
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
     bullet.Position = pos
     local rayOrigin = pos
@@ -180,15 +182,16 @@ local function fireBullet()
     -- TODO: refactor, get the weapon from the player Ecs
     local weapon_id = Id.Weapon.BASIC
     -- TODO: refactor speed. is to be taken from C.Weapon
-    -- TODO: take into consideration the cooldown
-    local speed = S.Weapon[weapon_id].baseSpeed + LOCAL_HUMANOID_ROOT_PART.AssemblyLinearVelocity.Magnitude
+    local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
     local ttl = roflake.time() + math.abs(SharedConfig.BULLET_BASE_DISTANCE / speed)
-    local boosterToHit, dist = Misc.IsBoosterToHit(pos, LOCAL_HUMANOID_ROOT_PART, ttl)
+    local boosterToHit, dist = Misc.IsBoosterToHit(pos, rootPart, ttl)
     if boosterToHit then
         ttl = roflake.time() + (dist / speed)
     end
-    fire_server(Id.C2S.BULLET_SHOT, pos)
     table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = ttl, booster = boosterToHit })
+    if player == LOCAL_PLAYER then
+        fire_server(Id.C2S.BULLET_SHOT, pos)
+    end
 end
 
 RunService.Heartbeat:Connect(function(dt)
@@ -259,20 +262,36 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 
-    -- TODO: fake other players' bullets? (knowing their position and weapon from world state). 
-    -- TODO: Can we create entities of other players in a player state, refenrencing them by their player_id 
+    -- TODO: fake other players' bullets? (knowing their position and weapon from world state).
+    -- TODO: Can we create entities of other players in a player state, refenrencing them by their player_id
     -- and updating their weapon_id by a S2CC event?
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
-    -- fire bullets
+    -- fire bullets for the local player
     local weaponId = PLAYER_STATE:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
     local cooldown = S.Weapon[weaponId].cooldown
     if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
         local shot_ttl = PLAYER_STATE:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) :: num
         if shot_ttl <= 0 then
-            fireBullet()
+            fireBulletPlayer(LOCAL_PLAYER)
         end
     end
+
+    -- fake bullets for other players
+    for _, player in ipairs(players) do
+        if player == LOCAL_PLAYER then
+            continue
+        end
+        local playerId = player.UserId
+        local shot_ttl = WORLD:get(playerId, W.TTL)
+        if shot_ttl and shot_ttl <= 0 then
+            log:trace("player %d fired a bullet", playerId)
+            fireBulletPlayer(player)
+        else
+            log:trace("player %* has a shot_ttl of %*", playerId, shot_ttl)
+        end
+    end
+    log:trace(WORLD.format_state, WORLD, "*")
 end)
 
 -- diable jumping

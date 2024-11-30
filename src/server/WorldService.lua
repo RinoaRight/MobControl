@@ -27,7 +27,7 @@ local __DEV__ = not workspace or game:GetService("RunService"):IsStudio()
 local shared = game.ReplicatedStorage.shared
 local server = game.ServerScriptService.server
 
-local _Id = require(shared.Id)
+local Id = require(shared.Id)
 local SharedConfig = require(shared.SharedConfig)
 local W = SharedConfig.World.CId
 local state = require(shared.state)
@@ -62,10 +62,29 @@ m.world = state.main(SharedConfig.World.main_config)
 --     -- TODO: set to playerstate, equip tool, load animation if there is not one, stop the one if there is, then play again
 --     local template = assert(S.Weapon[boostContentId].instance, "weapon model id not found")
 --     template:Clone().Parent = WeaponsFolder
-    
--- end
 
+-- end
+function m.SetTTL(player_id, ttl: num)
+    m.world:set(player_id, W.TTL, ttl)
+end
+
+function m.ChangeWeapon(player_id, weapon_id)
+    local weapon_instance = S.Weapon[weapon_id].instance
+    -- TODO: spawn instance and parent it to the player
+    m.world:set(player_id, W.WeaponId, weapon_id)
+    m.world:set(player_id, W.ServerInstance, weapon_instance)
+    m.SetTTL(player_id, S.Weapon[weapon_id].cooldown)
+end
+
+local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId, W.TTL)
 function m.AddPlayer(state)
+    local player_id = state.player_id
+    local weapon_instance = S.Weapon[Id.Weapon.BASIC].instance
+    return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, weapon_instance, Id.Weapon.BASIC, S.Weapon[Id.Weapon.BASIC].cooldown)
+end
+
+function m.RemovePlayer(guid: guid)
+    -- TODO: remove weapon instance? (if necessary)
 end
 
 function m.RemoveEntity(guid: guid)
