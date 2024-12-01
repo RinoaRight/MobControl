@@ -420,6 +420,9 @@ local function format_uid(uid: uid, pp: pp?): str
 end
 
 local function format_mask(mask: mask, names: names?)
+    if mask == nil then
+        return "[nil]"
+    end
     local out = {}
     while mask ~= 0 do
         local cid = bit32.countrz(mask)
@@ -1667,10 +1670,12 @@ function ReplicaState.update(self: ReplicaInternal, log: transactions?)
         elseif op == OP_CREATE then
             local m = log[p]; p += 1
             assert(type(m) == "number" and bit32.bor(m) == m, "invalid mask")
+            assert(mask == 0, "mask must be zero")
             mask = m
             if not create_cache[mask] then
                 create_cache[mask] = replica_create_factory(self, mask, log)
             end
+            masks[uid] = mask
             p = create_cache[mask](uid, p)
         elseif op == OP_DELETE then
             replica_delete(self, uid)
