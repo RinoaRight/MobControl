@@ -41,9 +41,12 @@ local Id = require(script.Parent.Id)
 local En = require(script.Parent.enum)
 local iota = En.iota
 local state = require(script.Parent.state)
+local disposer = require(script.Parent.disposer)
 
-m.BULLET_BASE_DISTANCE = -80 -- == distance, in units
-m.PLAYER_BASE_HP = 100
+m.BULLET_BASE_DISTANCE         = 80 -- == distance, in units (always positive)
+m.PLAYER_BASE_HP               = 100
+m.CONTROL_DISTANCE_TO_TARGET   = 1 -- == distance, in units (always positive)
+m.BULLET_RAYCAST_START_MULT    = 2 
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
@@ -66,7 +69,7 @@ World.CId = En.with_id("World.CId") {
     RefId          = iota(1),  -- id
     Value          = iota'',   -- number
     HP             = iota'',   -- number
-    BoostContent   = iota'',   -- id
+    BoostContentId = iota'',   -- id
     Position       = iota'',   -- vector
     ServerInstance = iota'',   -- Instance
     PLayerId       = iota'',   -- number
@@ -81,7 +84,8 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(W)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContent, W.Position, W.PLayerId, W.WeaponId, W.TTL)
+        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PLayerId, W.WeaponId, W.TTL)
+        :set_destructor(W.ServerInstance, disposer.dispose)
         :build_with_replica()
 
     World.main_config = main_config

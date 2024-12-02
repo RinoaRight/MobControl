@@ -71,6 +71,7 @@ local Kind = table.freeze {
     S2S             = enum.iota(110, 1, idk.MAX_KIND),
     S2C             = enum.iota'',
     C2S             = enum.iota'',
+    C2C             = enum.iota'',
     US2SS           = enum.iota'', -- unreliable broadcast
     RS2SS           = enum.iota'', -- reliable broadcast
     -- states:
@@ -593,6 +594,7 @@ export type S2S = typeof(Id.S2S)
 -----------------------------
 Id.C2S = enum.with_id "Id.C2S" {
     _NONE              = iota(Id.Kind.C2S, 0),
+    BOOSTER_HIT        = iota'',               -- booster_guid
     BULLET_SHOT        = iota'',               -- pos
 
 }

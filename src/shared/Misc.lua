@@ -27,15 +27,15 @@ m.__index = m
 m.IsBoosterToHit = function(pos: Vector3, humanoidRootPart: BasePart, ttl: num)
     local raycastParams = RaycastParams.new()
     raycastParams.CollisionGroup = "BulletCollidable"
-    local rayDirection = Vector3.new(pos.X, pos.Y, pos.Z + SharedConfig.BULLET_BASE_DISTANCE)
+    local rayDirection = Vector3.new(pos.X, pos.Y, pos.Z - SharedConfig.BULLET_BASE_DISTANCE)
     local raycastResult = workspace:Raycast(pos, rayDirection, raycastParams)
     local booster = nil
     local distance
     local raycastInstance
     if raycastResult then
-        -- boost is going to be hit
         raycastInstance = raycastResult.Instance
         if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+            booster = raycastInstance
             distance = (raycastResult.Position - pos).Magnitude
         end
     end

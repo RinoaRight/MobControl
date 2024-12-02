@@ -91,6 +91,7 @@ end
 on[Id.S2C.INIT_WORLD] = function(state: state.Replica, world_snapshot)
     WORLD:init(world_snapshot)
     WORLD:env(ENV_WORLD_READY, true)
+    log:info("world ready")
 end
 
 on[Id.S2C.UPDATE_WORLD] = function(state: state.Replica, update_log)
@@ -100,7 +101,7 @@ end
 -----------------------------
 -- Handshake
 -----------------------------
-
+local maid = Disposer.new()
 local load = function(fire: FireServer, snapshot)
     local state = PLAYER_STATE
     PLAYER_STATE:init(snapshot)
@@ -108,6 +109,11 @@ local load = function(fire: FireServer, snapshot)
     PLAYER_STATE:env(ENV_READY, true)
     log:debug("~~~", PLAYER_STATE:format_state("*"))
     -- RemoteClient.ConnectToBroadcast(on_cc)
+    for _, id in Id.C2S:ids() do
+        maid:Add(Signal.Connect(id, function(...)
+            fire(id, ...)
+        end))
+    end
     return state
 end
 
@@ -128,15 +134,22 @@ repeat
 until DRIVING_BOX_INSTANCE
 local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
 
+local ACTIVE_RUN_ANIM_TRACK
+
 -- load run animation
 local animateScript = LOCAL_CHARACTER:WaitForChild("Animate")
 local RUN_ANIM_NAME = "RunAnim"
 local RUN_ANIM = animateScript:WaitForChild("run"):WaitForChild(RUN_ANIM_NAME)
 
+local function playRunAnimTrack(runAnimTrack)
+    runAnimTrack:Play(0.100000001, 1, 2)
+end
+
 local function startRunAnim(character)
-    local runAnim = character.Humanoid:LoadAnimation(RUN_ANIM)
-    runAnim.Priority = Enum.AnimationPriority.Action4
-    runAnim:Play(0.100000001, 1, 2)
+    local runAnimTrack = character.Humanoid:LoadAnimation(RUN_ANIM)
+    runAnimTrack.Priority = Enum.AnimationPriority.Action4
+    ACTIVE_RUN_ANIM_TRACK = runAnimTrack
+    playRunAnimTrack(runAnimTrack)
 end
 
 -- TODO: wrap it into onPlayerConnect
@@ -159,7 +172,7 @@ do
     end
 end
 
-local function fireBulletPlayer(player)
+local function fireBullet(player)
     local bullet
     if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
         bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
@@ -167,16 +180,17 @@ local function fireBulletPlayer(player)
         bullet = Instance.new("Part")
         bullet.Name = "Bullet"
         bullet.CollisionGroup = "Bullet"
+        bullet.CanCollide = false
         bullet.Size = Vector3.new(0.2, 0.2, 0.2)
         bullet.Anchored = true
     end
     local player_char = player.Character
     local rootPart = assert(player_char.HumanoidRootPart) :: BasePart
-    local pos = rootPart.Position + rootPart.CFrame.LookVector * 2
+    local pos = rootPart.Position + rootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
     bullet.Position = pos
     local rayOrigin = pos
-    local rayDirection = Vector3.new(pos.X, pos.Y, pos.Z + SharedConfig.BULLET_BASE_DISTANCE)
+    local rayDirection = Vector3.new(pos.X, pos.Y, pos.Z - SharedConfig.BULLET_BASE_DISTANCE)
     local raycastResult = workspace:Raycast(rayOrigin, rayDirection)
     -- TODO: refactor, get the weapon from the player Ecs
     local weapon_id = Id.Weapon.BASIC
@@ -199,6 +213,7 @@ RunService.Heartbeat:Connect(function(dt)
         return
     end
 
+    -- move clones
     local clonesRootParts = {}
     local clonesTargets = {}
     local playerRootPart
@@ -240,6 +255,7 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 
+    -- move existing bullets
     local activeBullets = {}
     local bulletsTargets = {}
     local now = roflake.time()
@@ -249,10 +265,13 @@ RunService.Heartbeat:Connect(function(dt)
         local target = CFrame.new((bullet.CFrame.Position :: Vector3) + (bullet.CFrame.LookVector :: Vector3) * speedPerFrame)
         local booster = bulletData.booster
         local ttl = bulletData.ttl
-        if booster then
-        end
-        if (booster and booster.Position.Z >= bullet.Position.Z) or now >= ttl then
-            -- bullet collided with the booster or timed-out, delete it
+        if booster and booster.Position.Z >= bullet.Position.Z then
+            -- bullet collided with the booster, delete it and signal to server
+            Array.swap_remove(activeBulletsDataTable, i)
+            bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+            Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster.Name)
+        elseif now >= ttl then
+            -- bullet timed-out, delete it
             Array.swap_remove(activeBulletsDataTable, i)
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
         else
@@ -262,8 +281,6 @@ RunService.Heartbeat:Connect(function(dt)
     end
 
     -- TODO: fake other players' bullets? (knowing their position and weapon from world state).
-    -- TODO: Can we create entities of other players in a player state, refenrencing them by their player_id
-    -- and updating their weapon_id by a S2CC event?
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player
@@ -272,25 +289,25 @@ RunService.Heartbeat:Connect(function(dt)
     if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
         local shot_ttl = PLAYER_STATE:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) :: num
         if shot_ttl <= 0 then
-            fireBulletPlayer(LOCAL_PLAYER)
+            fireBullet(LOCAL_PLAYER)
         end
     end
 
-    -- fake bullets for other players
+    -- fake bullets' animation for other players
     for _, player in ipairs(players) do
         if player == LOCAL_PLAYER then
+            continue
+        end
+        if not WORLD:env(ENV_WORLD_READY) then
+            log:warn("WORLD is not ready yet")
             continue
         end
         local playerId = player.UserId
         local shot_ttl = WORLD:get(playerId, W.TTL)
         if shot_ttl and shot_ttl <= 0 then
-            log:trace("player %d fired a bullet", playerId)
-            fireBulletPlayer(player)
-        else
-            log:trace("player %* has a shot_ttl of %*", playerId, shot_ttl)
+            fireBullet(player)
         end
     end
-    log:trace(WORLD.format_state, WORLD, "*")
 end)
 
 -- diable jumping
@@ -306,9 +323,10 @@ infrequentLoop:start(function(dt)
         end
     end
     if not isRunAnimActive then
-        startRunAnim(LOCAL_CHARACTER)
-    end
-
-    if LOCAL_HUMANOID_ROOT_PART then
+        if not ACTIVE_RUN_ANIM_TRACK then
+            startRunAnim(LOCAL_CHARACTER)
+        else
+            playRunAnimTrack(ACTIVE_RUN_ANIM_TRACK)
+        end
     end
 end, 1, "test")
