@@ -21,18 +21,38 @@ local SharedConfig = require(shared.SharedConfig)
 local Id = require(shared.Id)
 local S = require(shared.StaticData)
 
+local Debris = game:GetService("Debris")
+
 local m = {}
 m.__index = m
 
-m.IsBoosterToHit = function(pos: Vector3, humanoidRootPart: BasePart, ttl: num)
-    local raycastParams = RaycastParams.new()
-    raycastParams.CollisionGroup = "BulletCollidable"
-    local rayDirection = Vector3.new(pos.X, pos.Y, pos.Z - SharedConfig.BULLET_BASE_DISTANCE)
+local raycastParams = RaycastParams.new()
+-- raycastParams.CollisionGroup = "BulletCollidable"
+-- raycastParams.FilterType = Enum.RaycastFilterType.Include
+local blacklist = {} :: { Instance }
+
+m.AddPlayerCharToRaycastFilter = function(instance)
+    table.insert(blacklist, instance)
+end
+
+m.IsBoosterToHit = function(pos: Vector3)
+    raycastParams.FilterDescendantsInstances = blacklist
+    local rayDirection = Vector3.new(0, 0, -SharedConfig.BULLET_BASE_DISTANCE)
     local raycastResult = workspace:Raycast(pos, rayDirection, raycastParams)
+    if "debug" then
+        local ray = Instance.new("Part")
+        ray.CanCollide = false
+        ray.Parent = workspace
+        ray.Anchored = true
+        ray.Size = Vector3.new(.1, .1, 2 * rayDirection.Magnitude)
+        ray.CFrame = CFrame.new(pos, pos + rayDirection)
+        Debris:AddItem(ray, 3)
+    end
     local booster = nil
     local distance
     local raycastInstance
     if raycastResult then
+        print("KKKKKKKKKKKKKKKK", raycastResult.Instance.Name)
         raycastInstance = raycastResult.Instance
         if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
             booster = raycastInstance

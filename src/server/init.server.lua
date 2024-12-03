@@ -97,20 +97,18 @@ end)
 -----------------------------
 local on = {} :: Remote.OnRemoteEvent<PlayerState>
 
-on[Id.C2S._NONE] = function(player_state, event_id, ...)
-    log:debug(Id.C2S._NONE, player_state.player_id, event_id, ...)
+on[Id.C2S._NONE] = function(player_state, ...)
+    log:debug(Id.C2S._NONE, player_state.player_id, ...)
 end
 
--- TODO: refactor: "event_id" parameter is not being passed automatically. Why do we need it? Currently ther is an error in this regard
-on[Id.C2S.BOOSTER_HIT] = function(player_state, event_id, booster_guid, ...)
+on[Id.C2S.BOOSTER_HIT] = function(player_state, booster_guid, ...)
     -- check if a booster is about to be hit
     local humanoidRootPart = player_state.character:FindFirstChild("HumanoidRootPart") :: BasePart
     if humanoidRootPart then
         local pos = humanoidRootPart.Position + humanoidRootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
         local current_weapon_id = player_state.state:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
-        local shot_ttl = player_state.state:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) or 0
-        local boosterToHit, _distance = Misc.IsBoosterToHit(pos, humanoidRootPart, shot_ttl)
-        if boosterToHit.Name == booster_guid then
+        local boosterToHit, _distance = Misc.IsBoosterToHit(pos)
+        if boosterToHit and boosterToHit.Name == booster_guid and WorldService.world:has(booster_guid) then
             -- the hit is legit
             local dmg = S.Weapon[current_weapon_id].damage
             local booster_hp = WorldService.world:get(boosterToHit.Name, W.HP)

@@ -66,6 +66,7 @@ local ENV_FIRE_SERVER = "FIRE_SERVER"
 local ENV_WORLD_READY = "WORLD_READY"
 
 local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
+Misc.AddPlayerCharToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
 local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
 local activeBulletsDataTable = {}
 
@@ -132,6 +133,7 @@ local DRIVING_BOX_INSTANCE = workspace:FindFirstChild("DrivingBox")
 repeat
     wait()
 until DRIVING_BOX_INSTANCE
+Misc.AddPlayerCharToRaycastFilter(DRIVING_BOX_INSTANCE)
 local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
 
 local ACTIVE_RUN_ANIM_TRACK
@@ -189,16 +191,13 @@ local function fireBullet(player)
     local pos = rootPart.Position + rootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
     bullet.Position = pos
-    local rayOrigin = pos
-    local rayDirection = Vector3.new(pos.X, pos.Y, pos.Z - SharedConfig.BULLET_BASE_DISTANCE)
-    local raycastResult = workspace:Raycast(rayOrigin, rayDirection)
     -- TODO: refactor, get the weapon from the player Ecs
     local weapon_id = Id.Weapon.BASIC
     -- TODO: refactor speed. is to be taken from C.Weapon
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
     local ttl = roflake.time() + math.abs(SharedConfig.BULLET_BASE_DISTANCE / speed)
-    local boosterToHit, dist = Misc.IsBoosterToHit(pos, rootPart, ttl)
-    if boosterToHit then
+    local boosterToHit, dist = Misc.IsBoosterToHit(pos)
+     if boosterToHit then
         ttl = roflake.time() + (dist / speed)
     end
     table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = ttl, booster = boosterToHit })
@@ -261,8 +260,7 @@ RunService.Heartbeat:Connect(function(dt)
     local now = roflake.time()
     for i, bulletData in ipairs(activeBulletsDataTable) do
         local bullet = bulletData.bullet :: Part
-        local speedPerFrame = (bulletData.speed :: num) / 24
-        local target = CFrame.new((bullet.CFrame.Position :: Vector3) + (bullet.CFrame.LookVector :: Vector3) * speedPerFrame)
+        local target = CFrame.new((bullet.CFrame.Position :: Vector3) + (bullet.CFrame.LookVector :: Vector3))
         local booster = bulletData.booster
         local ttl = bulletData.ttl
         if booster and booster.Position.Z >= bullet.Position.Z then
@@ -287,7 +285,7 @@ RunService.Heartbeat:Connect(function(dt)
     local weaponId = PLAYER_STATE:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
     local cooldown = S.Weapon[weaponId].cooldown
     if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-        local shot_ttl = PLAYER_STATE:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) :: num
+        local shot_ttl = PLAYER_STATE:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) or 0 :: num
         if shot_ttl <= 0 then
             fireBullet(LOCAL_PLAYER)
         end

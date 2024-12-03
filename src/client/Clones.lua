@@ -27,6 +27,7 @@ local _iota = En.iota
 local _flag = En.flag
 local disposer = require(shared.disposer)
 local state = require(shared.state)
+local Misc = require(shared.Misc)
 
 local m = {}
 
@@ -53,6 +54,7 @@ function m.CreateClone(playerId, playerCharacter: Model)
         local cloneRootPart = cloneChar:WaitForChild("HumanoidRootPart", 10) :: Part
         -- TODO: formation
         cloneRootPart.CFrame = CFrame.new(humanoidRootPart.Position.X + 5, humanoidRootPart.Position.Y, humanoidRootPart.Position.Z + 20)
+        Misc.AddPlayerCharToRaycastFilter(cloneChar)
     end)
 end
 

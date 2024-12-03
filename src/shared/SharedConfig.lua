@@ -43,7 +43,7 @@ local iota = En.iota
 local state = require(script.Parent.state)
 local disposer = require(script.Parent.disposer)
 
-m.BULLET_BASE_DISTANCE         = 80 -- == distance, in units (always positive)
+m.BULLET_BASE_DISTANCE         = 120 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP               = 100
 m.CONTROL_DISTANCE_TO_TARGET   = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT    = 2 
