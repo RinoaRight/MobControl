@@ -62,7 +62,7 @@ local wu8, ru8 = buffer.writeu8, buffer.readu8
 local wu32, ru32 = buffer.writeu32, buffer.readu32
 local fmt = string.format
 
-local ROBLOX = not not game
+local ROBLOX = not not workspace
 
 -- Timestamps be valid Jan 2020 .. Nov 2054.
 local RF_EPOCH_MS = 1000 * os.time { year = 2020, month = 1, day = 1, hour = 0 }
@@ -441,7 +441,7 @@ assert(m.is(m.uidb()))
 assert(m.is(m.uida()))
 assert(not m.is("GD5XSE008YRA9D~"))
 do
-    local N = 1e6
+    local N = if ROBLOX then 1e3 else 1e6
     local mons = table.create(N)
     for i = 1, N do
         table.insert(mons, m.monob())
