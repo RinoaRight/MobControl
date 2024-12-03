@@ -29,9 +29,14 @@ local En = require(shared.enum)
 local _iota = En.iota
 local _flag = En.flag
 local disposer = require(shared.disposer)
-
-
-type PlayerState = PSS.PlayerState
+local SharedConfig = require(shared.SharedConfig)
+local W = SharedConfig.World.CId
+local state = require(shared.state)
+local roflake = require(shared.roflake)
+local WorldService = require(server.WorldService)
+local S = require(shared.StaticData)
+local C = SharedConfig.PlayerState.CId
+local Misc = require(shared.Misc)
 
 local CLONES = {}
 
@@ -41,51 +46,88 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_INIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
+local BOOSTER_TEMPLATE = assert(ReplicatedStorage.Booster)
+local BOOSTER_OFFSET_X = 220
+local BOOSTER_OFFSET_Y = 9
+local BOOSTER_OFFSET_Z = -50
+local BOOSTER_GAP = 40
 
-local FIELD_NAMES = En.with_id "*" {
+local FIELD_NAMES = En.with_id("*")({
     FIRST = 1,
     SECOND = 2,
     MIDDLE = 3,
     FOURTH = 4,
     FIFTH = 5,
-}
+})
 
 -- stylua: ignore
 local GROUND_UNITS = {
-    {                                             zOffset = GROUND_INIT_LENGTH * -2 },
-    {                                             zOffset = -GROUND_INIT_LENGTH},
-    { unit = GROUND_UNIT_FOLDER.GroundUnit_Start, zOffset = 0},
-    {                                             zOffset = GROUND_INIT_LENGTH },
     {                                             zOffset = GROUND_INIT_LENGTH * 2 },
+    {                                             zOffset = GROUND_INIT_LENGTH},
+    { unit = GROUND_UNIT_FOLDER.GroundUnit_Start, zOffset = 0},
+    {                                             zOffset = -GROUND_INIT_LENGTH },
+    {                                             zOffset = GROUND_INIT_LENGTH * -2 },
 }
 local startingPos = GROUND_UNITS[3].unit.Position
 
 local DRIVING_BOX_TEMPLATE = assert(ReplicatedStorage.DrivingBox)
 local DRIVING_BOX_INSTANCE = DRIVING_BOX_TEMPLATE:Clone()
-local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
+local DRIVING_BOX_FRONT = assert(DRIVING_BOX_INSTANCE.PartFront)
 DRIVING_BOX_INSTANCE.Parent = game.Workspace
 local DRIVING_BOX_ATT = Instance.new("Attachment") :: Attachment
 DRIVING_BOX_ATT.Parent = DRIVING_BOX_FRONT
 
-
 local function deleteGroundUnit(groundUnit: Part, index: int)
-    GROUND_UNITS[index].unit = nil
+    local children = groundUnit:GetChildren()
+    for _, v in ipairs(children) do
+        if v:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+            WorldService.RemoveEntity(v.Name)
+        end
+    end
     groundUnit:Destroy()
 end
 
-local function spawnGroundUnit(groundUnit: Part, index: int, refPos: Vector3)
-    GROUND_UNITS[index].unit = groundUnit
-    groundUnit.CFrame = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
-    local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
-    trigger.CFrame = CFrame.new(9, 20.5, groundUnit.Position.Z + 245)
-    groundUnit.Parent = GROUND_UNIT_FOLDER
+local function setBooster(instance: BasePart)
+    -- TODO: actual range of selection
+    local refID = math.random(Id.Boost.ADD_CLONE, Id.Boost.ADD_CLONE)
+    local value = math.random(S.Boost[refID].valueRange[1], S.Boost[refID].valueRange[2])
+    local hp = math.random(S.Boost[refID].hpRange[1], S.Boost[refID].hpRange[2])
+    local boostContentId = Id.Weapon._NONE -- FIXME: false?
+    -- TODO: Fill in the data in booster's GUI
+    if refID == Id.Boost.ADD_CLONE then
+        -- TODO:
+    elseif refID == Id.Boost.BULLET_SPEED_MULT then
+        -- TODO:
+    elseif refID == Id.Boost.CHANGE_WEAPON then
+        -- TODO: actual range of selection
+        boostContentId = math.random(Id.Weapon.DEFAULT, Id.Weapon.DEFAULT)
+    end
+    instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
+    instance.CollisionGroup = "BulletCollidable"
+    WorldService.AddBooster(instance, refID, value, hp, boostContentId)
 end
 
-local function subscribeTrigger(index, groundUnit)
+local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)
+    GROUND_UNITS[index].unit = groundUnit
+    local unitPos = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
+    groundUnit.CFrame = unitPos
+    local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
+    trigger.CFrame = CFrame.new(9, 20.5, unitPos.Z - 245)
+    groundUnit.Parent = GROUND_UNIT_FOLDER
+    groundUnit.AssemblyLinearVelocity = groundUnit.CFrame.LookVector * 30
+    for i = 1, 12 do --12 boosters
+        local booster = BOOSTER_TEMPLATE:Clone()
+        booster.CFrame = CFrame.new(BOOSTER_OFFSET_X - BOOSTER_GAP * (i - 1), BOOSTER_OFFSET_Y, unitPos.Z + BOOSTER_OFFSET_Z)
+        booster.Parent = groundUnit
+        setBooster(booster)
+    end
+end
+
+local function subscribeTrigger(worldState: state.Main, index, groundUnit)
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     workerMaid.trigger = trigger.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
-            subscribeTrigger(FIELD_NAMES.FOURTH, GROUND_UNITS[FIELD_NAMES.FOURTH].unit)
+            subscribeTrigger(worldState, FIELD_NAMES.FOURTH, GROUND_UNITS[FIELD_NAMES.FOURTH].unit)
             trigger:Destroy()
             deleteGroundUnit(GROUND_UNITS[FIELD_NAMES.FIRST].unit, FIELD_NAMES.FIRST)
             -- shift all other units in the data table accordingly
@@ -94,72 +136,90 @@ local function subscribeTrigger(index, groundUnit)
             GROUND_UNITS[FIELD_NAMES.MIDDLE].unit = GROUND_UNITS[FIELD_NAMES.FOURTH].unit
             GROUND_UNITS[FIELD_NAMES.FOURTH].unit = GROUND_UNITS[FIELD_NAMES.FIFTH].unit
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
-            spawnGroundUnit(GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
+            spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
         end
     end)
 end
 
--- init first batch of ground units and fill in the data table
-local firstUnit = GROUND_UNIT_TEMPLATE:Clone()
-local secondUnit = GROUND_UNIT_TEMPLATE:Clone()
-local fourthUnit = GROUND_UNIT_TEMPLATE:Clone()
-local fifthUnit = GROUND_UNIT_TEMPLATE:Clone()
-subscribeTrigger(FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
-spawnGroundUnit(firstUnit, FIELD_NAMES.FIRST, startingPos)
-spawnGroundUnit(secondUnit, FIELD_NAMES.SECOND, startingPos)
-spawnGroundUnit(fourthUnit, FIELD_NAMES.FOURTH, startingPos)
-spawnGroundUnit(fifthUnit, FIELD_NAMES.FIFTH, startingPos)
-
-local function onDescendantAdded(descendant)
-	-- Set collision group for any part descendant
-	if descendant:IsA("BasePart") then
-		-- descendant.CollisionGroup = "Clones"
-	end
-end
-
-local function onCloneCharacterAdded(character)
-	-- Process existing and new descendants for physics setup
-	for _, descendant in character:GetDescendants() do
-		onDescendantAdded(descendant)
-	end
-	character.DescendantAdded:Connect(onDescendantAdded)
-end
-
-
 local m = {}
 
-function m.init(player_state: PlayerState)
-    local playerAtt = Instance.new("Attachment") :: Attachment
-    local rootPart = player_state.root
-    playerAtt.CFrame = (rootPart :: Part).CFrame
-    playerAtt.Parent = rootPart
-    local alignConst = Instance.new("AlignOrientation")
-    alignConst.Parent = workspace
-    alignConst.Attachment0 = playerAtt
-    alignConst.Attachment1 = DRIVING_BOX_ATT
+function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
+    -- init first batch of ground units and fill in the data table
+    local firstUnit = GROUND_UNIT_TEMPLATE:Clone()
+    local secondUnit = GROUND_UNIT_TEMPLATE:Clone()
+    local fourthUnit = GROUND_UNIT_TEMPLATE:Clone()
+    local fifthUnit = GROUND_UNIT_TEMPLATE:Clone()
 
-    -- clone the player's character
-    local character = player_state.character
-    character.Archivable = true
-    local cloneChar = character:Clone()
-    cloneChar.Name = "Clone"
-    onCloneCharacterAdded(cloneChar)
-    cloneChar.Parent = workspace.Clones
-    table.insert(CLONES, cloneChar)
-    local _cloneHumanoid = cloneChar:WaitForChild("Humanoid", 10) :: Humanoid
-    local cloneRootPart= cloneChar:WaitForChild("HumanoidRootPart", 10) :: Part
-    cloneRootPart.CFrame = CFrame.new(rootPart.Position.X + 5, rootPart.Position.Y, rootPart.Position.Z + 20) * CFrame.Angles(0, math.rad(180), 0)
-    local cloneAtt = Instance.new("Attachment") :: Attachment
-    cloneAtt.CFrame = (cloneRootPart :: Part).CFrame
-    cloneAtt.Parent = cloneRootPart
-    local cloneAlignConst = Instance.new("AlignOrientation")
-    cloneAlignConst.Name = "CloneAlignConstraint"
-    cloneAlignConst.Parent = workspace
-    cloneAlignConst.Attachment0 = cloneAtt
-    cloneAlignConst.Attachment1 = playerAtt
+    -- init first ground unit
+    subscribeTrigger(worldState, FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
+    local boosters = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit:GetChildren()
+    for i, booster in ipairs(boosters) do
+        if booster:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+            setBooster(booster)
+        end
+    end
+
+    -- spawn the rest of the first batch of ground units
+    spawnGroundUnit(worldState, firstUnit, FIELD_NAMES.FIRST, startingPos)
+    spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
+    spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
+    spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
 end
 
+function m.StartMainLoopWorld(world_state: state.Main)
+    local oldPos = DRIVING_BOX_INSTANCE.Position
+    return function(dt)
+        -- allow first ground unit to "move". TODO: should be executed only once (for the first unit), 
+        -- but at the moment when this loop has started. Think of refactoring.
+        GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
 
+        -- driving box movement
+        DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
+        oldPos = DRIVING_BOX_INSTANCE.Position
+
+        -- ttls of all players' weapons
+        local players = game:GetService("Players"):GetPlayers()
+        for _, v in ipairs(players) do
+            local player_id = v.UserId
+            if world_state:has(player_id) then
+                local shot_ttl = world_state:get(player_id, C.TTL) or 0
+                shot_ttl -= dt
+                world_state:set(player_id, W.TTL, math.max(shot_ttl, 0))
+            end
+        end
+    end
+end
+
+function m.StartMainLoopPlayer(player_state: PSS.PlayerState)
+    return function(dt)
+        -- weapon cooldown
+        local shot_ttl = player_state.state:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) :: num
+        shot_ttl -= dt
+        player_state.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, math.max(shot_ttl, 0))
+    end
+end
+
+function m.GiveBoostToPlayer(playerState:PSS.PlayerState, boost_id:id)
+    -- TODO:
+end
+
+function m.SetPlayerAlignment(player)
+    TaskPool.spawn(function()
+        local playerAtt = Instance.new("Attachment") :: Attachment
+        repeat
+            wait()
+        until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        local playerCharacter = player.Character :: Model
+        local playerRootPart = player.Character.HumanoidRootPart :: Part
+        playerAtt.CFrame = playerRootPart.CFrame
+        playerAtt.Parent = playerRootPart
+        local playerAlignConst = Instance.new("AlignOrientation")
+        playerAlignConst.Name = "PlayerAlignConstraint"
+        playerAlignConst.Parent = playerCharacter
+        playerAlignConst.Attachment0 = playerAtt
+        playerAlignConst.Attachment1 = DRIVING_BOX_ATT
+    end)
+end
 
 print("[Game Module -- started]")
 return m

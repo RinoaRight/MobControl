@@ -75,7 +75,7 @@
 ]=]
 
 local __DEV__ = _G.__DEV__ or true
-local __GLOBAL_LOG_LEVEL__: int = _G.__LOG_LEVEL__ or 1
+local __GLOBAL_LOG_LEVEL__: int = _G.__LOG_LEVEL__ or 2
 
 type str = string
 type bool = boolean

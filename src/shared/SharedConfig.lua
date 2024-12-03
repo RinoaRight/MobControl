@@ -41,6 +41,15 @@ local Id = require(script.Parent.Id)
 local En = require(script.Parent.enum)
 local iota = En.iota
 local state = require(script.Parent.state)
+local disposer = require(script.Parent.disposer)
+
+m.BULLET_BASE_DISTANCE         = 120 -- == distance, in units (always positive)
+m.PLAYER_BASE_HP               = 100
+m.CONTROL_DISTANCE_TO_TARGET   = 1 -- == distance, in units (always positive)
+m.BULLET_RAYCAST_START_MULT    = 2 
+m.ATTRIBUTES_NAMES = {
+    [Id.Kind.Boost] = "BOOST",
+}
 
 -----------------------------
 -- WorldState
@@ -57,7 +66,15 @@ m.World = World
 -----------------------------
 -- stylua: ignore
 World.CId = En.with_id("World.CId") {
-    Position  = iota(0), -- vector
+    RefId          = iota(1),  -- id
+    Value          = iota'',   -- number
+    HP             = iota'',   -- number
+    BoostContentId = iota'',   -- id
+    Position       = iota'',   -- vector
+    ServerInstance = iota'',   -- Instance
+    PLayerId       = iota'',   -- number
+    WeaponId       = iota'',   -- id
+    TTL            = iota'',   -- sec (*1)
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId
@@ -67,7 +84,8 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(W)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(W.Position)
+        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PLayerId, W.WeaponId, W.TTL)
+        :set_destructor(W.ServerInstance, disposer.dispose)
         :build_with_replica()
 
     World.main_config = main_config
@@ -88,7 +106,7 @@ m.PlayerState = PlayerState
 -- Components
 -------------------
 PlayerState.CId = En.with_id("PlayerState.Cid") {
-    Id              = iota(0, 1, 31),
+    RefId           = iota(0, 1, 31),
     -- timers
     TTL             = iota'', -- sec (*1)
     TTE             = iota'', -- epoch
@@ -97,6 +115,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     Total           = iota'', -- number
     Bitset          = iota'', -- uint32
     Instance        = iota'', -- Instance(client)
+    ValueId         = iota'', -- id
     WorldGui        = iota'', -- any
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).
@@ -109,8 +128,8 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(C.Id, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
-        :set_persistent_flag(C.Id, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
         :build_with_replica()
 
     PlayerState.main_config = main_config

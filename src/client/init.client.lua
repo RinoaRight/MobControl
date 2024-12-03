@@ -30,7 +30,9 @@ local DEBUG = false
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local shared = ReplicatedStorage.shared
+local Array = require(shared.array)
 local Id = require(shared.Id)
+local S = require(shared.StaticData)
 
 local logger = require(shared.logger)
 
@@ -38,6 +40,7 @@ local log = logger.create("init.client"):set_delimiter(" "):set_prettifier(Id.pp
 local trace = log:make_level_logger("trace")
 
 local perfn = require(shared.perfn)
+local roflake = require(shared.roflake)
 local state = require(shared.state)
 local Remote = require(shared.Remote)
 local RemoteClient = Remote.Client :: Remote.Client<state.Replica>
@@ -51,15 +54,21 @@ local iota = En.iota
 local Stm = require(shared.STM)
 local Signal = require(shared.signal)
 local supervisor = require(shared.supervisor)
+local Misc = require(shared.Misc)
 local SoundService = game:GetService("SoundService")
 local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
-
+local UserInputService = game:GetService("UserInputService")
+local Clones = require(script.Clones)
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
 local ENV_WORLD_READY = "WORLD_READY"
 
+local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
+Misc.AddPlayerCharToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
+local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
+local activeBulletsDataTable = {}
 
 -----------------------------
 -- States
@@ -83,7 +92,7 @@ end
 on[Id.S2C.INIT_WORLD] = function(state: state.Replica, world_snapshot)
     WORLD:init(world_snapshot)
     WORLD:env(ENV_WORLD_READY, true)
-    log:debug("~~~", WORLD:format_state("*"))
+    log:info("world ready")
 end
 
 on[Id.S2C.UPDATE_WORLD] = function(state: state.Replica, update_log)
@@ -93,7 +102,7 @@ end
 -----------------------------
 -- Handshake
 -----------------------------
-
+local maid = Disposer.new()
 local load = function(fire: FireServer, snapshot)
     local state = PLAYER_STATE
     PLAYER_STATE:init(snapshot)
@@ -101,69 +110,207 @@ local load = function(fire: FireServer, snapshot)
     PLAYER_STATE:env(ENV_READY, true)
     log:debug("~~~", PLAYER_STATE:format_state("*"))
     -- RemoteClient.ConnectToBroadcast(on_cc)
-     return state
+    for _, id in Id.C2S:ids() do
+        maid:Add(Signal.Connect(id, function(...)
+            fire(id, ...)
+        end))
+    end
+    return state
 end
 
-local _fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
-
+local fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local LOCAL_PLAYER = Players.LocalPlayer
 repeat
     wait()
 until LOCAL_PLAYER.Character
 local LOCAL_CHARACTER = LOCAL_PLAYER.Character
 local LOCAL_HUMANOID = LOCAL_PLAYER.Character:WaitForChild("Humanoid")
--- local LOCAL_HUMANOID_ROOT_PART = LOCAL_PLAYER.Character:WaitForChild("HumanoidRootPart")
+local LOCAL_HUMANOID_ROOT_PART = assert(LOCAL_PLAYER.Character:WaitForChild("HumanoidRootPart"))
 -- local PLAYER_SPAWN_POS = LOCAL_CHARACTER.Position
 local DRIVING_BOX_INSTANCE = workspace:FindFirstChild("DrivingBox")
 repeat
     wait()
 until DRIVING_BOX_INSTANCE
+Misc.AddPlayerCharToRaycastFilter(DRIVING_BOX_INSTANCE)
 local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
 
+local ACTIVE_RUN_ANIM_TRACK
 
 -- load run animation
 local animateScript = LOCAL_CHARACTER:WaitForChild("Animate")
 local RUN_ANIM_NAME = "RunAnim"
 local RUN_ANIM = animateScript:WaitForChild("run"):WaitForChild(RUN_ANIM_NAME)
 
-local function startRunAnim(character)
-    local runAnim = character.Humanoid:LoadAnimation(RUN_ANIM)
-    runAnim:Play(0.100000001, 1, 2)
+local function playRunAnimTrack(runAnimTrack)
+    runAnimTrack:Play(0.100000001, 1, 2)
 end
 
-startRunAnim(LOCAL_CHARACTER)
+local function startRunAnim(character)
+    local runAnimTrack = character.Humanoid:LoadAnimation(RUN_ANIM)
+    runAnimTrack.Priority = Enum.AnimationPriority.Action4
+    ACTIVE_RUN_ANIM_TRACK = runAnimTrack
+    playRunAnimTrack(runAnimTrack)
+end
 
+-- TODO: wrap it into onPlayerConnect
+do
+    local LOCAL_PLAYER = game.Players.LocalPlayer
+    local DRIVING_BOX_ATT = workspace:WaitForChild("DrivingBox", 10):FindFirstChild("Attachment")
+    local playerAtt = Instance.new("Attachment") :: Attachment
+    playerAtt.Name = "CloneGuideAtt"
+    playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
+    playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
+    local alignConst = Instance.new("AlignOrientation")
+    alignConst.Parent = workspace
+    alignConst.Attachment0 = playerAtt
+    alignConst.Attachment1 = DRIVING_BOX_ATT
+    startRunAnim(LOCAL_CHARACTER)
+    -- TODO: refactor = move it from here to a loop where all clones of all players are assigned their pos
+    local players = game:GetService("Players"):GetPlayers()
+    for _, player in ipairs(players) do
+        Clones.CreateClone(player.UserId, player.Character)
+    end
+end
 
-local oldPos = DRIVING_BOX_INSTANCE.Position
+local function fireBullet(player)
+    local bullet
+    if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
+        bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
+    else
+        bullet = Instance.new("Part")
+        bullet.Name = "Bullet"
+        bullet.CollisionGroup = "Bullet"
+        bullet.CanCollide = false
+        bullet.Size = Vector3.new(0.2, 0.2, 0.2)
+        bullet.Anchored = true
+    end
+    local player_char = player.Character
+    local rootPart = assert(player_char.HumanoidRootPart) :: BasePart
+    local pos = rootPart.Position + rootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
+    bullet.Parent = ACTIVE_BULLETS_REPOSITORY
+    bullet.Position = pos
+    -- TODO: refactor, get the weapon from the player Ecs
+    local weapon_id = Id.Weapon.BASIC
+    -- TODO: refactor speed. is to be taken from C.Weapon
+    local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
+    local ttl = roflake.time() + math.abs(SharedConfig.BULLET_BASE_DISTANCE / speed)
+    local boosterToHit, dist = Misc.IsBoosterToHit(pos)
+     if boosterToHit then
+        ttl = roflake.time() + (dist / speed)
+    end
+    table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = ttl, booster = boosterToHit })
+    if player == LOCAL_PLAYER then
+        fire_server(Id.C2S.BULLET_SHOT, pos)
+    end
+end
+
 RunService.Heartbeat:Connect(function(dt)
-    DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z + 0.5)
-    oldPos = DRIVING_BOX_INSTANCE.Position
     local players = game:GetService("Players"):GetPlayers()
     if #players < 1 then
         return
     end
 
-    local clones = workspace.Clones:GetChildren()
-    if #clones > 0 then
-        local playerRootPart
-        for _, player in ipairs(players) do
-            local char = player.Character
-            playerRootPart = assert(char.HumanoidRootPart) :: Part
+    -- move clones
+    local clonesRootParts = {}
+    local clonesTargets = {}
+    local playerRootPart
+    for _, player in ipairs(players) do
+        local char = player.Character
+        playerRootPart = assert(char.HumanoidRootPart) :: Part
+        local clonesFolder = char:FindFirstChild("Clones")
+        if not clonesFolder then
+            continue
         end
-        -- refactor this logic to Ecs to make clones follow its corresponding player
+        local clones = clonesFolder:GetChildren()
+        if #clones < 1 then
+            continue
+        end
         for i, clone in ipairs(clones) do
             local pos = playerRootPart.Position
-            local cloneRootPart = clone.HumanoidRootPart
-            -- TODO: refactor formation
-            cloneRootPart.CFrame = CFrame.new(pos.X - 5*i, pos.Y, pos.Z - 5) * CFrame.Angles(0, math.rad(180), 0)
+            local cloneRootPart = clone:FindFirstChild("HumanoidRootPart")
+            if not cloneRootPart then
+                continue
+            end
+            local isRunAnimActive = false
+            local cloneAnimTracks = clone.Humanoid:GetPlayingAnimationTracks()
+            for _, v in ipairs(cloneAnimTracks) do
+                if v.Name == RUN_ANIM_NAME then
+                    isRunAnimActive = true
+                    break
+                end
+            end
+            if not isRunAnimActive then
+                startRunAnim(clone)
+            end
+
+            local clonePos = Vector3.new(pos.X - 5 * i, pos.Y, pos.Z + 5)
+            local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
+            -- cloneRootPart.CFrame = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
+            table.insert(clonesRootParts, cloneRootPart)
+            table.insert(clonesTargets, cloneTarget)
+            workspace:BulkMoveTo(clonesRootParts, clonesTargets, Enum.BulkMoveMode.FireCFrameChanged)
+        end
+    end
+
+    -- move existing bullets
+    local activeBullets = {}
+    local bulletsTargets = {}
+    local now = roflake.time()
+    for i, bulletData in ipairs(activeBulletsDataTable) do
+        local bullet = bulletData.bullet :: Part
+        local target = CFrame.new((bullet.CFrame.Position :: Vector3) + (bullet.CFrame.LookVector :: Vector3))
+        local booster = bulletData.booster
+        local ttl = bulletData.ttl
+        if booster and booster.Position.Z >= bullet.Position.Z then
+            -- bullet collided with the booster, delete it and signal to server
+            Array.swap_remove(activeBulletsDataTable, i)
+            bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+            Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster.Name)
+        elseif now >= ttl then
+            -- bullet timed-out, delete it
+            Array.swap_remove(activeBulletsDataTable, i)
+            bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+        else
+            table.insert(activeBullets, bullet)
+            table.insert(bulletsTargets, target)
+        end
+    end
+
+    -- TODO: fake other players' bullets? (knowing their position and weapon from world state).
+    workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
+
+    -- fire bullets for the local player
+    local weaponId = PLAYER_STATE:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
+    local cooldown = S.Weapon[weaponId].cooldown
+    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+        local shot_ttl = PLAYER_STATE:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) or 0 :: num
+        if shot_ttl <= 0 then
+            fireBullet(LOCAL_PLAYER)
+        end
+    end
+
+    -- fake bullets' animation for other players
+    for _, player in ipairs(players) do
+        if player == LOCAL_PLAYER then
+            continue
+        end
+        if not WORLD:env(ENV_WORLD_READY) then
+            log:warn("WORLD is not ready yet")
+            continue
+        end
+        local playerId = player.UserId
+        local shot_ttl = WORLD:get(playerId, W.TTL)
+        if shot_ttl and shot_ttl <= 0 then
+            fireBullet(player)
         end
     end
 end)
 
--- move driver box
+-- diable jumping
+LOCAL_HUMANOID.JumpPower = 0
+
 local isRunAnimActive
 local infrequentLoop = supervisor.create(1, "client-infrequent")
 infrequentLoop:start(function(dt)
@@ -174,16 +321,10 @@ infrequentLoop:start(function(dt)
         end
     end
     if not isRunAnimActive then
-        startRunAnim(LOCAL_CHARACTER)
-    end
-
-    local clones = workspace.Clones:GetChildren()
-    if #clones > 0 then
-        for i, clone in ipairs(clones) do
-            local cloneAnimTracks = clone.Humanoid:GetPlayingAnimationTracks()
-            if #cloneAnimTracks < 1 then
-                startRunAnim(clone)
-            end
+        if not ACTIVE_RUN_ANIM_TRACK then
+            startRunAnim(LOCAL_CHARACTER)
+        else
+            playRunAnimTrack(ACTIVE_RUN_ANIM_TRACK)
         end
     end
 end, 1, "test")

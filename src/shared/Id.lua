@@ -20,8 +20,8 @@ type u16 = uint
 type kind = idk.kind
 type ord = idk.ord
 type idk = idk.idk
-type id = idk.id
-type flag = idk.flag
+export type id = idk.id
+export type flag = idk.flag
 
 type array<a> = { a }
 type table = { [any]: any }
@@ -49,28 +49,34 @@ Id.__index = Id
 -----------------------------
 -- stylua: ignore
 local Kind = table.freeze {
-    NONE        = enum.iota(idk.MIN_KIND, 1, idk.MAX_KIND),
-    Struct      = enum.iota'',
-    ServerError = enum.iota'',
-    Pet         = enum.iota'',
-    Egg         = enum.iota'',
-    Area        = enum.iota'',
-    Effect      = enum.iota'',
-    Ability     = enum.iota'',
-    Product     = enum.iota'',
-    Pass        = enum.iota'',
-    PassF       = enum.iota'',
-    Countable   = enum.iota'',
-    STMState    = enum.iota'',
+    NONE            = enum.iota(idk.MIN_KIND, 1, idk.MAX_KIND),
+    Struct          = enum.iota'',
+    ServerError     = enum.iota'',
+    Boost           = enum.iota'',
+    Pet             = enum.iota'',
+    Egg             = enum.iota'',
+    Area            = enum.iota'',
+    Effect          = enum.iota'',
+    Ability         = enum.iota'',
+    Animation       = enum.iota'',
+    Product         = enum.iota'',
+    Pass            = enum.iota'',
+    PassF           = enum.iota'',
+    Countable       = enum.iota'',
+    Weapon          = enum.iota'',
+    PlayerStats     = enum.iota'',
+    TimedEvent      = enum.iota'',
+    STMState        = enum.iota'',
     -- protocol:
-    S2S         = enum.iota(110, 1, idk.MAX_KIND),
-    S2C         = enum.iota'',
-    C2S         = enum.iota'',
-    US2SS       = enum.iota'', -- unreliable broadcast
-    RS2SS       = enum.iota'', -- reliable broadcast
+    S2S             = enum.iota(110, 1, idk.MAX_KIND),
+    S2C             = enum.iota'',
+    C2S             = enum.iota'',
+    C2C             = enum.iota'',
+    US2SS           = enum.iota'', -- unreliable broadcast
+    RS2SS           = enum.iota'', -- reliable broadcast
     -- states:
-    Quest       = "Quest",
-    TestF       = enum.iota''
+    Quest           = "Quest",
+    TestF           = enum.iota''
 }
 Id.Kind = Kind
 
@@ -366,6 +372,19 @@ export type Struct = typeof(Id.Struct)
 
 -- stylua: ignore
 -----------------------------
+-- Boost
+-----------------------------
+Id.Boost = enum.with_id "Id.Boost" {
+    NONE                = iota(Id.Kind.Boost, 0),
+    ADD_CLONE           = iota'',
+    BULLET_SPEED_MULT   = iota'',
+    CHANGE_WEAPON       = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Boost] = Id.Boost
+export type Boost = typeof(Id.Boost)
+
+-- stylua: ignore
+-----------------------------
 -- Pet
 -----------------------------
 Id.Pet = enum.with_id "Id.Pet" {
@@ -472,6 +491,50 @@ Id.Countable = enum.with_id "Id.Countable" {
 KIND_TO_ENUM[Id.Kind.Countable] = Id.Countable
 export type Countable = typeof(Id.Countable)
 
+-- stylua: ignore
+-----------------------------
+-- Weapon
+-----------------------------
+Id.Weapon = enum.with_id "Id.Weapon" {
+    _NONE   = iota(Id.Kind.Weapon, 0),
+    DEFAULT = iota'',
+    BASIC   = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Weapon] = Id.Weapon
+export type Weapon = typeof(Id.Weapon)
+
+-- stylua: ignore
+-----------------------------
+-- Timed event
+-----------------------------
+Id.TimedEvent = enum.with_id "Id.TimedEvent" {
+    _NONE           = iota(Id.Kind.TimedEvent, 0),
+    WEAPON_COOLDOWN = iota'',
+}
+KIND_TO_ENUM[Id.Kind.TimedEvent] = Id.TimedEvent
+export type TimedEvent = typeof(Id.TimedEvent)
+
+-- stylua: ignore
+-----------------------------
+-- Animation
+-----------------------------
+Id.Animation = enum.with_id "Id.Animation" {
+    _NONE   = iota(Id.Kind.Animation, 0),
+    HOLD    = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Animation] = Id.Animation
+export type Animation = typeof(Id.Animation)
+
+-- stylua: ignore
+-----------------------------
+-- Player stats
+-----------------------------
+Id.PlayerStats = enum.with_id "Id.PlayerStats" {
+    _NONE   = iota(Id.Kind.PlayerStats, 0),
+    WEAPON  = iota'',
+}
+KIND_TO_ENUM[Id.Kind.PlayerStats] = Id.PlayerStats
+export type PlayerStats = typeof(Id.PlayerStats)
 
 -- stylua: ignore
 -----------------------------
@@ -520,7 +583,7 @@ export type STMState = typeof(Id.STMState)
 Id.S2S = enum.with_id "Id.S2S" {
     _NONE = iota(Id.Kind.S2S, 0),
     PASS_GRANTED      = iota'',
-    PURCHASE_FINISHED = iota''
+    PURCHASE_FINISHED = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)
@@ -530,7 +593,10 @@ export type S2S = typeof(Id.S2S)
 -- C2S
 -----------------------------
 Id.C2S = enum.with_id "Id.C2S" {
-    _NONE = iota(Id.Kind.C2S, 0),
+    _NONE              = iota(Id.Kind.C2S, 0),
+    BOOSTER_HIT        = iota'',               -- booster_guid
+    BULLET_SHOT        = iota'',               -- pos
+
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
 export type C2S = typeof(Id.C2S)
@@ -541,9 +607,9 @@ export type C2S = typeof(Id.C2S)
 -----------------------------
 Id.S2C = enum.with_id "Id.S2C" {
     _NONE         = iota(Id.Kind.S2C, 0),
-    UPDATE_STATE = iota'',
-    INIT_WORLD   = iota'',
-    UPDATE_WORLD = iota'',
+    UPDATE_STATE  = iota'',
+    INIT_WORLD    = iota'',
+    UPDATE_WORLD  = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)

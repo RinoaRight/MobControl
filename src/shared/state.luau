@@ -1142,7 +1142,8 @@ function State.set(self: CommonInternal<any>, uid: uid, cid: cid, c: component):
         assert_write_permission(nil, self._config._component_names, self._config._is_read_only, cid)
         local mask = self._masks[uid]
         if mask == nil then
-            warn(`uid: {format_uid(uid, self._config._pretty_printer)} not found`)
+            warn(debug.traceback(`new entity created by setter, uid: '{format_uid(uid, self._config._pretty_printer)}'`))
+            -- warn(`new entity created by setter, uid: '{format_uid(uid, self._config._pretty_printer)}'`)
         end
     end
     local setter = self._setters[cid]
@@ -1348,8 +1349,9 @@ function MainState.constructor(self: MainInternal, ...: cid | attribute)
             error(`{arity} args after 'uid' expected, got {n}`)
         end
         local uid = if type(u) == "function" then u() else u
-        assert(uid ~= nil, "uid is nil")
-        assert(not self._masks[uid], "non-unique uid")
+        if uid == nil or self._masks[uid] then
+            error(`uid is nil or non-unique: {self:format_uid(uid)}`)
+        end
         self._masks[uid] = mask
         self._metas[uid] = meta
         attach_n(uid, ...)
@@ -1932,7 +1934,7 @@ local function _toy_destructor(o: component)
 end
 
 local _test_main_config, repl = ConfigBuilder.create()
-    :set_component_names(C)
+    :set_component_names(C :: map<any, any>)
     :set_persistent_flag(C.Id, C.A, C.B, C.C, C.X)
     :set_replication_flag(C.Id, C.A, C.B, C.C)
     :set_destructor(C.SS, _toy_destructor)
@@ -1941,7 +1943,7 @@ local _test_main_config, repl = ConfigBuilder.create()
 local _test_replica_conf = repl:build()
 --]]
 
----[[ operations
+--[[ operations
 do
     local st = m.main(_test_main_config)
     local sta = st :: any
@@ -2005,7 +2007,7 @@ do
     end)
     local r_ctor = repl1:constructor(C.SS)
     r_ctor("id001", "A")
-    repl1:set("id001", C.SS, "B") --> pcall ERROR
+    -- repl1:set("id001", C.SS, "B") --> pcall ERROR
 end
 --]]
 
@@ -2016,9 +2018,9 @@ local N = 1000
 local M = 10
 local _test_main_conf1, repl1 = ConfigBuilder.create()
     :set_component_names(C)
-    :set_persistent_flag(C.Id, C.A, C.B, C.C, C.X)
+    :set_persistent_flag(C.RefId, C.A, C.B, C.C, C.X)
     :set_destructor(C.SS, function(o) print("call destructor", o) end)
-    :set_read_only_flag(C.Id)
+    :set_read_only_flag(C.RefId)
     :build_with_replica()
 local _test_replica_conf1 = repl1:build()
 
