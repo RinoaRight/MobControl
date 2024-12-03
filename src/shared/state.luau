@@ -188,15 +188,9 @@ type CommonInternal<Self> = Common<Self> & {
 --- unique identifier (UID) of the entity as an argument. stylua: ignore
 export type Main = Common<Main> & {
     constructor: (self: MainSelf, ...cid | attribute) -> ((uid | gen, ...component) -> uid, mask),
-    --- Flushes the log of the main state and returns a shallow copy of the log.
-    ---
-    --- This function is only available in the "main" mode of the state. If the log is
-    --- empty, this function will return `nil`.
-    ---
-    --- @return transactions? A shallow copy of the log, or `nil` if the log is empty.
     flash: (self: MainSelf) -> transactions?, -- move internal replication log out of state
     snapshot: (self: MainSelf, opt: "discard-log"?) -> transactions, -- create snapshot (replication)
-    save: (self: MainSelf) -> transactions, -- create save (persistence)
+    save: (self: MainSelf) -> transactions, -- create save (persistance)
     load: (self: MainSelf, transactions) -> MainSelf, -- load save
     delete: (self: MainSelf, uid) -> (),
 }
@@ -264,7 +258,7 @@ export type ConfigBuilder = {
     set_destructor: (self: ConfigBuilder, cid: cid, dtor: Destroy<any>) -> ConfigBuilder,
     set_pretty_printer: (self: ConfigBuilder, pp: pp) -> ConfigBuilder,
     set_replication_flag: (self: ConfigBuilder, ...cid) -> ConfigBuilder, -- cid level replication
-    set_persistent_flag: (self: ConfigBuilder, ...cid) -> ConfigBuilder, -- cid level persistence
+    set_persistent_flag: (self: ConfigBuilder, ...cid) -> ConfigBuilder, -- cid level persistance
     set_read_only_flag: (self: ConfigBuilder, ...cid) -> ConfigBuilder, -- cid level write protection
     set_component_names: (self: ConfigBuilder, names: map<any, any>) -> ConfigBuilder,
     build_with_replica: (self: ConfigBuilder) -> (Config, ConfigBuilder),
@@ -420,9 +414,6 @@ local function format_uid(uid: uid, pp: pp?): str
 end
 
 local function format_mask(mask: mask, names: names?)
-    if mask == nil then
-        return "[nil]"
-    end
     local out = {}
     while mask ~= 0 do
         local cid = bit32.countrz(mask)
@@ -586,7 +577,7 @@ end
 local function pcall_destructor(cid: cid, names: names, dtor: (any) -> (), component: any)
     local ok, err: str? = pcall(dtor, component)
     if not ok then
-        warn(fmt("ERROR: destructor fail, cid: %*\n%*'", format_cid(cid, names), err), 3)
+        warn(fmt("WARNING: destructor fail, cid: %*\n%*'", format_cid(cid, names), err), 3)
     end
 end
 
@@ -617,7 +608,7 @@ local function pcall_callback(uid: uid, cid: cid, op: op, config: Config, callba
     if not ok then
         local names = config._component_names
         local pp = config._pretty_printer
-        warn(fmt("ERROR: op:%* callback fail, uid: %* cid: %* \n%*'", OPS[op], format_uid(uid, pp), format_cid(cid, names), err), 3)
+        warn(fmt("WARNING: op:%* callback fail, uid: %* cid: %* \n%*'", OPS[op], format_uid(uid, pp), format_cid(cid, names), err), 3)
     end
 end
 
@@ -722,7 +713,7 @@ local function dump_snapshot(log: transactions?, names: map<cid, str>?, pp: pp?)
     end
     local inc = stride - 1
     local n, p, row = #log, 2, 0 -- we read snapshot from position after header
-    local out = {} :: { str }
+    local out = { `-----+------ {if header == HEADER_SAVE then "save" else "snapshot"} log :` } :: { str }
     -- stylua: ignore
     while p < n do
         row += 1
@@ -752,10 +743,11 @@ local function format_log(log: transactions?, names: map<cid, str>?, pp: pp?)
         return "------ empty log"
     end
     local header_byte = log[1]
-    if header_byte == HEADER_SNAPSHOT then
+    warn(header_byte)
+    if header_byte == HEADER_SNAPSHOT or header_byte == HEADER_SAVE then
         return dump_snapshot(log, names, pp)
     end
-    local out = { "-----+------ log:" } :: { str }
+    local out = { "-----+------ update log:" } :: { str }
     local n, p, i = #log, 1, 0
     -- stylua: ignore
     while p < n do
@@ -1080,9 +1072,13 @@ function Query.query(state: Common<any>, ...: query): (Index<uid>, mask)
     return index, selection_mask
 end
 
+
+local get_zero : typeof(get_many_factory({}, 0)) = function(_)
+    return nil
+end
 function Query.iterate_index(state: Common<any>, index: Index<uid>, mask: mask): ((Index<uid>, uid?) -> (uid?, ...component), Index<uid>)
     local storage = (state :: CommonInternal<any>)._storage
-    local get_many = get_many_factory(storage, mask2args(mask))
+    local get_many = if mask == 0 then get_zero else get_many_factory(storage, mask2args(mask))
     local idx = 0
     local iter = function(a: Index<uid>, uid: uid?): (uid?, ...component)
         idx += 1
@@ -1146,13 +1142,9 @@ function State.set(self: CommonInternal<any>, uid: uid, cid: cid, c: component):
         local mask = self._masks[uid]
         if mask == nil then
             warn(debug.traceback(`new entity created by setter, uid: '{format_uid(uid, self._config._pretty_printer)}'`))
-            -- warn(`new entity created by setter, uid: '{format_uid(uid, self._config._pretty_printer)}'`)
         end
     end
-    local setter = self._setters[cid]
-    if not setter then
-        check_cid(cid)
-    end
+    local setter = assert(self._setters[cid], "read-only")
     setter(uid, c)
 end
 
@@ -1160,6 +1152,18 @@ function State.setter(self: CommonInternal<any>, ...: cid): (uid, ...component) 
     if __DEV__ then
         assert_query_order(self._config._component_names, ...)
         assert_write_permission(nil, self._config._component_names, self._config._is_read_only, ...)
+        local setters = set_many_factory(self._setters, ...)
+        local arity = select("#", ...)
+        return function(uid, ...)
+            if select("#", ...) ~= arity then
+                error(debug.traceback(`{arity} args after 'uid' expected, got {select("#", ...)}`))
+            end
+            local mask = self._masks[uid]
+            if mask == nil then
+                warn(`new entity created by setter: {format_uid(uid, self._config._pretty_printer)}`)
+            end
+            setters(uid, ...)
+        end
     end
     return set_many_factory(self._setters, ...)
 end
@@ -1349,12 +1353,11 @@ function MainState.constructor(self: MainInternal, ...: cid | attribute)
     local function ctor(u: uid | gen, ...: component): uid
         local n = select("#", ...)
         if n ~= arity then
-            error(`{arity} args after 'uid' expected, got {n}`)
+            error(debug.traceback(`{arity} args after 'uid' expected, got {n}`))
         end
         local uid = if type(u) == "function" then u() else u
-        if uid == nil or self._masks[uid] then
-            error(`uid is nil or non-unique: {self:format_uid(uid)}`)
-        end
+        assert(uid ~= nil, "uid is nil")
+        assert(not self._masks[uid], "non-unique uid")
         self._masks[uid] = mask
         self._metas[uid] = meta
         attach_n(uid, ...)
@@ -1365,7 +1368,6 @@ function MainState.constructor(self: MainInternal, ...: cid | attribute)
     end
     return ctor, mask
 end
-
 
 function MainState.flash(self: MainInternal): transactions?
     assert(self._config._mode == "main", "only main state can have a log")
@@ -1670,6 +1672,16 @@ function ReplicaState.update(self: ReplicaInternal, log: transactions?)
         elseif op == OP_CREATE then
             local m = log[p]; p += 1
             assert(type(m) == "number" and bit32.bor(m) == m, "invalid mask")
+            if mask ~= 0 then
+                if mask == m then
+                    -- skip, we already got this OP_CREATE in snapshot
+                    -- TODO: some assertions here to make sure we're not missing anything
+                    p += popcount32(mask)
+                    continue
+                else
+                    error(`UPDATE:CREATE: mask mismatch {self:format_uid(uid)} old: {self:format_mask(mask)} new{self:format_mask(m)}`)
+                end
+            end
             assert(mask == 0, "mask must be zero")
             mask = m
             if not create_cache[mask] then
@@ -1916,8 +1928,6 @@ local C = {
     B = 11,
     C = 12,
     X = 21,
-    QQ = 29,
-    RR = 30,
     SS = 31,
 }
 
@@ -1962,7 +1972,7 @@ do
     local uid3 = row("SILVER", _Id.SILVER, 1000, 10000)
     local snap = st:snapshot()
     print("log after snap")
-    print(st:format_log())
+    print(st:format_log(snap))
     print(st:format_state("*"))
     -- print(st:format_log(snap))
     print(st:get(uid1, C.Id))
@@ -1974,6 +1984,7 @@ do
     st:set(uid1, C.B, nil)
     st:set(uid2, C.B, 2000)
     st:delete(uid3)
+    row("op-create in update", 100001, 666, 6666)
     local repl1 = m.replica(_test_replica_conf)
         :set_on_attach(C.Id, function(...)
             print("Id on_attach", ...)
@@ -1986,8 +1997,12 @@ do
         end)
     repl1:init(snap)
     print(repl1:format_state("*"))
-    repl1:update(st:flash() or {})
-    print(repl1:format_state("*"))
+    do
+        local update_log = st:flash()
+        assert(update_log)
+        print(repl1:format_log(update_log))
+        repl1:update(update_log)
+    end
     local r_row, r_row_mask = repl1:constructor(C.Id, C.X)
     print(repl1:format_mask(r_row_mask))
     local r_uid1 = r_row("G-x", 2000, "xxx")
@@ -1998,7 +2013,7 @@ do
     warn("--")
     for uid, id, a in st:select(C.Id, C.A, "not", C.SS) do
         print(">", uid, "id", id, "A", a)
-        st:set(uid, C.SS, "+ss " .. uid)
+        st:set(uid, C.SS, "uid -> C.SS = " .. uid)
     end
     for uid, id, a, ss in st:select(C.Id, C.A, C.SS) do
         print(">>", uid, "id", id, "A", a, "ss", ss)
@@ -2007,12 +2022,21 @@ do
         st:delete(uid)
     end
     repl1:update(st:flash() or {})
-    repl1:set_on_modify(C.SS, function(uid, new, old)
-        repl1:set(uid, C.SS, "A")
-    end)
-    local r_ctor = repl1:constructor(C.SS)
-    r_ctor("id001", "A")
-    -- repl1:set("id001", C.SS, "B") --> pcall ERROR
+    if __DEV__ then
+        local setter = st:setter(C.X, C.SS)
+        assert(not pcall(setter, "new_ss_001", 1000)) -- arity mismatch
+    end
+
+    -- nullary constructor
+    local nullary_ctor = st:constructor()
+    local uid_001 = nullary_ctor(_toy_uid)
+    local uid_002 = nullary_ctor(_toy_uid)
+    local count = 0
+    for uid in st:select("not", C.Id) do
+        count += 1
+        assert(uid == uid_001 or uid == uid_002)
+    end
+    assert(count == 2)
 end
 --]]
 
@@ -2023,9 +2047,9 @@ local N = 1000
 local M = 10
 local _test_main_conf1, repl1 = ConfigBuilder.create()
     :set_component_names(C)
-    :set_persistent_flag(C.RefId, C.A, C.B, C.C, C.X)
+    :set_persistent_flag(C.Id, C.A, C.B, C.C, C.X)
     :set_destructor(C.SS, function(o) print("call destructor", o) end)
-    :set_read_only_flag(C.RefId)
+    :set_read_only_flag(C.Id)
     :build_with_replica()
 local _test_replica_conf1 = repl1:build()
 
