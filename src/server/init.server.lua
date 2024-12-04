@@ -42,6 +42,7 @@ local C = SharedConfig.PlayerState.CId
 local W = SharedConfig.World.CId
 local S = require(shared.StaticData)
 local Misc = require(shared.Misc)
+local NumFormat = require(shared.num_format)
 
 if game.PhysicsService then
     local phys = game.PhysicsService
@@ -108,11 +109,14 @@ on[Id.C2S.BOOSTER_HIT] = function(player_state, booster_guid, ...)
         local pos = humanoidRootPart.Position + humanoidRootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
         local current_weapon_id = player_state.state:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
         local boosterToHit, _distance = Misc.IsBoosterToHit(pos)
+        -- TODO: and check ttl
         if boosterToHit and boosterToHit.Name == booster_guid and WorldService.world:has(booster_guid) then
             -- the hit is legit
             local dmg = S.Weapon[current_weapon_id].damage
             local booster_hp = WorldService.world:get(boosterToHit.Name, W.HP)
             local new_hp = booster_hp - dmg
+            local boosterGui = boosterToHit:FindFirstChildWhichIsA("SurfaceGui")
+            boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
             if new_hp <= 0 then
                 WorldService.world:delete(boosterToHit.Name)
                 -- give boost to the player who killed the booster

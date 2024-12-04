@@ -52,7 +52,6 @@ m.IsBoosterToHit = function(pos: Vector3)
     local distance
     local raycastInstance
     if raycastResult then
-        print("KKKKKKKKKKKKKKKK", raycastResult.Instance.Name)
         raycastInstance = raycastResult.Instance
         if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
             booster = raycastInstance

@@ -37,6 +37,7 @@ local WorldService = require(server.WorldService)
 local S = require(shared.StaticData)
 local C = SharedConfig.PlayerState.CId
 local Misc = require(shared.Misc)
+local NumFormat = require(shared.num_format)
 
 local CLONES = {}
 
@@ -47,6 +48,7 @@ local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_INIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
 local BOOSTER_TEMPLATE = assert(ReplicatedStorage.Booster)
+local BOOSTER_GUI_TEMPLATE = assert(ReplicatedStorage.BoosterGui)
 local BOOSTER_OFFSET_X = 220
 local BOOSTER_OFFSET_Y = 9
 local BOOSTER_OFFSET_Z = -50
@@ -92,7 +94,12 @@ local function setBooster(instance: BasePart)
     local refID = math.random(Id.Boost.ADD_CLONE, Id.Boost.ADD_CLONE)
     local value = math.random(S.Boost[refID].valueRange[1], S.Boost[refID].valueRange[2])
     local hp = math.random(S.Boost[refID].hpRange[1], S.Boost[refID].hpRange[2])
-    local boostContentId = Id.Weapon._NONE -- FIXME: false?
+    -- set GUI
+    local boosterGui = BOOSTER_GUI_TEMPLATE:Clone()
+    boosterGui.Parent = instance
+    boosterGui.Adornee = instance
+    boosterGui.TextLabel.Text = NumFormat.format_damage(hp)
+    local boostContentId = false :: id | bool
     -- TODO: Fill in the data in booster's GUI
     if refID == Id.Boost.ADD_CLONE then
         -- TODO:
@@ -114,7 +121,7 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     trigger.CFrame = CFrame.new(9, 20.5, unitPos.Z - 245)
     groundUnit.Parent = GROUND_UNIT_FOLDER
-    groundUnit.AssemblyLinearVelocity = groundUnit.CFrame.LookVector * 30
+    groundUnit.AssemblyLinearVelocity = groundUnit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY
     for i = 1, 12 do --12 boosters
         local booster = BOOSTER_TEMPLATE:Clone()
         booster.CFrame = CFrame.new(BOOSTER_OFFSET_X - BOOSTER_GAP * (i - 1), BOOSTER_OFFSET_Y, unitPos.Z + BOOSTER_OFFSET_Z)
@@ -169,7 +176,7 @@ end
 function m.StartMainLoopWorld(world_state: state.Main)
     local oldPos = DRIVING_BOX_INSTANCE.Position
     return function(dt)
-        -- allow first ground unit to "move". TODO: should be executed only once (for the first unit), 
+        -- allow first ground unit to "move". TODO: should be executed only once (for the first unit),
         -- but at the moment when this loop has started. Think of refactoring.
         GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
 
@@ -199,7 +206,10 @@ function m.StartMainLoopPlayer(player_state: PSS.PlayerState)
     end
 end
 
-function m.GiveBoostToPlayer(playerState:PSS.PlayerState, boost_id:id)
+function m.GiveBoostToPlayer(playerState: PSS.PlayerState, boost_id: id)
+    if not boost_id then
+        log:error("no boost_id")
+    end
     -- TODO:
 end
 

@@ -60,6 +60,7 @@ local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
 local UserInputService = game:GetService("UserInputService")
 local Clones = require(script.Clones)
+local NumFormat = require(shared.num_format)
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
@@ -68,7 +69,8 @@ local ENV_WORLD_READY = "WORLD_READY"
 local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
 Misc.AddPlayerCharToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
 local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
-local activeBulletsDataTable = {}
+local activeBulletsDataTable = {} :: {table}
+local NIL_TABLE = {"NIL"}
 
 -----------------------------
 -- States
@@ -182,8 +184,9 @@ local function fireBullet(player)
         bullet = Instance.new("Part")
         bullet.Name = "Bullet"
         bullet.CollisionGroup = "Bullet"
+        -- bullet.Shape = Enum.PartType.Ball
         bullet.CanCollide = false
-        bullet.Size = Vector3.new(0.2, 0.2, 0.2)
+        bullet.Size = Vector3.new(2, 2, 2)
         bullet.Anchored = true
     end
     local player_char = player.Character
@@ -195,10 +198,11 @@ local function fireBullet(player)
     local weapon_id = Id.Weapon.BASIC
     -- TODO: refactor speed. is to be taken from C.Weapon
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
-    local ttl = roflake.time() + math.abs(SharedConfig.BULLET_BASE_DISTANCE / speed)
+    local boosterThickness = SharedConfig.BOOSTER_DEPTH
+    local ttl = roflake.time() + SharedConfig.BULLET_BASE_DISTANCE / speed
     local boosterToHit, dist = Misc.IsBoosterToHit(pos)
-     if boosterToHit then
-        ttl = roflake.time() + (dist / speed)
+    if boosterToHit then
+        ttl = roflake.time() + ((dist + boosterThickness) / speed)
     end
     table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = ttl, booster = boosterToHit })
     if player == LOCAL_PLAYER then
@@ -260,12 +264,13 @@ RunService.Heartbeat:Connect(function(dt)
     local now = roflake.time()
     for i, bulletData in ipairs(activeBulletsDataTable) do
         local bullet = bulletData.bullet :: Part
-        local target = CFrame.new((bullet.CFrame.Position :: Vector3) + (bullet.CFrame.LookVector :: Vector3))
+        local speed = S.Weapon[Id.Weapon.BASIC].baseSpeed + SharedConfig.MOVEMENT_LINEAR_VELOCITY
+        local targetPos = CFrame.new(bullet.CFrame.Position + (bullet.CFrame.LookVector * speed * dt))
         local booster = bulletData.booster
         local ttl = bulletData.ttl
         if booster and booster.Position.Z >= bullet.Position.Z then
             -- bullet collided with the booster, delete it and signal to server
-            Array.swap_remove(activeBulletsDataTable, i)
+            activeBulletsDataTable[i] = NIL_TABLE
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
             Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster.Name)
         elseif now >= ttl then
@@ -274,9 +279,17 @@ RunService.Heartbeat:Connect(function(dt)
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
         else
             table.insert(activeBullets, bullet)
-            table.insert(bulletsTargets, target)
+            table.insert(bulletsTargets, targetPos)
         end
     end
+    local activeBulletsDataTableTemp = table.clone(activeBulletsDataTable)
+    table.clear(activeBulletsDataTable)
+    for i, bulletData in ipairs(activeBulletsDataTableTemp) do
+        if bulletData ~= NIL_TABLE then
+            table.insert(activeBulletsDataTable, bulletData)
+        end
+    end
+   
 
     -- TODO: fake other players' bullets? (knowing their position and weapon from world state).
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)

@@ -97,7 +97,7 @@ function m.RemoveEntity(guid: guid)
 end
 
 local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance)
-function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, boostContentId: id)
+function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, boostContentId: id|bool)
     local guid = _booster(_roflake.uida, boostRefid, value, hp, boostContentId, serverInstance) :: str
     serverInstance.Name = guid
     return guid

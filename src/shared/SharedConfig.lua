@@ -47,6 +47,8 @@ m.BULLET_BASE_DISTANCE         = 120 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP               = 100
 m.CONTROL_DISTANCE_TO_TARGET   = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT    = 2 
+m.MOVEMENT_LINEAR_VELOCITY     = 30
+m.BOOSTER_DEPTH                = 10 -- units
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
