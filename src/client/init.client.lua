@@ -69,8 +69,8 @@ local ENV_WORLD_READY = "WORLD_READY"
 local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
 Misc.AddPlayerCharToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
 local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
-local activeBulletsDataTable = {} :: {table}
-local NIL_TABLE = {"NIL"}
+local activeBulletsDataTable = {} :: { table }
+local NIL_TABLE = { "NIL" }
 
 -----------------------------
 -- States
@@ -81,6 +81,17 @@ PLAYER_STATE:env(ENV_READY, false)
 local WORLD = state.replica(SharedConfig.World.replica_config)
 local W = SharedConfig.World.CId
 WORLD:env(ENV_WORLD_READY, false)
+-----------------------------
+
+local Players = game:GetService("Players")
+local LOCAL_PLAYER = Players.LocalPlayer
+repeat
+    wait()
+until LOCAL_PLAYER.Character
+local LOCAL_CHARACTER = LOCAL_PLAYER.Character
+local LOCAL_HUMANOID = LOCAL_PLAYER.Character:WaitForChild("Humanoid")
+local LOCAL_HUMANOID_ROOT_PART = assert(LOCAL_PLAYER.Character:WaitForChild("HumanoidRootPart"))
+-- local PLAYER_SPAWN_POS = LOCAL_CHARACTER.Position
 
 -----------------------------
 -- Net handlers
@@ -99,6 +110,12 @@ end
 
 on[Id.S2C.UPDATE_WORLD] = function(state: state.Replica, update_log)
     WORLD:update(update_log)
+end
+
+on[Id.S2C.ADD_CLONE] = function(state: state.Replica, count: num)
+    for i = 1, count do
+        Clones.CreateClone(LOCAL_PLAYER.UserId, LOCAL_CHARACTER)
+    end
 end
 
 -----------------------------
@@ -122,15 +139,6 @@ end
 
 local fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
 
-local Players = game:GetService("Players")
-local LOCAL_PLAYER = Players.LocalPlayer
-repeat
-    wait()
-until LOCAL_PLAYER.Character
-local LOCAL_CHARACTER = LOCAL_PLAYER.Character
-local LOCAL_HUMANOID = LOCAL_PLAYER.Character:WaitForChild("Humanoid")
-local LOCAL_HUMANOID_ROOT_PART = assert(LOCAL_PLAYER.Character:WaitForChild("HumanoidRootPart"))
--- local PLAYER_SPAWN_POS = LOCAL_CHARACTER.Position
 local DRIVING_BOX_INSTANCE = workspace:FindFirstChild("DrivingBox")
 repeat
     wait()
@@ -169,11 +177,8 @@ do
     alignConst.Attachment0 = playerAtt
     alignConst.Attachment1 = DRIVING_BOX_ATT
     startRunAnim(LOCAL_CHARACTER)
-    -- TODO: refactor = move it from here to a loop where all clones of all players are assigned their pos
-    local players = game:GetService("Players"):GetPlayers()
-    for _, player in ipairs(players) do
-        Clones.CreateClone(player.UserId, player.Character)
-    end
+    -- diable jumping
+    LOCAL_HUMANOID.JumpPower = 0
 end
 
 local function fireBullet(player)
@@ -223,7 +228,7 @@ RunService.Heartbeat:Connect(function(dt)
     for _, player in ipairs(players) do
         local char = player.Character
         playerRootPart = assert(char.HumanoidRootPart) :: Part
-        local clonesFolder = char:FindFirstChild("Clones")
+        local clonesFolder = char:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
         if not clonesFolder then
             continue
         end
@@ -249,9 +254,10 @@ RunService.Heartbeat:Connect(function(dt)
                 startRunAnim(clone)
             end
 
-            local clonePos = Vector3.new(pos.X - 5 * i, pos.Y, pos.Z + 5)
+            local alreadyInCol = (i - 1) % SharedConfig.CLONES_IN_A_ROW
+            local row = math.floor((i - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
+            local clonePos = Misc.GetClonePos(pos, alreadyInCol, row)
             local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
-            -- cloneRootPart.CFrame = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
             table.insert(clonesRootParts, cloneRootPart)
             table.insert(clonesTargets, cloneTarget)
             workspace:BulkMoveTo(clonesRootParts, clonesTargets, Enum.BulkMoveMode.FireCFrameChanged)
@@ -289,18 +295,18 @@ RunService.Heartbeat:Connect(function(dt)
             table.insert(activeBulletsDataTable, bulletData)
         end
     end
-   
 
     -- TODO: fake other players' bullets? (knowing their position and weapon from world state).
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player
-    local weaponId = PLAYER_STATE:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
+    local weaponId = PLAYER_STATE:get(Id.PlayerStats.WEAPON, C.RefId) or Id.Weapon.BASIC
     local cooldown = S.Weapon[weaponId].cooldown
     if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
         local shot_ttl = PLAYER_STATE:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) or 0 :: num
         if shot_ttl <= 0 then
             fireBullet(LOCAL_PLAYER)
+            -- TODO: clone fire
         end
     end
 
@@ -320,9 +326,6 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 end)
-
--- diable jumping
-LOCAL_HUMANOID.JumpPower = 0
 
 local isRunAnimActive
 local infrequentLoop = supervisor.create(1, "client-infrequent")

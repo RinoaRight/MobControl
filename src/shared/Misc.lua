@@ -44,7 +44,7 @@ m.IsBoosterToHit = function(pos: Vector3)
         ray.CanCollide = false
         ray.Parent = workspace
         ray.Anchored = true
-        ray.Size = Vector3.new(.1, .1, 2 * rayDirection.Magnitude)
+        ray.Size = Vector3.new(0.1, 0.1, 2 * rayDirection.Magnitude)
         ray.CFrame = CFrame.new(pos, pos + rayDirection)
         Debris:AddItem(ray, 3)
     end
@@ -59,6 +59,24 @@ m.IsBoosterToHit = function(pos: Vector3)
         end
     end
     return booster, distance
+end
+
+m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
+    local dist = SharedConfig.INTERCLONES_DISTANCE
+    local new_pos = Vector3.new(pos.X, pos.Y, pos.Z + dist)
+    local x = 0
+    local z = dist
+    if alreadyInCol == 1 then
+        x = -dist
+    elseif alreadyInCol == 2 then
+        x = dist
+    elseif alreadyInCol == 3 then
+        x = -dist * 2
+    elseif alreadyInCol == 4 then
+        x = dist
+    end
+    new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z + z * row)
+    return new_pos
 end
 
 return m

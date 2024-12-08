@@ -95,7 +95,9 @@ export type PlayerState = {
     NotifyClient: (self: PlayerState, event_id: id, ...any) -> (),
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
     DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
+    DeductHp: (self: PlayerState, amount: num) -> (num),
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
+    nullary_local: (uid) -> (),
     __index: any,
 }
 
@@ -114,10 +116,14 @@ local function update_ids(main: state.Main)
     local _countable = main:constructor(C.Value, C.Total)
     merge(Id.Countable, function(id) _countable(id, 0, 0) end)
     -- TODO: weapon (id, speed, damage, cooldown) and others
-    local _weapon = main:constructor(C.ValueId)
-    merge(Id.PlayerStats, function(id) _weapon(id, Id.Weapon.BASIC) end)
+    local _weapon = main:constructor(C.RefId)
+    merge(Id.PlayerStats, function(id) _weapon(id, SharedConfig.STARTING_WEAPON_ID) end)
     local _weapon_ttl = main:constructor(C.TTL)
     merge(Id.TimedEvent, function(id) _weapon_ttl(id, 0) end)
+    local _player_hp = main:constructor(C.Value)
+    merge(Id.PlayerStats, function(id) _player_hp(id, SharedConfig.STARTING_HP) end)
+    local _player_clones = main:constructor(C.Value)
+    merge(Id.PlayerStats, function(id) _player_clones(id, SharedConfig.STARTING_CLONE_AMOUNT) end)
     log:debug(main:format_uid(Id.Countable.COIN))
 end
 
@@ -181,6 +187,7 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
         root = char:WaitForChild("HumanoidRootPart", TIMEOUT) :: BasePart,
         maid = disposer.new(),
         fire_client = fire_client,
+        nullary_local = state:constructor("local", "transient")
     }, PlayerState)) :: any
     fill_state(player_state)
     local snapshot = state:snapshot("discard-log")
@@ -244,8 +251,15 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
 end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
-    self.state:set(Id.PlayerStats.WEAPON, C.ValueId, weapon_id)
+    self.state:set(Id.PlayerStats.WEAPON, C.RefId, weapon_id)
     self.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, S.Weapon[weapon_id].cooldown)
+end
+
+function PlayerState.DeductHp(self: PlayerState, howMuch: num)
+    local current = self.state:get(Id.PlayerStats.HP, C.Value)
+    local new_hp = math.max(current - howMuch, 0)
+    self.state:set(Id.PlayerStats.HP, C.Value, new_hp)
+    return new_hp
 end
 
 

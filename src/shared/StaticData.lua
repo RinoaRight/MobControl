@@ -30,12 +30,13 @@ m.Animation = {
 }
 
 m.Weapon = {
-	[Id.Weapon.BASIC] = { baseSpeed = 10, damage = 10, cooldown = .5, instance = ReplicatedStorage.Weapons.Pistol }, -- units/sec, hp, secs
+	[Id.Weapon.BASIC] = { baseSpeed = 40, damage = 10, cooldown = .5, instance = ReplicatedStorage.Weapons.Pistol }, -- units/sec, hp, secs
 }
 
 -- stylua: ignore
+-- TODO: real values
 m.Boost = {
-    [Id.Boost.ADD_CLONE]         = {valueRange = {1, 4}, hpRange = {50, 100}}, 
+    [Id.Boost.ADD_CLONE]         = {valueRange = {2,2}, hpRange = {50, 100}}, 
     [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}}, 
 }
 

@@ -43,6 +43,7 @@ local W = SharedConfig.World.CId
 local S = require(shared.StaticData)
 local Misc = require(shared.Misc)
 local NumFormat = require(shared.num_format)
+local Signal = require(shared.signal)
 
 if game.PhysicsService then
     local phys = game.PhysicsService
@@ -107,7 +108,7 @@ on[Id.C2S.BOOSTER_HIT] = function(player_state, booster_guid, ...)
     local humanoidRootPart = player_state.character:FindFirstChild("HumanoidRootPart") :: BasePart
     if humanoidRootPart then
         local pos = humanoidRootPart.Position + humanoidRootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
-        local current_weapon_id = player_state.state:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
+        local current_weapon_id = player_state.state:get(Id.PlayerStats.WEAPON, C.RefId) or Id.Weapon.BASIC
         local boosterToHit, _distance = Misc.IsBoosterToHit(pos)
         -- TODO: and check ttl
         if boosterToHit and boosterToHit.Name == booster_guid and WorldService.world:has(booster_guid) then
@@ -118,10 +119,16 @@ on[Id.C2S.BOOSTER_HIT] = function(player_state, booster_guid, ...)
             local boosterGui = boosterToHit:FindFirstChildWhichIsA("SurfaceGui")
             boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
             if new_hp <= 0 then
-                WorldService.world:delete(boosterToHit.Name)
                 -- give boost to the player who killed the booster
-                local boost_id = WorldService.world:get(boosterToHit.Name, W.BoostContentId)
-                GameModule.GiveBoostToPlayer(player_state, boost_id)
+                local boostRefId = WorldService.world:get(boosterToHit.Name, W.RefId)
+                local boostContentId = WorldService.world:get(boosterToHit.Name, W.BoostContentId)
+                local value = WorldService.world:get(boosterToHit.Name, W.Value)
+                WorldService.world:delete(boosterToHit.Name)
+                if player_state.state:has(boosterToHit.Name) then
+                    player_state.state:delete(boosterToHit.Name)
+                end
+
+                GameModule.HandleBoosterDeath(player_state, boosterToHit.Name, boostRefId, value, boostContentId)
             else
                 WorldService.world:set(boosterToHit.Name, W.HP, booster_hp - dmg)
             end
@@ -131,7 +138,7 @@ end
 
 on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, ...)
     log:debug(Id.C2S.BULLET_SHOT, player_state.player_id, event_id, ...)
-    local current_weapon_id = player_state.state:get(Id.PlayerStats.WEAPON, C.ValueId) or Id.Weapon.BASIC
+    local current_weapon_id = player_state.state:get(Id.PlayerStats.WEAPON, C.RefId) or Id.Weapon.BASIC
     local cooldown = S.Weapon[current_weapon_id].cooldown
     -- set TTL for the next shot in this player's state
     player_state.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, cooldown)
@@ -159,6 +166,18 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
 end
 
+s2s[Id.S2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, clones_amount: num, booster_guid: str, ...)
+    local _new_hp = player_state:DeductHp(SharedConfig.BOOSTER_COLLISION_DAMAGE)
+    -- first kill clones, then reduce player's hp
+    -- TODO; compare and do the logic
+    local booster_hp = WorldService.world:get(booster_guid, W.HP)
+
+    if clones_amount > 0 then
+    end
+    -- TODO: update player_hp GUI
+    -- TODO: signal  to the client that the player has been hit to remove a corresponding number of clones
+end
+
 -- initialize main game loop
 do
     TaskPool.spawn(function()
@@ -183,7 +202,32 @@ end
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
-        change_weapon(player_state, Id.Weapon.BASIC)
+        change_weapon(player_state, SharedConfig.STARTING_WEAPON_ID)
+        player_state.state:set(Id.PlayerStats.HP, C.Value, SharedConfig.STARTING_HP)
+        player_state.state:set(Id.PlayerStats.CLONE_AMOUNT, C.Value, SharedConfig.STARTING_CLONE_AMOUNT)
+        GameModule.CreatePlayerHpGui(player_state)
+
+        -- attach hitbox to the player == clones formation width
+        local player_character = player_state.character
+        local humanoid_root_part = assert(player_character:FindFirstChild("HumanoidRootPart"):: BasePart)
+        local hitbox = Instance.new("Part")
+        hitbox.Transparency = 1
+        hitbox.CanCollide = false
+        hitbox.Anchored = false
+        hitbox.CollisionGroup = "BulletNonCollidable"
+        hitbox.Massless = true
+        hitbox.Parent = player_character
+        hitbox.CFrame = humanoid_root_part.CFrame
+        local weld = Instance.new("WeldConstraint")
+        weld.Parent = hitbox
+        local rootPart = assert(player_state.character:FindFirstChild("HumanoidRootPart") :: BasePart)
+        weld.Part0 = rootPart
+        weld.Part1 = hitbox
+        hitbox.Name = SharedConfig.PLAYER_HITBOX_NAME
+        hitbox.CanCollide = false
+        local width = SharedConfig.INTERCLONES_DISTANCE * (SharedConfig.CLONES_IN_A_ROW - 1)
+        hitbox.Size = Vector3.new(width, 6, 4)
+
         local _ = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     end
 end
@@ -195,7 +239,7 @@ game.Players.PlayerAdded:Connect(function(player)
     state.maid.remote_disposer = disposer
     WorldService.AddPlayer(state)
     -- Market.CheckPassesOnInit(state.player_id, function(store_id) error("TODO") end)
-    GameModule.SetPlayerAlignment(player)
+    GameModule.SetPlayerAlignment(state)
     TaskPool.defer(init_player(state))
 end)
 
@@ -217,5 +261,30 @@ game.Players.PlayerRemoving:Connect(function(player)
         state:Destroy()
     end)
 end)
+
+-----------------------------
+-- Connect S2S
+-----------------------------
+for _, id in Id.S2S:ids() do
+    local handler = s2s[id] or function(_: PlayerState, ...)
+        log:error("no handler for: ", id)
+    end
+    local _ = Signal.Connect(id, function(player_id: int, ...)
+        assert(typeof(player_id) == "number", "first arg must be a player id")
+        local state: PlayerState
+        for i = 1, 5 do -- 5 tries, 1 sec each
+            state = STATES[player_id]
+            if state then
+                local ok, err: str? = pcall(handler, state, ...)
+                if not ok then
+                    log:error("ERROR in S2S handler for: ", id, "\n", err)
+                end
+                break
+            else
+                task.wait(1.0)
+            end
+        end
+    end)
+end
 
 warn("[server -- started]")

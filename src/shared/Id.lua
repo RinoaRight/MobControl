@@ -530,8 +530,10 @@ export type Animation = typeof(Id.Animation)
 -- Player stats
 -----------------------------
 Id.PlayerStats = enum.with_id "Id.PlayerStats" {
-    _NONE   = iota(Id.Kind.PlayerStats, 0),
-    WEAPON  = iota'',
+    _NONE         = iota(Id.Kind.PlayerStats, 0),
+    WEAPON        = iota'',
+    HP            = iota'',
+    CLONE_AMOUNT  = iota'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerStats] = Id.PlayerStats
 export type PlayerStats = typeof(Id.PlayerStats)
@@ -581,9 +583,10 @@ export type STMState = typeof(Id.STMState)
 -- S2S
 -----------------------------
 Id.S2S = enum.with_id "Id.S2S" {
-    _NONE = iota(Id.Kind.S2S, 0),
-    PASS_GRANTED      = iota'',
-    PURCHASE_FINISHED = iota'',
+    _NONE                     = iota(Id.Kind.S2S, 0),
+    PASS_GRANTED              = iota'',
+    PURCHASE_FINISHED         = iota'',
+    PLAYER_COLLIDED_W_BOOSTER = iota'', -- player_id, clones_amount, booster_guid
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)
@@ -610,6 +613,7 @@ Id.S2C = enum.with_id "Id.S2C" {
     UPDATE_STATE  = iota'',
     INIT_WORLD    = iota'',
     UPDATE_WORLD  = iota'',
+    ADD_CLONE     = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)

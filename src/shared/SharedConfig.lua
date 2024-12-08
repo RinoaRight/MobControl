@@ -49,6 +49,15 @@ m.CONTROL_DISTANCE_TO_TARGET   = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT    = 2 
 m.MOVEMENT_LINEAR_VELOCITY     = 30
 m.BOOSTER_DEPTH                = 10 -- units
+m.CLONES_IN_A_ROW              = 5 
+m.INTERCLONES_DISTANCE              = 5 
+m.CLONE_HP                     = 10
+m.CLONES_FOLDER_NAME           = "Clones"
+m.PLAYER_HITBOX_NAME           = "Hitbox"
+m.STARTING_WEAPON_ID           = Id.Weapon.BASIC
+m.STARTING_HP                  = 100
+m.STARTING_CLONE_AMOUNT        = 0
+m.BOOSTER_COLLISION_DAMAGE     = 10
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
@@ -117,7 +126,6 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     Total           = iota'', -- number
     Bitset          = iota'', -- uint32
     Instance        = iota'', -- Instance(client)
-    ValueId         = iota'', -- id
     WorldGui        = iota'', -- any
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).

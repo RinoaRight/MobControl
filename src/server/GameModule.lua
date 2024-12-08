@@ -21,7 +21,7 @@ local shared = game.ReplicatedStorage.shared
 local server = game.ServerScriptService.server
 local Id = require(shared.Id)
 local Logger = require(shared.logger)
-local log = Logger.create("Market"):set_prettifier(Id.pp):set_delimiter(" ")
+local log = Logger.create(script and script.Name or "GameModule"):set_prettifier(Id.pp):set_delimiter(" ")
 local TaskPool = require(shared.TaskPool)
 local PSS = require(server.PlayerStateService)
 local Signal = require(shared.signal)
@@ -38,8 +38,19 @@ local S = require(shared.StaticData)
 local C = SharedConfig.PlayerState.CId
 local Misc = require(shared.Misc)
 local NumFormat = require(shared.num_format)
+local SharedUtils = require(shared.util)
 
 local CLONES = {}
+
+local m = {} :: {
+    get_state: (int) -> PSS.PlayerState?,
+    StartMainLoopPlayer: (PSS.PlayerState) -> (num) -> (),
+    Init: (state: state.Main, (int) -> PSS.PlayerState?) -> (),
+    CreatePlayerHpGui: (PSS.PlayerState) -> (),
+    HandleBoosterDeath: (PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id) -> (),
+    StartMainLoopWorld: (world_state: state.Main) -> (num) -> (),
+    SetPlayerAlignment: (PSS.PlayerState) -> (),
+}
 
 local workerMaid = disposer.new()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -48,6 +59,7 @@ local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_INIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
 local BOOSTER_TEMPLATE = assert(ReplicatedStorage.Booster)
+local BOOSTER_WIDTH = BOOSTER_TEMPLATE.Size.X
 local BOOSTER_GUI_TEMPLATE = assert(ReplicatedStorage.BoosterGui)
 local BOOSTER_OFFSET_X = 220
 local BOOSTER_OFFSET_Y = 9
@@ -89,7 +101,7 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     groundUnit:Destroy()
 end
 
-local function setBooster(instance: BasePart)
+local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerState?)
     -- TODO: actual range of selection
     local refID = math.random(Id.Boost.ADD_CLONE, Id.Boost.ADD_CLONE)
     local value = math.random(S.Boost[refID].valueRange[1], S.Boost[refID].valueRange[2])
@@ -102,7 +114,7 @@ local function setBooster(instance: BasePart)
     local boostContentId = false :: id | bool
     -- TODO: Fill in the data in booster's GUI
     if refID == Id.Boost.ADD_CLONE then
-        -- TODO:
+        instance.Color = Color3.fromRGB(0, 255, 0)
     elseif refID == Id.Boost.BULLET_SPEED_MULT then
         -- TODO:
     elseif refID == Id.Boost.CHANGE_WEAPON then
@@ -111,7 +123,63 @@ local function setBooster(instance: BasePart)
     end
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
     instance.CollisionGroup = "BulletCollidable"
-    WorldService.AddBooster(instance, refID, value, hp, boostContentId)
+    local boosterGuid = WorldService.AddBooster(instance, refID, value, hp, boostContentId)
+    -- TODO: registers 2 collisions and doesnt work properly
+    -- ALSO, it's wrong to unsubscribe booster, other player should have a chance to run into it as well
+    workerMaid[boosterGuid] = instance.Touched:Connect(function(other)
+        local parent = other.Parent
+        if parent and parent:FindFirstChild("HumanoidRootPart") then
+            -- NOTE: clones are client-side and their collisions are not detected by server, hence only player can hit the booster
+            local triggererPlayer = game.Players:GetPlayerFromCharacter(parent)
+            local triggererPlayerId = triggererPlayer.UserId
+            assert(parent:IsA("Model")) -- sanity check
+
+            -- check if this player already collided with this booster. If not, set the flag
+            local triggererState = get_state(triggererPlayerId)
+            if not triggererState then
+                return
+            end
+            local isBooster = triggererState.state:has(boosterGuid)
+            if isBooster then
+                local isAlreadyCollided = triggererState.state:has(boosterGuid, C.Bitset)
+                if isAlreadyCollided then
+                    return
+                end
+            end
+
+            triggererState.nullary_local(boosterGuid)
+            triggererState.state:set(boosterGuid, C.Bitset, true)
+            
+            local isHit = false
+            local clonesAmount = 0
+            if other.Name ~= SharedConfig.PLAYER_HITBOX_NAME then
+                -- player themselves touched the booster
+                isHit = true
+            else
+                print("LLLLLLLLLLLL")
+                -- player clones might have 'touched' the booster, check if it is so
+                local clonesFolder = parent:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
+                if clonesFolder then
+                    local clones = clonesFolder:GetChildren()
+                    clonesAmount = #clones
+                    if clonesAmount > 1 then
+                        -- check boosters' gap against the clone fomations
+                        isHit = (BOOSTER_GAP - BOOSTER_WIDTH) < SharedConfig.INTERCLONES_DISTANCE * (clonesAmount + 1)
+                        print("GGGGGGGGG", other.Name, parent, isHit, BOOSTER_GAP - BOOSTER_WIDTH)
+                    end
+                end
+            end
+            if isHit then
+                if triggererPlayer and triggererPlayerId then
+                    if clonesAmount > 0 then
+                        -- TODO: inform client to remove corresponding number of clones
+                    else
+                        Signal.Fire(Id.S2S.PLAYER_COLLIDED_W_BOOSTER, triggererPlayerId, clonesAmount, boosterGuid)
+                    end
+                end
+            end
+        end
+    end)
 end
 
 local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)
@@ -126,7 +194,7 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
         local booster = BOOSTER_TEMPLATE:Clone()
         booster.CFrame = CFrame.new(BOOSTER_OFFSET_X - BOOSTER_GAP * (i - 1), BOOSTER_OFFSET_Y, unitPos.Z + BOOSTER_OFFSET_Z)
         booster.Parent = groundUnit
-        setBooster(booster)
+        setBooster(booster, m.get_state)
     end
 end
 
@@ -148,9 +216,8 @@ local function subscribeTrigger(worldState: state.Main, index, groundUnit)
     end)
 end
 
-local m = {}
-
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
+    m.get_state = get_state
     -- init first batch of ground units and fill in the data table
     local firstUnit = GROUND_UNIT_TEMPLATE:Clone()
     local secondUnit = GROUND_UNIT_TEMPLATE:Clone()
@@ -162,7 +229,7 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     local boosters = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit:GetChildren()
     for i, booster in ipairs(boosters) do
         if booster:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
-            setBooster(booster)
+            setBooster(booster, get_state)
         end
     end
 
@@ -171,6 +238,10 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
     spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
+end
+
+function m.CreatePlayerHpGui(player_state: PSS.PlayerState)
+    -- create and fill in player_hp gui
 end
 
 function m.StartMainLoopWorld(world_state: state.Main)
@@ -197,7 +268,7 @@ function m.StartMainLoopWorld(world_state: state.Main)
     end
 end
 
-function m.StartMainLoopPlayer(player_state: PSS.PlayerState)
+function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
     return function(dt)
         -- weapon cooldown
         local shot_ttl = player_state.state:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) :: num
@@ -206,21 +277,27 @@ function m.StartMainLoopPlayer(player_state: PSS.PlayerState)
     end
 end
 
-function m.GiveBoostToPlayer(playerState: PSS.PlayerState, boost_id: id)
-    if not boost_id then
-        log:error("no boost_id")
+function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id)
+    if not boost_ref_id then
+        log:error("no boost_id", debug.traceback)
     end
+    -- unsubscribe booster
+    workerMaid[booster_guid] = nil
     -- TODO:
+    if boost_ref_id == Id.Boost.ADD_CLONE then
+        playerState:NotifyClient(Id.S2C.ADD_CLONE, value)
+    elseif boost_ref_id == Id.Boost.BULLET_SPEED_MULT then
+        -- TODO:
+    elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
+        -- TODO:
+    end
 end
 
-function m.SetPlayerAlignment(player)
+function m.SetPlayerAlignment(state: PSS.PlayerState)
     TaskPool.spawn(function()
         local playerAtt = Instance.new("Attachment") :: Attachment
-        repeat
-            wait()
-        until player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        local playerCharacter = player.Character :: Model
-        local playerRootPart = player.Character.HumanoidRootPart :: Part
+        local playerCharacter = state.character :: Model
+        local playerRootPart = state.root :: Part
         playerAtt.CFrame = playerRootPart.CFrame
         playerAtt.Parent = playerRootPart
         local playerAlignConst = Instance.new("AlignOrientation")
