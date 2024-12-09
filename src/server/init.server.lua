@@ -166,16 +166,37 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
 end
 
-s2s[Id.S2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, clones_amount: num, booster_guid: str, ...)
-    local _new_hp = player_state:DeductHp(SharedConfig.BOOSTER_COLLISION_DAMAGE)
-    -- first kill clones, then reduce player's hp
+s2s[Id.S2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, gapWidth: num, triggererName: string, ...)
+    local isHit = false
+    local isPlayer = false
+    local clonesAmount = player_state.state:get(Id.PlayerStats.CLONE_AMOUNT, C.Value) or 0
+    if triggererName ~= SharedConfig.PLAYER_HITBOX_NAME then
+        -- player themselves touched the booster
+        isHit = true
+        isPlayer = true
+    else
+        -- player clones might have 'touched' the booster, check if it is so
+        if clonesAmount > 1 then
+            -- check boosters' gap against the clone fomations
+            isHit = gapWidth < SharedConfig.INTERCLONES_DISTANCE * (clonesAmount + 1)
+        end
+    end
+
+    -- player and his clones fit in the gap, do nothing
+    if not isHit then
+        return
+    end
+    
     -- TODO; compare and do the logic
     local booster_hp = WorldService.world:get(booster_guid, W.HP)
 
-    if clones_amount > 0 then
+    if isPlayer then
+        -- TODO: reduce player hp.
+        -- TODO: update player_hp GUI
+        local _new_hp = player_state:DeductHp(SharedConfig.BOOSTER_COLLISION_DAMAGE)
+    else
+        -- TODO: inform client to remove corresponding number of clones
     end
-    -- TODO: update player_hp GUI
-    -- TODO: signal  to the client that the player has been hit to remove a corresponding number of clones
 end
 
 -- initialize main game loop
@@ -209,7 +230,7 @@ local function init_player(player_state: PlayerState)
 
         -- attach hitbox to the player == clones formation width
         local player_character = player_state.character
-        local humanoid_root_part = assert(player_character:FindFirstChild("HumanoidRootPart"):: BasePart)
+        local humanoid_root_part = assert(player_character:FindFirstChild("HumanoidRootPart") :: BasePart)
         local hitbox = Instance.new("Part")
         hitbox.Transparency = 1
         hitbox.CanCollide = false

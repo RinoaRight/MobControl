@@ -586,7 +586,7 @@ Id.S2S = enum.with_id "Id.S2S" {
     _NONE                     = iota(Id.Kind.S2S, 0),
     PASS_GRANTED              = iota'',
     PURCHASE_FINISHED         = iota'',
-    PLAYER_COLLIDED_W_BOOSTER = iota'', -- player_id, clones_amount, booster_guid
+    PLAYER_COLLIDED_W_BOOSTER = iota'', -- player_id, booster_guid, gap_width: num, triggerer_name: string
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)

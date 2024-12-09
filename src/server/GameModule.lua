@@ -65,6 +65,7 @@ local BOOSTER_OFFSET_X = 220
 local BOOSTER_OFFSET_Y = 9
 local BOOSTER_OFFSET_Z = -50
 local BOOSTER_GAP = 40
+local GAP_WIDTH = BOOSTER_GAP - BOOSTER_WIDTH
 
 local FIELD_NAMES = En.with_id("*")({
     FIRST = 1,
@@ -124,8 +125,6 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
     instance.CollisionGroup = "BulletCollidable"
     local boosterGuid = WorldService.AddBooster(instance, refID, value, hp, boostContentId)
-    -- TODO: registers 2 collisions and doesnt work properly
-    -- ALSO, it's wrong to unsubscribe booster, other player should have a chance to run into it as well
     workerMaid[boosterGuid] = instance.Touched:Connect(function(other)
         local parent = other.Parent
         if parent and parent:FindFirstChild("HumanoidRootPart") then
@@ -149,34 +148,9 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
 
             triggererState.nullary_local(boosterGuid)
             triggererState.state:set(boosterGuid, C.Bitset, true)
-            
-            local isHit = false
-            local clonesAmount = 0
-            if other.Name ~= SharedConfig.PLAYER_HITBOX_NAME then
-                -- player themselves touched the booster
-                isHit = true
-            else
-                print("LLLLLLLLLLLL")
-                -- player clones might have 'touched' the booster, check if it is so
-                local clonesFolder = parent:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
-                if clonesFolder then
-                    local clones = clonesFolder:GetChildren()
-                    clonesAmount = #clones
-                    if clonesAmount > 1 then
-                        -- check boosters' gap against the clone fomations
-                        isHit = (BOOSTER_GAP - BOOSTER_WIDTH) < SharedConfig.INTERCLONES_DISTANCE * (clonesAmount + 1)
-                        print("GGGGGGGGG", other.Name, parent, isHit, BOOSTER_GAP - BOOSTER_WIDTH)
-                    end
-                end
-            end
-            if isHit then
-                if triggererPlayer and triggererPlayerId then
-                    if clonesAmount > 0 then
-                        -- TODO: inform client to remove corresponding number of clones
-                    else
-                        Signal.Fire(Id.S2S.PLAYER_COLLIDED_W_BOOSTER, triggererPlayerId, clonesAmount, boosterGuid)
-                    end
-                end
+
+            if triggererPlayer and triggererPlayerId then
+                Signal.Fire(Id.S2S.PLAYER_COLLIDED_W_BOOSTER, triggererPlayerId, boosterGuid, GAP_WIDTH, other.Name)
             end
         end
     end)
@@ -285,6 +259,8 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     workerMaid[booster_guid] = nil
     -- TODO:
     if boost_ref_id == Id.Boost.ADD_CLONE then
+        local currentClones = playerState.state:get(Id.PlayerStats.CLONE_AMOUNT, C.Value) or 0
+        playerState.state:set(Id.PlayerStats.CLONE_AMOUNT, C.Value, currentClones + value)
         playerState:NotifyClient(Id.S2C.ADD_CLONE, value)
     elseif boost_ref_id == Id.Boost.BULLET_SPEED_MULT then
         -- TODO:
