@@ -31,9 +31,18 @@ local Misc = require(shared.Misc)
 local SharedConfig = require(shared.SharedConfig)
 local m = {}
 
-function m.CreateClone(playerId, playerCharacter: Model)
+local LOCAL_PLAYER = game.Players.LocalPlayer
+
+function m.CreateClone(playerId: int, cloneGuid: num| str)
     TaskPool.spawn(function()
         -- clone the player's character
+        local playerCharacter
+        local players = game.Players.GetPlayers()
+        for _, player in ipairs(players) do
+            if player.UserId == playerId then
+                playerCharacter = player.Character or player.CharacterAdded:Wait()
+            end
+        end
         playerCharacter.Archivable = true
         local cloneCharTemplate = playerCharacter
 
@@ -49,6 +58,7 @@ function m.CreateClone(playerId, playerCharacter: Model)
             cloneCharTemplate = existingClones[1] :: Model
         end
         local cloneInstance = cloneCharTemplate:Clone()
+        cloneInstance.Name = cloneGuid
         for _, instance in cloneInstance:GetDescendants() do
             if instance:IsA("BasePart") then
                 instance.CollisionGroup = "DriverNonCollidable"
@@ -74,7 +84,8 @@ function m.CreateClone(playerId, playerCharacter: Model)
         local alreadyInCol = existingClonesNum % SharedConfig.CLONES_IN_A_ROW
         cloneRootPart.CFrame = CFrame.new(Misc.GetClonePos(humanoidRootPart.Position, alreadyInCol, vacantRow))
         Misc.AddPlayerCharToRaycastFilter(cloneInstance)
-        -- TODO: signal to server to refelct it somehow (state.playerstats.Clones) - and fire power
+
+        return cloneInstance
     end)
 end
 

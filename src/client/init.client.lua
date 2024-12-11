@@ -60,6 +60,7 @@ local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
 local UserInputService = game:GetService("UserInputService")
 local Clones = require(script.Clones)
+local Booster = require(script.Boosters)
 local NumFormat = require(shared.num_format)
 
 local ENV_READY = "READY"
@@ -110,12 +111,6 @@ end
 
 on[Id.S2C.UPDATE_WORLD] = function(state: state.Replica, update_log)
     WORLD:update(update_log)
-end
-
-on[Id.S2C.ADD_CLONE] = function(state: state.Replica, count: num)
-    for i = 1, count do
-        Clones.CreateClone(LOCAL_PLAYER.UserId, LOCAL_CHARACTER)
-    end
 end
 
 -----------------------------
@@ -330,6 +325,7 @@ end)
 local isRunAnimActive
 local infrequentLoop = supervisor.create(1, "client-infrequent")
 infrequentLoop:start(function(dt)
+    -- player character animation check
     for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
         if v.Name == RUN_ANIM_NAME then
             isRunAnimActive = true
@@ -344,3 +340,52 @@ infrequentLoop:start(function(dt)
         end
     end
 end, 1, "test")
+
+-- create clones if any new clones appeared
+WORLD:set_on_attach(W.PLayerId, function(guid: guid, newplayerId: num)
+    local id = WORLD:get(guid, W.RefId)
+    if Id.kind(id) == Id.Kind.Clone then
+        local clientInstance = WORLD:get(guid, W.ClientInstance)
+        if not clientInstance then
+            local newInstance = Clones.CreateClone(newplayerId, guid)
+            if not newInstance then
+                log:error("failed to create clone for player " .. newplayerId)
+                return
+            end
+            WORLD:set(guid, W.ClientInstance, newInstance)
+        end
+    end
+end)
+
+--delete clone if it was deleted from world
+WORLD:set_on_detach(W.PLayerId, function(guid: guid)
+    local id = WORLD:get(guid, W.RefId)
+    if Id.kind(id) == Id.Kind.Clone then
+        local clientInstance = WORLD:get(guid, W.ClientInstance)
+        if not clientInstance then
+            local playerId = WORLD:get(guid, W.PLayerId)
+            log:error("failed to delete clone instance for player ".. playerId)
+            return
+        end
+        clientInstance:Destroy()
+    end
+end)
+
+-- subscribe boosters to collisions
+local _booster = PLAYER_STATE:constructor(C.ClientFlags)
+WORLD:set_on_attach(W.HP, function(guid: guid, newValue: num)
+    -- check if it was a booster that has been added
+    local id = WORLD:get(guid, W.RefId)
+    if Id.kind(id) == Id.Kind.Boost then
+        _booster(guid, C.ClientFlags, false)
+        Signal.Broadcast(Id.C2C.NEW_BOOSTER_ADDED, WORLD, PLAYER_STATE, guid)
+    end
+end)
+
+-- delete booster in PlerState when it is deleted from world
+WORLD:set_on_detach(W.HP, function(guid: guid)
+    local id = WORLD:get(guid, W.RefId)
+    if Id.kind(id) == Id.Kind.Boost then
+        PLAYER_STATE:delete(guid)
+    end
+end)

@@ -43,6 +43,7 @@ export type query = cid | "not"
 export type attribute = "local" | "transient"
 export type mode = "main" | "replica"
 export type gen = () -> uid
+export type uid_or_gen = uid | gen
 export type destructor = (component) -> ()
 export type destructors = { [cid]: destructor }
 -- general for on_xxx callback type

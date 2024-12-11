@@ -166,38 +166,45 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
 end
 
-s2s[Id.S2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, gapWidth: num, triggererName: string, ...)
-    local isHit = false
-    local isPlayer = false
-    local clonesAmount = player_state.state:get(Id.PlayerStats.CLONE_AMOUNT, C.Value) or 0
-    if triggererName ~= SharedConfig.PLAYER_HITBOX_NAME then
-        -- player themselves touched the booster
-        isHit = true
-        isPlayer = true
-    else
-        -- player clones might have 'touched' the booster, check if it is so
-        if clonesAmount > 1 then
-            -- check boosters' gap against the clone fomations
-            isHit = gapWidth < SharedConfig.INTERCLONES_DISTANCE * (clonesAmount + 1)
-        end
-    end
+-- TODO: refactor to subscription to C2S
+-- s2s[Id.S2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, gapWidth: num, triggererName: string, ...)
+--     local isHit = false
+--     local isPlayer = false
+--     local clonesAmount = player_state.state:get(Id.PlayerStats.CLONE_AMOUNT, C.Value) or 0
+--     if triggererName ~= SharedConfig.PLAYER_HITBOX_NAME then
+--         -- player themselves touched the booster
+--         isHit = true
+--         isPlayer = true
+--     else
+--         -- player clones might have 'touched' the booster, check if it is so
+--         if clonesAmount > 1 then
+--             -- check boosters' gap against the clone fomations
+--             isHit = gapWidth < SharedConfig.INTERCLONES_DISTANCE * (clonesAmount + 1)
+--         end
+--     end
 
-    -- player and his clones fit in the gap, do nothing
-    if not isHit then
-        return
-    end
+--     -- player and his clones fit in the gap, do nothing
+--     if not isHit then
+--         return
+--     end
     
-    -- TODO; compare and do the logic
-    local booster_hp = WorldService.world:get(booster_guid, W.HP)
-
-    if isPlayer then
-        -- TODO: reduce player hp.
-        -- TODO: update player_hp GUI
-        local _new_hp = player_state:DeductHp(SharedConfig.BOOSTER_COLLISION_DAMAGE)
-    else
-        -- TODO: inform client to remove corresponding number of clones
-    end
-end
+--     local booster_hp = WorldService.world:get(booster_guid, W.HP)
+--     local player_hp = player_state.state:get(Id.PlayerStats.HP, C.Value)
+    
+--     if isPlayer then
+--         -- TODO: reduce player hp.
+--         -- TODO: update player_hp GUI
+--         -- TODO: SFX
+--         if player_hp - booster_hp <= 0 then
+--             -- TODO: player death
+--         else
+--             player_state:DeductHp(booster_hp)
+--         end
+--     else
+--         -- TODO: remove clones
+--         -- TODO: inform client to remove corresponding number of clones
+--     end
+-- end
 
 -- initialize main game loop
 do
@@ -225,7 +232,6 @@ local function init_player(player_state: PlayerState)
     return function()
         change_weapon(player_state, SharedConfig.STARTING_WEAPON_ID)
         player_state.state:set(Id.PlayerStats.HP, C.Value, SharedConfig.STARTING_HP)
-        player_state.state:set(Id.PlayerStats.CLONE_AMOUNT, C.Value, SharedConfig.STARTING_CLONE_AMOUNT)
         GameModule.CreatePlayerHpGui(player_state)
 
         -- attach hitbox to the player == clones formation width
@@ -265,10 +271,14 @@ game.Players.PlayerAdded:Connect(function(player)
 end)
 
 -----------------------------
+-- Player Death
+-----------------------------
+-- TODO: remove his clones from world
+
+-----------------------------
 -- Player Disconnect
 -----------------------------
 game.Players.PlayerRemoving:Connect(function(player)
-    -- TODO: remove his clones from CLONES of other's players' clients (send S2CC)
     local state = STATES[player.UserId]
     if not state then
         return

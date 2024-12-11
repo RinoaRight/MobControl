@@ -28,46 +28,49 @@ local _flag = En.flag
 local disposer = require(shared.disposer)
 local state = require(shared.state)
 local SharedConfig = require(shared.SharedConfig)
+local C = SharedConfig.PlayerState.CId
+local W = SharedConfig.World.CId
+local SharedConfig = require(shared.SharedConfig)
 local GROUND_UNITS_FOLDER = assert(workspace.GroundUnits)
 local workerMaid = disposer.new()
+local LOCAL_PLAYER = game.Players.LocalPlayer
+
+local function onBoosterAdded(worldState, playerState: state.Replica, boosterGuid)
+    local instance = workspace:FindFirstChild(boosterGuid, true)
+    workerMaid[boosterGuid] = instance.Touched:Connect(function(other)
+        local parent = other.Parent
+        if parent and parent:FindFirstChild("HumanoidRootPart") then
+            assert(parent:IsA("Model")) -- sanity check
+
+            -- check if this player already collided with this booster.
+            if not playerState then
+                return
+            end
+
+            if playerState:has(boosterGuid) and playerState:has(boosterGuid, C.ClientFlags) then
+                return
+            end
+        end
+
+        -- player has collided with the booster for the first time, set it to the state
+        playerState:set(boosterGuid, C.ClientFlags, true)
+        local triggererId 
+        if parent.Parent == LOCAL_PLAYER then
+            triggererId = LOCAL_PLAYER.UserId
+            -- player themselves collided with the booster
+            -- TODO:
+        elseif parent.Parent == SharedConfig.CLONES_FOLDER_NAME then
+            triggererId = parent.Name
+            -- player's clone collided with the booster
+            -- TODO:
+        end
+
+        Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, boosterGuid, triggererId)
+    end)
+end
 
 local m = {}
 
--- local function onBoosterHitByBullet(booster)
---     Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster)
--- end
-
--- local function subscribeBoosters(groundUnit)
---     local children = groundUnit:GetChildren()
---     for _, booster in ipairs(children) do
---         if booster:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
---             local name = booster.Name
---             workerMaid[name] = (
---                 booster.Touch:Connect(function(other)
---                     if other.Name == "Bullet" then
---                         onBoosterHitByBullet(booster)
---                     end
---                 end)
---             )
---         end
---     end
--- end
-
--- function m.InitBoosters()
---     local existingGroundUnits = GROUND_UNITS_FOLDER:GetChildren()
---     for _, groundUnit in ipairs(existingGroundUnits) do
---         subscribeBoosters(groundUnit)
---     end
---     workerMaid.subToGroundUnits = GROUND_UNITS_FOLDER.ChildAdded:Connect(function(groundUnit)
---         subscribeBoosters(groundUnit)
---     end)
---     -- unsubscribe booster on its removal
---     workerMaid.subToBoosterRemoved = GROUND_UNITS_FOLDER.DescendantRemoving:Connect(function(descendant)
---         if descendant:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
---             local name = descendant.Name
---             workerMaid[name] = nil
---         end
---     end)
--- end
+workerMaid.sub = Signal.Connect(Id.C2C.NEW_BOOSTER_ADDED, onBoosterAdded)
 
 return m

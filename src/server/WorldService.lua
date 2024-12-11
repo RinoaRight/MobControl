@@ -51,6 +51,7 @@ type GetState = (player_id) -> PlayerState?
 local m = {}
 m.W = W
 m.world = state.main(SharedConfig.World.main_config)
+m.nullary_transient = m.world:constructor("transient")
 
 -- TODO: loop that will check bullet ttl and collisions and do stuff corresponding to the booster destroyed
 -- if boostRefid == _Id.Boost.ADD_CLONE then
@@ -100,6 +101,14 @@ local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.BoostContentId, W
 function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, boostContentId: id|bool)
     local guid = _booster(_roflake.uida, boostRefid, value, hp, boostContentId, serverInstance) :: str
     serverInstance.Name = guid
+    return guid
+end
+
+
+function m.AddClone(id: id, player_id: int)
+    local guid = m.nullary_transient(_roflake.uida)
+    m.world:set(guid, W.RefId, id)
+    m.world:set(guid, W.PLayerId, id)
     return guid
 end
 

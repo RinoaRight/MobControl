@@ -124,36 +124,36 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
     end
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
     instance.CollisionGroup = "BulletCollidable"
-    local boosterGuid = WorldService.AddBooster(instance, refID, value, hp, boostContentId)
-    workerMaid[boosterGuid] = instance.Touched:Connect(function(other)
-        local parent = other.Parent
-        if parent and parent:FindFirstChild("HumanoidRootPart") then
-            -- NOTE: clones are client-side and their collisions are not detected by server, hence only player can hit the booster
-            local triggererPlayer = game.Players:GetPlayerFromCharacter(parent)
-            local triggererPlayerId = triggererPlayer.UserId
-            assert(parent:IsA("Model")) -- sanity check
+    -- local boosterGuid = WorldService.AddBooster(instance, refID, value, hp, boostContentId)
+    -- workerMaid[boosterGuid] = instance.Touched:Connect(function(other)
+    --     local parent = other.Parent
+    --     if parent and parent:FindFirstChild("HumanoidRootPart") then
+    --         -- NOTE: clones are client-side and their collisions are not detected by server, hence only player can hit the booster
+    --         local triggererPlayer = game.Players:GetPlayerFromCharacter(parent)
+    --         local triggererPlayerId = triggererPlayer.UserId
+    --         assert(parent:IsA("Model")) -- sanity check
 
-            -- check if this player already collided with this booster. If not, set the flag
-            local triggererState = get_state(triggererPlayerId)
-            if not triggererState then
-                return
-            end
-            local isBooster = triggererState.state:has(boosterGuid)
-            if isBooster then
-                local isAlreadyCollided = triggererState.state:has(boosterGuid, C.Bitset)
-                if isAlreadyCollided then
-                    return
-                end
-            end
+    --         -- check if this player already collided with this booster. If not, set the flag
+    --         local triggererState = get_state(triggererPlayerId)
+    --         if not triggererState then
+    --             return
+    --         end
+    --         local isBooster = triggererState.state:has(boosterGuid)
+    --         if isBooster then
+    --             local isAlreadyCollided = triggererState.state:has(boosterGuid, C.Bitset)
+    --             if isAlreadyCollided then
+    --                 return
+    --             end
+    --         end
 
-            triggererState.nullary_local(boosterGuid)
-            triggererState.state:set(boosterGuid, C.Bitset, true)
+    --         triggererState.nullary_local(boosterGuid)
+    --         triggererState.state:set(boosterGuid, C.Bitset, true)
 
-            if triggererPlayer and triggererPlayerId then
-                Signal.Fire(Id.S2S.PLAYER_COLLIDED_W_BOOSTER, triggererPlayerId, boosterGuid, GAP_WIDTH, other.Name)
-            end
-        end
-    end)
+    --         if triggererPlayer and triggererPlayerId then
+    --             Signal.Fire(Id.S2S.PLAYER_COLLIDED_W_BOOSTER, triggererPlayerId, boosterGuid, GAP_WIDTH, other.Name)
+    --         end
+    --     end
+    -- end)
 end
 
 local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)
@@ -259,9 +259,10 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     workerMaid[booster_guid] = nil
     -- TODO:
     if boost_ref_id == Id.Boost.ADD_CLONE then
-        local currentClones = playerState.state:get(Id.PlayerStats.CLONE_AMOUNT, C.Value) or 0
-        playerState.state:set(Id.PlayerStats.CLONE_AMOUNT, C.Value, currentClones + value)
-        playerState:NotifyClient(Id.S2C.ADD_CLONE, value)
+        for i = 0, value do
+            local playerId = playerState.player_id
+            local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
+        end
     elseif boost_ref_id == Id.Boost.BULLET_SPEED_MULT then
         -- TODO:
     elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then

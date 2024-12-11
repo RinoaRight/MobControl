@@ -95,9 +95,11 @@ export type PlayerState = {
     NotifyClient: (self: PlayerState, event_id: id, ...any) -> (),
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
     DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
-    DeductHp: (self: PlayerState, amount: num) -> (num),
+    DeductHp: (self: PlayerState, amount: num) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
-    nullary_local: (uid) -> (),
+    GetCloneAmount: (self: PlayerState, id: id) -> int,
+    nullary_local: (state.uid_or_gen) -> uid,
+    nullary_transient: (state.uid_or_gen) -> uid,
     __index: any,
 }
 
@@ -114,16 +116,26 @@ local function update_ids(main: state.Main)
         end
     end
     local _countable = main:constructor(C.Value, C.Total)
-    merge(Id.Countable, function(id) _countable(id, 0, 0) end)
-    -- TODO: weapon (id, speed, damage, cooldown) and others
+    merge(Id.Countable, function(id)
+        _countable(id, 0, 0)
+    end)
+    -- TODO: weapon (id, speed, damage, cooldown) and others. Move it from here to Archetypes
     local _weapon = main:constructor(C.RefId)
-    merge(Id.PlayerStats, function(id) _weapon(id, SharedConfig.STARTING_WEAPON_ID) end)
+    merge(Id.PlayerStats, function(id)
+        _weapon(id, SharedConfig.STARTING_WEAPON_ID)
+    end)
     local _weapon_ttl = main:constructor(C.TTL)
-    merge(Id.TimedEvent, function(id) _weapon_ttl(id, 0) end)
+    merge(Id.TimedEvent, function(id)
+        _weapon_ttl(id, 0)
+    end)
     local _player_hp = main:constructor(C.Value)
-    merge(Id.PlayerStats, function(id) _player_hp(id, SharedConfig.STARTING_HP) end)
-    local _player_clones = main:constructor(C.Value)
-    merge(Id.PlayerStats, function(id) _player_clones(id, SharedConfig.STARTING_CLONE_AMOUNT) end)
+    merge(Id.PlayerStats, function(id)
+        _player_hp(id, SharedConfig.STARTING_HP)
+    end)
+    local _player_clones_amount = main:constructor(C.Value)
+    merge(Id.PlayerStats, function(id)
+        _player_clones_amount(id, SharedConfig.STARTING_CLONE_AMOUNT)
+    end)
     log:debug(main:format_uid(Id.Countable.COIN))
 end
 
@@ -155,7 +167,7 @@ local function fill_state(player_state: PlayerState)
             STORE:RemoveVersionAsync(player_state.state_store_key, info.Version)
             log:error("damaged save for player id: %*, error: %*", player_state.player_id, err0)
             log:error(info.CreatedTime, info.UpdatedTime, info.Version, info:GetUserIds(), info:GetMetadata())
-            log:error( str.hexify(data))
+            log:error(str.hexify(data))
             local player = game:GetService("Players"):GetPlayerByUserId(player_state.player_id)
             if player then
                 local msg = fmt("Error during loading save file: %*, error: %*", player_state.state_store_key, err0)
@@ -187,7 +199,8 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
         root = char:WaitForChild("HumanoidRootPart", TIMEOUT) :: BasePart,
         maid = disposer.new(),
         fire_client = fire_client,
-        nullary_local = state:constructor("local", "transient")
+        nullary_local = state:constructor("local", "transient"),
+        nullary_transient = state:constructor("transient"),
     }, PlayerState)) :: any
     fill_state(player_state)
     local snapshot = state:snapshot("discard-log")
@@ -213,12 +226,11 @@ function PlayerState.Save(self: PlayerState): ()
     end
 end
 
-
 function PlayerState.Destroy(self: PlayerState): ()
     self.maid:Destroy()
 end
 
-function PlayerState.NotifyClient(self: PlayerState, event_id: id, ...:any): ()
+function PlayerState.NotifyClient(self: PlayerState, event_id: id, ...: any): ()
     self.fire_client(event_id, nil, ...)
 end
 
@@ -259,13 +271,21 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num)
     local current = self.state:get(Id.PlayerStats.HP, C.Value)
     local new_hp = math.max(current - howMuch, 0)
     self.state:set(Id.PlayerStats.HP, C.Value, new_hp)
-    if new_hp<= 0 then
+    if new_hp <= 0 then
         -- TODO: remove player
     end
     return new_hp
 end
 
-
+function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
+    local clonesAmount = 0
+    for guid, id in self.state:select(C.RefId) do
+        if Id.kind(id) == Id.Kind.Clone then
+            clonesAmount += 1
+        end
+    end
+    return clonesAmount
+end
 -----------------------------
 -- Quick test
 -----------------------------
