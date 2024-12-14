@@ -124,36 +124,7 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
     end
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
     instance.CollisionGroup = "BulletCollidable"
-    -- local boosterGuid = WorldService.AddBooster(instance, refID, value, hp, boostContentId)
-    -- workerMaid[boosterGuid] = instance.Touched:Connect(function(other)
-    --     local parent = other.Parent
-    --     if parent and parent:FindFirstChild("HumanoidRootPart") then
-    --         -- NOTE: clones are client-side and their collisions are not detected by server, hence only player can hit the booster
-    --         local triggererPlayer = game.Players:GetPlayerFromCharacter(parent)
-    --         local triggererPlayerId = triggererPlayer.UserId
-    --         assert(parent:IsA("Model")) -- sanity check
-
-    --         -- check if this player already collided with this booster. If not, set the flag
-    --         local triggererState = get_state(triggererPlayerId)
-    --         if not triggererState then
-    --             return
-    --         end
-    --         local isBooster = triggererState.state:has(boosterGuid)
-    --         if isBooster then
-    --             local isAlreadyCollided = triggererState.state:has(boosterGuid, C.Bitset)
-    --             if isAlreadyCollided then
-    --                 return
-    --             end
-    --         end
-
-    --         triggererState.nullary_local(boosterGuid)
-    --         triggererState.state:set(boosterGuid, C.Bitset, true)
-
-    --         if triggererPlayer and triggererPlayerId then
-    --             Signal.Fire(Id.S2S.PLAYER_COLLIDED_W_BOOSTER, triggererPlayerId, boosterGuid, GAP_WIDTH, other.Name)
-    --         end
-    --     end
-    -- end)
+    WorldService.AddBooster(instance, refID, value, hp, boostContentId)
 end
 
 local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)
@@ -233,8 +204,9 @@ function m.StartMainLoopWorld(world_state: state.Main)
         local players = game:GetService("Players"):GetPlayers()
         for _, v in ipairs(players) do
             local player_id = v.UserId
-            if world_state:has(player_id) then
-                local shot_ttl = world_state:get(player_id, C.TTL) or 0
+            local weapon_id = world_state:get(player_id, W.WeaponId)
+            if world_state:has(player_id) and weapon_id ~= Id.Weapon._NONE then
+                local shot_ttl = world_state:get(player_id, W.TTL) or 0
                 shot_ttl -= dt
                 world_state:set(player_id, W.TTL, math.max(shot_ttl, 0))
             end
@@ -245,9 +217,12 @@ end
 function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
     return function(dt)
         -- weapon cooldown
-        local shot_ttl = player_state.state:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) :: num
-        shot_ttl -= dt
-        player_state.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, math.max(shot_ttl, 0))
+        local isActive = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+        if isActive then
+            local shot_ttl = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
+            shot_ttl -= dt
+            player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, math.max(shot_ttl, 0))
+        end
     end
 end
 
@@ -278,7 +253,7 @@ function m.SetPlayerAlignment(state: PSS.PlayerState)
         playerAtt.CFrame = playerRootPart.CFrame
         playerAtt.Parent = playerRootPart
         local playerAlignConst = Instance.new("AlignOrientation")
-        playerAlignConst.Name = "PlayerAlignConstraint"
+        playerAlignConst.Name = SharedConfig.PLAYER_ALIGN_CONSTR_NAME
         playerAlignConst.Parent = playerCharacter
         playerAlignConst.Attachment0 = playerAtt
         playerAlignConst.Attachment1 = DRIVING_BOX_ATT

@@ -39,15 +39,15 @@ m.IsBoosterToHit = function(pos: Vector3)
     raycastParams.FilterDescendantsInstances = blacklist
     local rayDirection = Vector3.new(0, 0, -SharedConfig.BULLET_BASE_DISTANCE)
     local raycastResult = workspace:Raycast(pos, rayDirection, raycastParams)
-    if "debug" then
-        local ray = Instance.new("Part")
-        ray.CanCollide = false
-        ray.Parent = workspace
-        ray.Anchored = true
-        ray.Size = Vector3.new(0.1, 0.1, 2 * rayDirection.Magnitude)
-        ray.CFrame = CFrame.new(pos, pos + rayDirection)
-        Debris:AddItem(ray, 3)
-    end
+    -- if "debug" then
+    --     local ray = Instance.new("Part")
+    --     ray.CanCollide = false
+    --     ray.Parent = workspace
+    --     ray.Anchored = true
+    --     ray.Size = Vector3.new(0.1, 0.1, 2 * rayDirection.Magnitude)
+    --     ray.CFrame = CFrame.new(pos, pos + rayDirection)
+    --     Debris:AddItem(ray, 3)
+    -- end
     local booster = nil
     local distance
     local raycastInstance

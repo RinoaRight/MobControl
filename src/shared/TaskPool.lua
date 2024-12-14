@@ -25,7 +25,10 @@ type map<k, v> = { [k]: v }
 type fun = (...any) -> ...any
 local fmt = string.format
 
+local __DEV__ = not workspace or game:GetService("RunService"):IsStudio()
+
 local DBG = {} :: {[thread]: str}
+
 
 -----------------------------
 -- Connection
@@ -138,7 +141,7 @@ do
         else
             thread = table.remove(_thread_pool) :: thread
         end
-        if _G.__DEV__ then
+        if __DEV__ then
             DBG[thread] = debug.traceback("traceback:")
         end
         return thread

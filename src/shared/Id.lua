@@ -62,6 +62,7 @@ local Kind = table.freeze {
     Product         = enum.iota'',
     Pass            = enum.iota'',
     PassF           = enum.iota'',
+    PlayerF         = enum.iota'',
     Countable       = enum.iota'',
     Clone           = enum.iota'',
     Weapon          = enum.iota'',
@@ -474,6 +475,28 @@ export type PassF = typeof(Id.PassF)
 
 -- stylua: ignore
 -----------------------------
+-- PlayerF
+-----------------------------
+Id.PlayerF = enum.with_id "Id.PlayerF" {
+    NONE          = flag(Id.Kind.PassF),
+    BOUGHT        = flag'',
+    GRANTED       = flag'',
+    TEMP          = flag'',
+    PLAYER_ACTIVE = flag'',
+
+}
+KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
+export type PlayerF = typeof(Id.PlayerF)
+--[[
+```luau
+-- usage:
+local flags = Id.flag_or(Id.PlayerF.BOUGHT, Id.PlayerF.GRANTED, Id.PlayerF.TEMP)
+warn("flags", Id.pp(flags), Id.flag_test(flags, Id.PlayerF.BOUGHT))
+```
+--]]
+
+-- stylua: ignore
+-----------------------------
 -- Product
 -----------------------------
 Id.Product = enum.with_id "Id.Product" {
@@ -523,7 +546,7 @@ export type Weapon = typeof(Id.Weapon)
 -----------------------------
 Id.TimedEvent = enum.with_id "Id.TimedEvent" {
     _NONE           = iota(Id.Kind.TimedEvent, 0),
-    WEAPON_COOLDOWN = iota'',
+    -- WEAPON_COOLDOWN = iota'',
 }
 KIND_TO_ENUM[Id.Kind.TimedEvent] = Id.TimedEvent
 export type TimedEvent = typeof(Id.TimedEvent)
@@ -545,9 +568,7 @@ export type Animation = typeof(Id.Animation)
 -----------------------------
 Id.PlayerStats = enum.with_id "Id.PlayerStats" {
     _NONE         = iota(Id.Kind.PlayerStats, 0),
-    WEAPON        = iota'',
-    HP            = iota'',
-    -- CLONE_AMOUNT  = iota'',
+    GAME_SESSION  = iota'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerStats] = Id.PlayerStats
 export type PlayerStats = typeof(Id.PlayerStats)

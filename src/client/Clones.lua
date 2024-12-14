@@ -33,15 +33,21 @@ local m = {}
 
 local LOCAL_PLAYER = game.Players.LocalPlayer
 
-function m.CreateClone(playerId: int, cloneGuid: num| str)
+function m.CreateClone(playerId: int, cloneGuid: num | str)
+    local cloneInstance
     TaskPool.spawn(function()
         -- clone the player's character
         local playerCharacter
-        local players = game.Players.GetPlayers()
+        local players = game.Players:GetPlayers()
         for _, player in ipairs(players) do
             if player.UserId == playerId then
                 playerCharacter = player.Character or player.CharacterAdded:Wait()
+                break
             end
+        end
+        if not playerCharacter then
+            log:error("Failed to find player character for player %s", playerId)
+            return
         end
         playerCharacter.Archivable = true
         local cloneCharTemplate = playerCharacter
@@ -55,9 +61,11 @@ function m.CreateClone(playerId: int, cloneGuid: num| str)
             folder.Parent = playerCharacter
         else
             existingClones = folder:GetChildren()
-            cloneCharTemplate = existingClones[1] :: Model
+            if #existingClones > 0 then
+                cloneCharTemplate = existingClones[1] :: Model
+            end
         end
-        local cloneInstance = cloneCharTemplate:Clone()
+        cloneInstance = cloneCharTemplate:Clone()
         cloneInstance.Name = cloneGuid
         for _, instance in cloneInstance:GetDescendants() do
             if instance:IsA("BasePart") then
@@ -66,11 +74,11 @@ function m.CreateClone(playerId: int, cloneGuid: num| str)
         end
 
         -- delete player hitbox when copying the character
-        -- TODO: fix
-        local playerHitbox = cloneInstance:FindFirstChild(SharedConfig.PLAYER_HITBOX_NAME) :: Humanoid
-        if playerHitbox then
-            playerHitbox:Destroy()
-        end
+        -- local playerHitbox = cloneInstance:FindFirstChild(SharedConfig.PLAYER_HITBOX_NAME) :: Humanoid
+        -- if playerHitbox then
+        --     playerHitbox:Destroy()
+        -- end
+
         cloneInstance.Parent = folder
 
         local humanoidRootPart = playerCharacter:WaitForChild("HumanoidRootPart") :: BasePart
@@ -84,9 +92,9 @@ function m.CreateClone(playerId: int, cloneGuid: num| str)
         local alreadyInCol = existingClonesNum % SharedConfig.CLONES_IN_A_ROW
         cloneRootPart.CFrame = CFrame.new(Misc.GetClonePos(humanoidRootPart.Position, alreadyInCol, vacantRow))
         Misc.AddPlayerCharToRaycastFilter(cloneInstance)
-
-        return cloneInstance
     end)
+
+    return cloneInstance
 end
 
 return m

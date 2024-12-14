@@ -15,6 +15,8 @@ type table = { [any]: any }
 type map<k, v> = { [k]: v }
 type fun = (...any) -> ...any
 type dim = id | int
+type guid = str
+type uid = guid | id
 local _fmt = string.format
 --[[ stylua: ignore]] game = game or require'game'
 local shared = game.ReplicatedStorage.shared
@@ -71,6 +73,37 @@ if not workspace then
     return
 end
 
+local function change_weapon(player_state, weapon_id: id)
+    player_state:ChangeWeapon(weapon_id)
+    WorldService.ChangeWeapon(player_state.player_id, weapon_id)
+end
+
+local function cleanUpWorldState(this_player_id: int)
+    -- clean up clones
+    for uid, ref_id, player_id in WorldService.world:select(W.RefId, W.PLayerId) do
+        if Id.kind(ref_id) == Id.Kind.Clone and player_id == this_player_id then
+            WorldService.RemoveEntity(uid)
+        end
+    end
+    -- clean up weapon
+    WorldService.ChangeWeapon(this_player_id, Id.Weapon._NONE)
+end
+
+local function onPlayerDead(player_state: PSS.PlayerState)
+    local lobby_spawn = assert(workspace:FindFirstChild("Lobby"):FindFirstChild("SpawnLocation"))
+    player_state.root.CFrame = lobby_spawn.CFrame
+    local constraint = player_state.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
+    if constraint then
+        constraint:Destroy()
+    end
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, Id.Weapon._NONE)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, 0)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Value, 0)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, false)
+
+    cleanUpWorldState(player_state.player_id)
+end
+
 -----------------------------
 -- Update Loops
 -----------------------------
@@ -108,7 +141,7 @@ on[Id.C2S.BOOSTER_HIT] = function(player_state, booster_guid, ...)
     local humanoidRootPart = player_state.character:FindFirstChild("HumanoidRootPart") :: BasePart
     if humanoidRootPart then
         local pos = humanoidRootPart.Position + humanoidRootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
-        local current_weapon_id = player_state.state:get(Id.PlayerStats.WEAPON, C.RefId) or Id.Weapon.BASIC
+        local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId) or Id.Weapon.BASIC
         local boosterToHit, _distance = Misc.IsBoosterToHit(pos)
         -- TODO: and check ttl
         if boosterToHit and boosterToHit.Name == booster_guid and WorldService.world:has(booster_guid) then
@@ -138,19 +171,37 @@ end
 
 on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, ...)
     log:debug(Id.C2S.BULLET_SHOT, player_state.player_id, event_id, ...)
-    local current_weapon_id = player_state.state:get(Id.PlayerStats.WEAPON, C.RefId) or Id.Weapon.BASIC
+    local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId) or Id.Weapon.BASIC
     local cooldown = S.Weapon[current_weapon_id].cooldown
     -- set TTL for the next shot in this player's state
-    player_state.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, cooldown)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, cooldown)
     -- set TTL for the next shot in the world state for other players' reference
     WorldService.SetTTL(player_state.player_id, cooldown)
-
-    -- TODO: call verify that the bullet collides and after <bullet speed> time, reduce hp from the booster
-    -- TODO: if the bullet doesn't collide, do nothing
-    -- TODO: after hp <= 0, remove the booster and add the boost to the player who's bullet it was
-    -- TODO: if it is the new weapon, set it to world state as well as the player's state
 end
 
+on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, triggerer_id: num | str, ...)
+    if not triggerer_id then
+        log:error("Collision triggerer id is not defined")
+    end
+    local isPlayer = type(triggerer_id) == "number"
+
+    local booster_hp = WorldService.world:get(booster_guid, W.HP)
+    local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+
+    if isPlayer then
+        -- TODO: reduce player hp.
+        -- TODO: update player_hp GUI
+        -- TODO: SFX
+        if player_hp - booster_hp <= 0 then
+            onPlayerDead(player_state)
+        else
+            player_state:DeductHp(booster_hp)
+        end
+    else
+        -- delete clone
+        WorldService.world:delete(triggerer_id)
+    end
+end
 -------------------
 -- S2S
 -------------------
@@ -166,46 +217,6 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
 end
 
--- TODO: refactor to subscription to C2S
--- s2s[Id.S2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, gapWidth: num, triggererName: string, ...)
---     local isHit = false
---     local isPlayer = false
---     local clonesAmount = player_state.state:get(Id.PlayerStats.CLONE_AMOUNT, C.Value) or 0
---     if triggererName ~= SharedConfig.PLAYER_HITBOX_NAME then
---         -- player themselves touched the booster
---         isHit = true
---         isPlayer = true
---     else
---         -- player clones might have 'touched' the booster, check if it is so
---         if clonesAmount > 1 then
---             -- check boosters' gap against the clone fomations
---             isHit = gapWidth < SharedConfig.INTERCLONES_DISTANCE * (clonesAmount + 1)
---         end
---     end
-
---     -- player and his clones fit in the gap, do nothing
---     if not isHit then
---         return
---     end
-    
---     local booster_hp = WorldService.world:get(booster_guid, W.HP)
---     local player_hp = player_state.state:get(Id.PlayerStats.HP, C.Value)
-    
---     if isPlayer then
---         -- TODO: reduce player hp.
---         -- TODO: update player_hp GUI
---         -- TODO: SFX
---         if player_hp - booster_hp <= 0 then
---             -- TODO: player death
---         else
---             player_state:DeductHp(booster_hp)
---         end
---     else
---         -- TODO: remove clones
---         -- TODO: inform client to remove corresponding number of clones
---     end
--- end
-
 -- initialize main game loop
 do
     TaskPool.spawn(function()
@@ -219,43 +230,45 @@ do
     end)
 end
 
-local function change_weapon(player_state, weapon_id: id)
-    player_state:ChangeWeapon(weapon_id)
-    WorldService.ChangeWeapon(player_state.player_id, weapon_id)
-end
-
 -----------------------------
 -- Player Connect
 -----------------------------
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
+        local _game_session_params = player_state.state:constructor(C.RefId, C.TTL, C.Value, C.Bitset) -- weapon_id, weapon_ttl, hp, is_active
+        _game_session_params(Id.PlayerStats.GAME_SESSION, SharedConfig.STARTING_WEAPON_ID, 0, SharedConfig.STARTING_HP, true)
         change_weapon(player_state, SharedConfig.STARTING_WEAPON_ID)
-        player_state.state:set(Id.PlayerStats.HP, C.Value, SharedConfig.STARTING_HP)
         GameModule.CreatePlayerHpGui(player_state)
 
         -- attach hitbox to the player == clones formation width
-        local player_character = player_state.character
-        local humanoid_root_part = assert(player_character:FindFirstChild("HumanoidRootPart") :: BasePart)
-        local hitbox = Instance.new("Part")
-        hitbox.Transparency = 1
-        hitbox.CanCollide = false
-        hitbox.Anchored = false
-        hitbox.CollisionGroup = "BulletNonCollidable"
-        hitbox.Massless = true
-        hitbox.Parent = player_character
-        hitbox.CFrame = humanoid_root_part.CFrame
-        local weld = Instance.new("WeldConstraint")
-        weld.Parent = hitbox
-        local rootPart = assert(player_state.character:FindFirstChild("HumanoidRootPart") :: BasePart)
-        weld.Part0 = rootPart
-        weld.Part1 = hitbox
-        hitbox.Name = SharedConfig.PLAYER_HITBOX_NAME
-        hitbox.CanCollide = false
-        local width = SharedConfig.INTERCLONES_DISTANCE * (SharedConfig.CLONES_IN_A_ROW - 1)
-        hitbox.Size = Vector3.new(width, 6, 4)
+        -- local player_character = player_state.character
+        -- local humanoid_root_part = player_state.root
+        -- local hitbox = Instance.new("Part")
+        -- hitbox.Transparency = 1
+        -- hitbox.CanCollide = false
+        -- hitbox.Anchored = false
+        -- hitbox.CollisionGroup = "BulletNonCollidable"
+        -- hitbox.Massless = true
+        -- hitbox.Parent = player_character
+        -- hitbox.CFrame = humanoid_root_part.CFrame
+        -- local weld = Instance.new("WeldConstraint")
+        -- weld.Parent = hitbox
+        -- local rootPart = assert(player_state.character:FindFirstChild("HumanoidRootPart") :: BasePart)
+        -- weld.Part0 = rootPart
+        -- weld.Part1 = hitbox
+        -- hitbox.Name = SharedConfig.PLAYER_HITBOX_NAME
+        -- hitbox.CanCollide = false
+        -- local width = SharedConfig.INTERCLONES_DISTANCE * (SharedConfig.CLONES_IN_A_ROW - 1)
+        -- hitbox.Size = Vector3.new(width, 6, 4)
 
         local _ = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
+
+        -- -- subscribe to death event
+        -- local player = Players:GetPlayerByUserId(player_state.player_id)
+        -- player_state.humanoid.Died:Connect(function()
+        --     onPlayerDead(player)
+        -- end)
     end
 end
 
@@ -269,11 +282,6 @@ game.Players.PlayerAdded:Connect(function(player)
     GameModule.SetPlayerAlignment(state)
     TaskPool.defer(init_player(state))
 end)
-
------------------------------
--- Player Death
------------------------------
--- TODO: remove his clones from world
 
 -----------------------------
 -- Player Disconnect
@@ -290,6 +298,7 @@ game.Players.PlayerRemoving:Connect(function(player)
         -- TODO: correct exit
         -- WorldService.RemovePlayer(state)
         state:Destroy()
+        cleanUpWorldState(player.UserId)
     end)
 end)
 

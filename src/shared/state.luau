@@ -1516,7 +1516,10 @@ function ReplicaState.constructor(self: ReplicaInternal, ...: cid | attribute)
     local to_defer_mask = bit32.band(mask, self._callback_masks[ON_ATTACH_MASK_IDX])
     local to_defer_cids = if to_defer_mask ~= 0 then { mask2args(to_defer_mask) } else nil
     local function ctor(u: uid | gen, ...: component): uid
-        assert(select("#", ...) == arity, "insufficient args, remainder: fist arg must be `uid` or `uid-factory`")
+        local n_args = select("#", ...)
+        if n_args ~= arity then
+            error(string.format("arity mismatch, expected %d, got %d", arity, n_args), 2)
+        end
         local uid = if type(u) == "function" then u() else u
         assert(uid ~= nil, "uid is nil")
         assert(not self._masks[uid], "non-unique uid")

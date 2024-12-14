@@ -295,13 +295,16 @@ RunService.Heartbeat:Connect(function(dt)
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player
-    local weaponId = PLAYER_STATE:get(Id.PlayerStats.WEAPON, C.RefId) or Id.Weapon.BASIC
-    local cooldown = S.Weapon[weaponId].cooldown
-    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-        local shot_ttl = PLAYER_STATE:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) or 0 :: num
-        if shot_ttl <= 0 then
-            fireBullet(LOCAL_PLAYER)
-            -- TODO: clone fire
+    local isActive = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    if isActive then
+        local weaponId = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId) or Id.Weapon.BASIC
+        local cooldown = S.Weapon[weaponId].cooldown
+        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+            local shot_ttl = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.TTL) or 0 :: num
+            if shot_ttl <= 0 then
+                fireBullet(LOCAL_PLAYER)
+                -- TODO: clone fire
+            end
         end
     end
 
@@ -315,28 +318,42 @@ RunService.Heartbeat:Connect(function(dt)
             continue
         end
         local playerId = player.UserId
-        local shot_ttl = WORLD:get(playerId, W.TTL)
-        if shot_ttl and shot_ttl <= 0 then
-            fireBullet(player)
+        local weapon_id = WORLD:get(playerId, W.WeaponId)
+        if weapon_id ~= Id.Weapon._NONE then
+            local shot_ttl = WORLD:get(playerId, W.TTL)
+            if shot_ttl and shot_ttl <= 0 then
+                fireBullet(player)
+            end
         end
     end
 end)
 
 local isRunAnimActive
 local infrequentLoop = supervisor.create(1, "client-infrequent")
+local isRunStopped = false
 infrequentLoop:start(function(dt)
     -- player character animation check
-    for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
-        if v.Name == RUN_ANIM_NAME then
-            isRunAnimActive = true
-            break
+    local isActive = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    if isActive then
+        for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
+            if v.Name == RUN_ANIM_NAME then
+                isRunAnimActive = true
+                break
+            end
         end
-    end
-    if not isRunAnimActive then
-        if not ACTIVE_RUN_ANIM_TRACK then
-            startRunAnim(LOCAL_CHARACTER)
-        else
-            playRunAnimTrack(ACTIVE_RUN_ANIM_TRACK)
+        if not isRunAnimActive then
+            if not ACTIVE_RUN_ANIM_TRACK then
+                startRunAnim(LOCAL_CHARACTER)
+            else
+                playRunAnimTrack(ACTIVE_RUN_ANIM_TRACK)
+            end
+        end
+    else
+        for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
+            if v.Name == RUN_ANIM_NAME and not isRunStopped then
+                isRunStopped = true
+                v:Stop()
+            end
         end
     end
 end, 1, "test")
@@ -344,48 +361,46 @@ end, 1, "test")
 -- create clones if any new clones appeared
 WORLD:set_on_attach(W.PLayerId, function(guid: guid, newplayerId: num)
     local id = WORLD:get(guid, W.RefId)
-    if Id.kind(id) == Id.Kind.Clone then
-        local clientInstance = WORLD:get(guid, W.ClientInstance)
+    if id and Id.kind(id) == Id.Kind.Clone then
+        -- local clientInstance = WORLD:get(guid, W.ClientInstance)
+        local clientInstance = workspace:FindFirstChild(guid, true)
         if not clientInstance then
             local newInstance = Clones.CreateClone(newplayerId, guid)
             if not newInstance then
                 log:error("failed to create clone for player " .. newplayerId)
                 return
             end
-            WORLD:set(guid, W.ClientInstance, newInstance)
+            -- WORLD:set(guid, W.ClientInstance, newInstance)
         end
-    end
-end)
-
---delete clone if it was deleted from world
-WORLD:set_on_detach(W.PLayerId, function(guid: guid)
-    local id = WORLD:get(guid, W.RefId)
-    if Id.kind(id) == Id.Kind.Clone then
-        local clientInstance = WORLD:get(guid, W.ClientInstance)
-        if not clientInstance then
-            local playerId = WORLD:get(guid, W.PLayerId)
-            log:error("failed to delete clone instance for player ".. playerId)
-            return
-        end
-        clientInstance:Destroy()
     end
 end)
 
 -- subscribe boosters to collisions
 local _booster = PLAYER_STATE:constructor(C.ClientFlags)
-WORLD:set_on_attach(W.HP, function(guid: guid, newValue: num)
+WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
+    log:debug("~~~>", guid)
     -- check if it was a booster that has been added
-    local id = WORLD:get(guid, W.RefId)
-    if Id.kind(id) == Id.Kind.Boost then
-        _booster(guid, C.ClientFlags, false)
+    if Id.kind(newValue) == Id.Kind.Boost then
+        _booster(guid, false)
         Signal.Broadcast(Id.C2C.NEW_BOOSTER_ADDED, WORLD, PLAYER_STATE, guid)
     end
 end)
 
--- delete booster in PlerState when it is deleted from world
-WORLD:set_on_detach(W.HP, function(guid: guid)
-    local id = WORLD:get(guid, W.RefId)
-    if Id.kind(id) == Id.Kind.Boost then
+WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
+    if Id.kind(oldValue) == Id.Kind.Boost then
+        -- delete booster in PlayerState when it is deleted from world
         PLAYER_STATE:delete(guid)
+    end
+
+    if Id.kind(oldValue) == Id.Kind.Clone then
+        -- delete clone if it was deleted from world
+        local instance = workspace:FindFirstChild(guid, true)
+        if instance then
+            Disposer.dispose(instance)
+            -- WORLD:delete(guid)
+        else
+            log:error("failed to delete clone instance for player " .. oldValue)
+            return
+        end
     end
 end)

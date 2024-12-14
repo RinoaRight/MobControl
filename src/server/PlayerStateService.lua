@@ -119,23 +119,6 @@ local function update_ids(main: state.Main)
     merge(Id.Countable, function(id)
         _countable(id, 0, 0)
     end)
-    -- TODO: weapon (id, speed, damage, cooldown) and others. Move it from here to Archetypes
-    local _weapon = main:constructor(C.RefId)
-    merge(Id.PlayerStats, function(id)
-        _weapon(id, SharedConfig.STARTING_WEAPON_ID)
-    end)
-    local _weapon_ttl = main:constructor(C.TTL)
-    merge(Id.TimedEvent, function(id)
-        _weapon_ttl(id, 0)
-    end)
-    local _player_hp = main:constructor(C.Value)
-    merge(Id.PlayerStats, function(id)
-        _player_hp(id, SharedConfig.STARTING_HP)
-    end)
-    local _player_clones_amount = main:constructor(C.Value)
-    merge(Id.PlayerStats, function(id)
-        _player_clones_amount(id, SharedConfig.STARTING_CLONE_AMOUNT)
-    end)
     log:debug(main:format_uid(Id.Countable.COIN))
 end
 
@@ -263,14 +246,18 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
 end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
-    self.state:set(Id.PlayerStats.WEAPON, C.RefId, weapon_id)
-    self.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, S.Weapon[weapon_id].cooldown)
+    self.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, weapon_id)
+    local ttl = 0
+    if weapon_id ~= Id.Weapon._NONE then
+        ttl = S.Weapon[weapon_id].cooldown
+    end
+    self.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, ttl)
 end
 
 function PlayerState.DeductHp(self: PlayerState, howMuch: num)
-    local current = self.state:get(Id.PlayerStats.HP, C.Value)
+    local current = self.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
     local new_hp = math.max(current - howMuch, 0)
-    self.state:set(Id.PlayerStats.HP, C.Value, new_hp)
+    self.state:set(Id.PlayerStats.GAME_SESSION, C.Value, new_hp)
     if new_hp <= 0 then
         -- TODO: remove player
     end

@@ -54,8 +54,9 @@ m.INTERCLONES_DISTANCE         = 5
 -- m.CLONE_HP                     = 10
 m.CLONES_FOLDER_NAME           = "Clones"
 m.PLAYER_HITBOX_NAME           = "Hitbox"
+m.PLAYER_ALIGN_CONSTR_NAME     = "PlayerAlignConstraint"
 m.STARTING_WEAPON_ID           = Id.Weapon.BASIC
-m.STARTING_HP                  = 100
+m.STARTING_HP                  = 10--0
 m.STARTING_CLONE_AMOUNT        = 0
 -- m.BOOSTER_COLLISION_DAMAGE     = 10
 m.ATTRIBUTES_NAMES = {
@@ -86,7 +87,8 @@ World.CId = En.with_id("World.CId") {
     PLayerId       = iota'',   -- number
     WeaponId       = iota'',   -- id
     TTL            = iota'',   -- sec (*1)
-    ClientInstance = iota'',   -- Instance, not replicated
+    -- non-replicated
+    -- ClientInstance = iota'',   -- Instance, not replicated
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId
