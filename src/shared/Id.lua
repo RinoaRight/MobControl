@@ -478,12 +478,8 @@ export type PassF = typeof(Id.PassF)
 -- PlayerF
 -----------------------------
 Id.PlayerF = enum.with_id "Id.PlayerF" {
-    NONE          = flag(Id.Kind.PassF),
-    BOUGHT        = flag'',
-    GRANTED       = flag'',
-    TEMP          = flag'',
-    PLAYER_ACTIVE = flag'',
-
+    NONE   = flag(Id.Kind.PlayerF),
+    READY  = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
@@ -642,9 +638,10 @@ export type C2C = typeof(Id.C2C)
 -----------------------------
 Id.C2S = enum.with_id "Id.C2S" {
     _NONE                     = iota(Id.Kind.C2S, 0),
-    BOOSTER_HIT               = iota'',               -- booster_guid
-    BULLET_SHOT               = iota'',               -- pos
-    PLAYER_COLLIDED_W_BOOSTER = iota'',               -- booster_guid, triggerer_guid (or player_id)
+    BOOSTER_HIT               = iota'', -- booster_guid
+    BULLET_SHOT               = iota'', -- pos
+    PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
+    PLAYER_READY_TO_START     = iota'',               
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
 export type C2S = typeof(Id.C2S)

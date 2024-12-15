@@ -92,7 +92,9 @@ until LOCAL_PLAYER.Character
 local LOCAL_CHARACTER = LOCAL_PLAYER.Character
 local LOCAL_HUMANOID = LOCAL_PLAYER.Character:WaitForChild("Humanoid")
 local LOCAL_HUMANOID_ROOT_PART = assert(LOCAL_PLAYER.Character:WaitForChild("HumanoidRootPart"))
--- local PLAYER_SPAWN_POS = LOCAL_CHARACTER.Position
+
+local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
+local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 
 -----------------------------
 -- Net handlers
@@ -174,6 +176,15 @@ do
     startRunAnim(LOCAL_CHARACTER)
     -- diable jumping
     LOCAL_HUMANOID.JumpPower = 0
+    -- TODO: only  enable if session is not started yet
+    START_GUI.Enabled = true
+    local btn = START_GUI:FindFirstChild("OKButton", true)
+    print("LLLLLLLL", START_GUI, btn)
+    maid.StartBtn = btn.MouseButton1Click:Connect(function()
+        START_GUI.Enabled = false
+        fire_server(Id.C2S.PLAYER_READY_TO_START)
+        maid.StartBtn = nil
+    end)
 end
 
 local function fireBullet(player)
@@ -295,8 +306,8 @@ RunService.Heartbeat:Connect(function(dt)
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player
-    local isActive = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    if isActive then
+    local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    if flags and Id.flag_test(flags, Id.PlayerF.READY) then
         local weaponId = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId) or Id.Weapon.BASIC
         local cooldown = S.Weapon[weaponId].cooldown
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
@@ -333,8 +344,8 @@ local infrequentLoop = supervisor.create(1, "client-infrequent")
 local isRunStopped = false
 infrequentLoop:start(function(dt)
     -- player character animation check
-    local isActive = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    if isActive then
+    local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    if Id.flag_test(flags, Id.PlayerF.READY) then
         for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
             if v.Name == RUN_ANIM_NAME then
                 isRunAnimActive = true

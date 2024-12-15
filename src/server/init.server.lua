@@ -99,7 +99,8 @@ local function onPlayerDead(player_state: PSS.PlayerState)
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, 0)
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Value, 0)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, false)
+    local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, false))
 
     cleanUpWorldState(player_state.player_id)
 end
@@ -202,6 +203,11 @@ on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str,
         WorldService.world:delete(triggerer_id)
     end
 end
+
+on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
+    local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, true))
+end
 -------------------
 -- S2S
 -------------------
@@ -221,11 +227,20 @@ end
 do
     TaskPool.spawn(function()
         GameModule.Init(WorldService.world, get_state)
+
         -- TODO: this is a hack, we should have a better way to do this
-        -- task.wait(20)
-        task.wait(5)
-        local playerState = get_state(next(STATES) :: int)
-        assert(playerState, "sanity check failed")
+        -- wait until at least 1 player is ready
+        local playerState
+        repeat
+            task.wait()
+            playerState = get_state(next(STATES) :: int)
+        until playerState ~= nil
+        log:info("playerState", playerState, playerState and playerState.player_id)
+        assert(playerState, "sanity check failed, no player state found")
+        local flags = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+        repeat
+            task.wait()
+        until Id.flag_test(flags, Id.PlayerF.READY)
         local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world))
     end)
 end
@@ -236,39 +251,17 @@ end
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
+        -- TODO: refactor. spawn in the lobby, on startMainLoopPlayer on button_pressed, spawn into the game in the mid of driving box.
+        -- Move this logic into onPlayerReady
         local _game_session_params = player_state.state:constructor(C.RefId, C.TTL, C.Value, C.Bitset) -- weapon_id, weapon_ttl, hp, is_active
-        _game_session_params(Id.PlayerStats.GAME_SESSION, SharedConfig.STARTING_WEAPON_ID, 0, SharedConfig.STARTING_HP, true)
+        _game_session_params(Id.PlayerStats.GAME_SESSION, SharedConfig.STARTING_WEAPON_ID, 0, SharedConfig.STARTING_HP, Id.PlayerF.NONE)
+
         change_weapon(player_state, SharedConfig.STARTING_WEAPON_ID)
+
         GameModule.CreatePlayerHpGui(player_state)
 
-        -- attach hitbox to the player == clones formation width
-        -- local player_character = player_state.character
-        -- local humanoid_root_part = player_state.root
-        -- local hitbox = Instance.new("Part")
-        -- hitbox.Transparency = 1
-        -- hitbox.CanCollide = false
-        -- hitbox.Anchored = false
-        -- hitbox.CollisionGroup = "BulletNonCollidable"
-        -- hitbox.Massless = true
-        -- hitbox.Parent = player_character
-        -- hitbox.CFrame = humanoid_root_part.CFrame
-        -- local weld = Instance.new("WeldConstraint")
-        -- weld.Parent = hitbox
-        -- local rootPart = assert(player_state.character:FindFirstChild("HumanoidRootPart") :: BasePart)
-        -- weld.Part0 = rootPart
-        -- weld.Part1 = hitbox
-        -- hitbox.Name = SharedConfig.PLAYER_HITBOX_NAME
-        -- hitbox.CanCollide = false
-        -- local width = SharedConfig.INTERCLONES_DISTANCE * (SharedConfig.CLONES_IN_A_ROW - 1)
-        -- hitbox.Size = Vector3.new(width, 6, 4)
-
+        -- TODO: FIXME. GameLoop failed to start
         local _ = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
-
-        -- -- subscribe to death event
-        -- local player = Players:GetPlayerByUserId(player_state.player_id)
-        -- player_state.humanoid.Died:Connect(function()
-        --     onPlayerDead(player)
-        -- end)
     end
 end
 

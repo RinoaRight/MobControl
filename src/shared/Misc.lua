@@ -79,4 +79,27 @@ m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
     return new_pos
 end
 
+-- attach hitbox to the player == clones formation width
+m.AttachHitboxToPlayer = function(player_state)
+    local player_character = player_state.character
+    local humanoid_root_part = player_state.root
+    local hitbox = Instance.new("Part")
+    hitbox.Transparency = 1
+    hitbox.CanCollide = false
+    hitbox.Anchored = false
+    hitbox.CollisionGroup = "BulletNonCollidable"
+    hitbox.Massless = true
+    hitbox.Parent = player_character
+    hitbox.CFrame = humanoid_root_part.CFrame
+    local weld = Instance.new("WeldConstraint")
+    weld.Parent = hitbox
+    local rootPart = assert(player_state.root :: BasePart)
+    weld.Part0 = rootPart
+    weld.Part1 = hitbox
+    hitbox.Name = SharedConfig.PLAYER_HITBOX_NAME
+    hitbox.CanCollide = false
+    local width = SharedConfig.INTERCLONES_DISTANCE * (SharedConfig.CLONES_IN_A_ROW - 1)
+    hitbox.Size = Vector3.new(width, 6, 4)
+end
+
 return m
