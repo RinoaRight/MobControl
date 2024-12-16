@@ -173,13 +173,11 @@ do
     alignConst.Parent = workspace
     alignConst.Attachment0 = playerAtt
     alignConst.Attachment1 = DRIVING_BOX_ATT
-    startRunAnim(LOCAL_CHARACTER)
     -- diable jumping
     LOCAL_HUMANOID.JumpPower = 0
     -- TODO: only  enable if session is not started yet
     START_GUI.Enabled = true
     local btn = START_GUI:FindFirstChild("OKButton", true)
-    print("LLLLLLLL", START_GUI, btn)
     maid.StartBtn = btn.MouseButton1Click:Connect(function()
         START_GUI.Enabled = false
         fire_server(Id.C2S.PLAYER_READY_TO_START)

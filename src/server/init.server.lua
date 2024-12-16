@@ -205,8 +205,19 @@ on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str,
 end
 
 on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
-    local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, true))
+    local total_players = Players:GetPlayers()
+    local players_already_in_session = 1 -- including this player
+    for _, player in ipairs(total_players) do
+        local playerState = get_state(player)
+        if playerState then
+            local f = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+            local isReady = Id.flag_test(f, Id.PlayerF.READY)
+            if isReady then
+                players_already_in_session += 1
+            end
+        end
+    end
+    GameModule.OnPlayerReadyToPlay(player_state, players_already_in_session)
 end
 -------------------
 -- S2S
@@ -240,6 +251,7 @@ do
         local flags = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
         repeat
             task.wait()
+            flags = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
         until Id.flag_test(flags, Id.PlayerF.READY)
         local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world))
     end)
@@ -260,7 +272,6 @@ local function init_player(player_state: PlayerState)
 
         GameModule.CreatePlayerHpGui(player_state)
 
-        -- TODO: FIXME. GameLoop failed to start
         local _ = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     end
 end

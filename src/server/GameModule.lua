@@ -50,6 +50,7 @@ local m = {} :: {
     HandleBoosterDeath: (PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id) -> (),
     StartMainLoopWorld: (world_state: state.Main) -> (num) -> (),
     SetPlayerAlignment: (PSS.PlayerState) -> (),
+    OnPlayerReadyToPlay: (PSS.PlayerState, int) -> (),
 }
 
 local workerMaid = disposer.new()
@@ -245,6 +246,41 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
         -- TODO:
     end
+end
+
+function m.OnPlayerReadyToPlay(player_state: PSS.PlayerState, players_already_in_session: int)
+    -- define spawning position
+    local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, true))
+
+    local driver_pos = DRIVING_BOX_INSTANCE.Position
+    local random_dround_unit = workspace:FindFirstChild("GroundUnit", true)
+    local boosters = {}
+    for _, child in random_dround_unit:GetChildren() do
+        if child:FindFirstChild("BoosterGui") then
+            table.insert(boosters, child)
+        end
+    end
+
+    assert(#boosters > 0 and #boosters % 2 == 0)
+
+    local x_pos = driver_pos.X
+    local index = 1
+    if players_already_in_session > #boosters then
+        index = math.random(1, #boosters)
+    elseif players_already_in_session % 2 == 0 then
+        -- evens
+        local starting_point = #boosters / 2 + 1
+        index = starting_point - players_already_in_session / 2
+    else
+        -- odds
+        local starting_point = #boosters / 2 
+        index = starting_point + (players_already_in_session + 1) / 2 
+    end
+    x_pos = boosters[index].Position.X
+
+    local target_c_frame = CFrame.new(x_pos, driver_pos.Y, driver_pos.Z - 50)
+    player_state.root.CFrame = target_c_frame
 end
 
 function m.SetPlayerAlignment(state: PSS.PlayerState)
