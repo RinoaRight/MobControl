@@ -115,6 +115,17 @@ on[Id.S2C.UPDATE_WORLD] = function(state: state.Replica, update_log)
     WORLD:update(update_log)
 end
 
+on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
+    LOCAL_HUMANOID.JumpPower = 50
+    LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME):Destroy()
+    -- workspace:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME):Destroy()
+    for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
+        if v.Name == SharedConfig.RUN_ANIMATION_NAME then
+            v:Stop()
+        end
+    end
+end
+
 -----------------------------
 -- Handshake
 -----------------------------
@@ -142,16 +153,17 @@ repeat
 until DRIVING_BOX_INSTANCE
 Misc.AddPlayerCharToRaycastFilter(DRIVING_BOX_INSTANCE)
 local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
+local LOCAL_PLAYER = game.Players.LocalPlayer
+local DRIVING_BOX_ATT = workspace:WaitForChild("DrivingBox", 10):FindFirstChild("Attachment")
 
 local ACTIVE_RUN_ANIM_TRACK
-
 -- load run animation
 local animateScript = LOCAL_CHARACTER:WaitForChild("Animate")
-local RUN_ANIM_NAME = "RunAnim"
-local RUN_ANIM = animateScript:WaitForChild("run"):WaitForChild(RUN_ANIM_NAME)
+local RUN_ANIM = animateScript:WaitForChild("run"):WaitForChild(SharedConfig.RUN_ANIMATION_NAME)
 
 local function playRunAnimTrack(runAnimTrack)
     runAnimTrack:Play(0.100000001, 1, 2)
+    runAnimTrack.Priority = Enum.AnimationPriority.Action4
 end
 
 local function startRunAnim(character)
@@ -161,28 +173,35 @@ local function startRunAnim(character)
     playRunAnimTrack(runAnimTrack)
 end
 
--- TODO: wrap it into onPlayerConnect
-do
-    local LOCAL_PLAYER = game.Players.LocalPlayer
-    local DRIVING_BOX_ATT = workspace:WaitForChild("DrivingBox", 10):FindFirstChild("Attachment")
-    local playerAtt = Instance.new("Attachment") :: Attachment
-    playerAtt.Name = "CloneGuideAtt"
-    playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
-    playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
-    local alignConst = Instance.new("AlignOrientation")
-    alignConst.Parent = workspace
-    alignConst.Attachment0 = playerAtt
-    alignConst.Attachment1 = DRIVING_BOX_ATT
-    -- diable jumping
-    LOCAL_HUMANOID.JumpPower = 0
-    -- TODO: only  enable if session is not started yet
-    START_GUI.Enabled = true
-    local btn = START_GUI:FindFirstChild("OKButton", true)
-    maid.StartBtn = btn.MouseButton1Click:Connect(function()
-        START_GUI.Enabled = false
-        fire_server(Id.C2S.PLAYER_READY_TO_START)
-        maid.StartBtn = nil
+local function subscribeStartCollider()
+    local SESSION_STARTER_COLLIDER = assert(workspace:WaitForChild("SessionStarter"):FindFirstChild("Collider"))
+    local START_BTN = START_GUI:FindFirstChild("OKButton", true)
+    START_GUI.Enabled = false
+    maid.StartCollider = SESSION_STARTER_COLLIDER.Touched:Connect(function(other)
+        if other == LOCAL_HUMANOID_ROOT_PART then
+            -- TODO: freeze player?
+            START_GUI.Enabled = true
+            maid.StartBtn = START_BTN.MouseButton1Click:Connect(function()
+                -- diable jumping
+                LOCAL_HUMANOID.JumpPower = 0
+                local playerAtt = Instance.new("Attachment") :: Attachment
+                playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
+                playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
+                playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
+                START_GUI.Enabled = false
+                fire_server(Id.C2S.PLAYER_READY_TO_START)
+                startRunAnim(LOCAL_CHARACTER)
+                maid.StartBtn = nil
+            end)
+            maid.StartCollider = SESSION_STARTER_COLLIDER.TouchEnded:Connect(function(other)
+                subscribeStartCollider()
+            end)
+        end
     end)
+end
+
+do
+    subscribeStartCollider()
 end
 
 local function fireBullet(player)
@@ -249,7 +268,7 @@ RunService.Heartbeat:Connect(function(dt)
             local isRunAnimActive = false
             local cloneAnimTracks = clone.Humanoid:GetPlayingAnimationTracks()
             for _, v in ipairs(cloneAnimTracks) do
-                if v.Name == RUN_ANIM_NAME then
+                if v.Name == SharedConfig.RUN_ANIMATION_NAME then
                     isRunAnimActive = true
                     break
                 end
@@ -300,24 +319,23 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 
-    -- TODO: fake other players' bullets? (knowing their position and weapon from world state).
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player
     local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
     if flags and Id.flag_test(flags, Id.PlayerF.READY) then
-        local weaponId = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId) or Id.Weapon.BASIC
-        local cooldown = S.Weapon[weaponId].cooldown
+        local weaponId = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
             local shot_ttl = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.TTL) or 0 :: num
             if shot_ttl <= 0 then
                 fireBullet(LOCAL_PLAYER)
-                -- TODO: clone fire
+                -- TODO: clones' fire
             end
         end
     end
 
     -- fake bullets' animation for other players
+    -- TODO: fixme. no other players' bullets are shown
     for _, player in ipairs(players) do
         if player == LOCAL_PLAYER then
             continue
@@ -328,7 +346,7 @@ RunService.Heartbeat:Connect(function(dt)
         end
         local playerId = player.UserId
         local weapon_id = WORLD:get(playerId, W.WeaponId)
-        if weapon_id ~= Id.Weapon._NONE then
+        if weapon_id and weapon_id ~= Id.Weapon._NONE then
             local shot_ttl = WORLD:get(playerId, W.TTL)
             if shot_ttl and shot_ttl <= 0 then
                 fireBullet(player)
@@ -337,31 +355,25 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
-local isRunAnimActive
 local infrequentLoop = supervisor.create(1, "client-infrequent")
-local isRunStopped = false
 infrequentLoop:start(function(dt)
     -- player character animation check
+    local isRunAnimActive
+    -- TODO: other players animation
     local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    if Id.flag_test(flags, Id.PlayerF.READY) then
+    if flags and Id.flag_test(flags, Id.PlayerF.READY) then
         for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
-            if v.Name == RUN_ANIM_NAME then
+            if v.Name == SharedConfig.RUN_ANIMATION_NAME then
                 isRunAnimActive = true
                 break
             end
         end
         if not isRunAnimActive then
             if not ACTIVE_RUN_ANIM_TRACK then
+                -- animation track not loaded yet
                 startRunAnim(LOCAL_CHARACTER)
             else
                 playRunAnimTrack(ACTIVE_RUN_ANIM_TRACK)
-            end
-        end
-    else
-        for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
-            if v.Name == RUN_ANIM_NAME and not isRunStopped then
-                isRunStopped = true
-                v:Stop()
             end
         end
     end

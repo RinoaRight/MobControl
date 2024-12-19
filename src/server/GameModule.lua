@@ -220,6 +220,7 @@ end
 function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
     return function(dt)
         -- weapon cooldown
+
         local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
         if Id.flag_test(flags, Id.PlayerF.READY) then
             local shot_ttl = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
@@ -274,28 +275,26 @@ function m.OnPlayerReadyToPlay(player_state: PSS.PlayerState, players_already_in
         index = starting_point - players_already_in_session / 2
     else
         -- odds
-        local starting_point = #boosters / 2 
-        index = starting_point + (players_already_in_session + 1) / 2 
+        local starting_point = #boosters / 2
+        index = starting_point + (players_already_in_session + 1) / 2
     end
     x_pos = boosters[index].Position.X
+    local y_pos = player_state.root.Position.Y
 
-    local target_c_frame = CFrame.new(x_pos, driver_pos.Y, driver_pos.Z - 50)
+    local target_c_frame = CFrame.new(x_pos, y_pos, driver_pos.Z - 50)
     player_state.root.CFrame = target_c_frame
-end
 
-function m.SetPlayerAlignment(state: PSS.PlayerState)
-    TaskPool.spawn(function()
-        local playerAtt = Instance.new("Attachment") :: Attachment
-        local playerCharacter = state.character :: Model
-        local playerRootPart = state.root :: Part
-        playerAtt.CFrame = playerRootPart.CFrame
-        playerAtt.Parent = playerRootPart
-        local playerAlignConst = Instance.new("AlignOrientation")
-        playerAlignConst.Name = SharedConfig.PLAYER_ALIGN_CONSTR_NAME
-        playerAlignConst.Parent = playerCharacter
-        playerAlignConst.Attachment0 = playerAtt
-        playerAlignConst.Attachment1 = DRIVING_BOX_ATT
-    end)
+    -- set player alignment
+    local playerAtt = Instance.new("Attachment") :: Attachment
+    local playerCharacter = player_state.character :: Model
+    local playerRootPart = player_state.root :: Part
+    playerAtt.CFrame = playerRootPart.CFrame
+    playerAtt.Parent = playerRootPart
+    local playerAlignConst = Instance.new("AlignOrientation")
+    playerAlignConst.Name = SharedConfig.PLAYER_ALIGN_CONSTR_NAME
+    playerAlignConst.Parent = playerCharacter
+    playerAlignConst.Attachment0 = playerAtt
+    playerAlignConst.Attachment1 = DRIVING_BOX_ATT
 end
 
 print("[Game Module -- started]")

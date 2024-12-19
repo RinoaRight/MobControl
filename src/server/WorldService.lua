@@ -74,11 +74,10 @@ end
 local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId, W.TTL)
 function m.AddPlayer(state)
     local player_id = state.player_id
-    local weapon_instance = S.Weapon[Id.Weapon.BASIC].instance
     if m.world:has(player_id) then
         log:error("non-unique uid: ", player_id, m.world.format_row, m.world, player_id)
     end
-    return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, weapon_instance, Id.Weapon.BASIC, S.Weapon[Id.Weapon.BASIC].cooldown)
+    return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, nil, SharedConfig.STARTING_WEAPON_ID, 0)
 end
 
 function m.RemovePlayer(uid: uid)

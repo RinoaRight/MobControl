@@ -55,8 +55,12 @@ m.INTERCLONES_DISTANCE         = 5
 m.CLONES_FOLDER_NAME           = "Clones"
 m.PLAYER_HITBOX_NAME           = "Hitbox"
 m.PLAYER_ALIGN_CONSTR_NAME     = "PlayerAlignConstraint"
-m.STARTING_WEAPON_ID           = Id.Weapon.BASIC
-m.STARTING_HP                  = 100
+m.CLONE_ATTACHMENT_NAME        = "CloneGuideAtt"
+-- m.ALIGN_CONSTRAINT_NAME        = "AlignConstraint"
+m.RUN_ANIMATION_NAME           = "RunAnim"
+m.STARTING_WEAPON_ID           = Id.Weapon._NONE
+-- TODO: real values
+m.STARTING_HP                  = 10--0
 m.STARTING_CLONE_AMOUNT        = 0
 -- m.BOOSTER_COLLISION_DAMAGE     = 10
 m.ATTRIBUTES_NAMES = {

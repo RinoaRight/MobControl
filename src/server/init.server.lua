@@ -46,6 +46,9 @@ local S = require(shared.StaticData)
 local Misc = require(shared.Misc)
 local NumFormat = require(shared.num_format)
 local Signal = require(shared.signal)
+local disposer = require(shared.disposer)
+
+local workerMaid = disposer.new()
 
 if game.PhysicsService then
     local phys = game.PhysicsService
@@ -86,10 +89,13 @@ local function cleanUpWorldState(this_player_id: int)
         end
     end
     -- clean up weapon
-    WorldService.ChangeWeapon(this_player_id, Id.Weapon._NONE)
+    if WorldService.world:has(this_player_id) then
+        WorldService.ChangeWeapon(this_player_id, Id.Weapon._NONE)
+    end
 end
 
 local function onPlayerDead(player_state: PSS.PlayerState)
+    player_state:NotifyClient(Id.S2C.PLAYER_DIED)
     local lobby_spawn = assert(workspace:FindFirstChild("Lobby"):FindFirstChild("SpawnLocation"))
     player_state.root.CFrame = lobby_spawn.CFrame
     local constraint = player_state.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
@@ -217,6 +223,15 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
             end
         end
     end
+
+    change_weapon(player_state, SharedConfig.STARTING_WEAPON_ID)
+
+    GameModule.CreatePlayerHpGui(player_state)
+
+    local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
+    -- workerMaid.playerLoop = function()
+    --     ServerSupervisor:cancel(main_loop_player_handler)
+    -- end
     GameModule.OnPlayerReadyToPlay(player_state, players_already_in_session)
 end
 -------------------
@@ -252,7 +267,7 @@ do
         repeat
             task.wait()
             flags = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-        until Id.flag_test(flags, Id.PlayerF.READY)
+        until flags and Id.flag_test(flags, Id.PlayerF.READY)
         local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world))
     end)
 end
@@ -263,16 +278,8 @@ end
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
-        -- TODO: refactor. spawn in the lobby, on startMainLoopPlayer on button_pressed, spawn into the game in the mid of driving box.
-        -- Move this logic into onPlayerReady
         local _game_session_params = player_state.state:constructor(C.RefId, C.TTL, C.Value, C.Bitset) -- weapon_id, weapon_ttl, hp, is_active
         _game_session_params(Id.PlayerStats.GAME_SESSION, SharedConfig.STARTING_WEAPON_ID, 0, SharedConfig.STARTING_HP, Id.PlayerF.NONE)
-
-        change_weapon(player_state, SharedConfig.STARTING_WEAPON_ID)
-
-        GameModule.CreatePlayerHpGui(player_state)
-
-        local _ = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     end
 end
 
@@ -283,7 +290,6 @@ game.Players.PlayerAdded:Connect(function(player)
     state.maid.remote_disposer = disposer
     WorldService.AddPlayer(state)
     -- Market.CheckPassesOnInit(state.player_id, function(store_id) error("TODO") end)
-    GameModule.SetPlayerAlignment(state)
     TaskPool.defer(init_player(state))
 end)
 
