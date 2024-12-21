@@ -77,7 +77,7 @@ function m.AddPlayer(state)
     if m.world:has(player_id) then
         log:error("non-unique uid: ", player_id, m.world.format_row, m.world, player_id)
     end
-    return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, nil, SharedConfig.STARTING_WEAPON_ID, 0)
+    return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, nil, Id.Weapon._NONE, 0)
 end
 
 function m.RemovePlayer(uid: uid)

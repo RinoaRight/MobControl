@@ -96,9 +96,13 @@ local LOCAL_HUMANOID_ROOT_PART = assert(LOCAL_PLAYER.Character:WaitForChild("Hum
 local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 
+-- forward declarations
+local playRunAnimTrack
+local startRunAnim
 -----------------------------
 -- Net handlers
 -----------------------------
+-- Server Events
 local on = {} :: Remote.OnRemoteEvent<state.Replica>
 
 on[Id.S2C.UPDATE_STATE] = function(state: state.Replica, update_log)
@@ -126,6 +130,43 @@ on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
     end
 end
 
+-- Server Broadcasts
+local on_cc = {}
+
+on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
+    if player_id == LOCAL_PLAYER.UserId then
+        -- the logic is already done in subscribeStartCollider
+        return
+    else
+        local player = Players:GetPlayerByUserId(player_id)
+        local character = player.Character or player:WaitForChild("Character", 10)
+        if not character then
+            return
+        end
+        local humanoid = character:WaitForChild("Humanoid")
+        local _ = startRunAnim(character)
+    end
+end
+
+on_cc[Id.S2CC.PLAYER_STOPPED_SESSION] = function(player_id: id)
+    if player_id == LOCAL_PLAYER.UserId then
+        -- the logic is already done in on[Id.S2C.PLAYER_DIED]
+        return
+    else
+        local player = Players:GetPlayerByUserId(player_id)
+        local character = player.Character or player:WaitForChild("Character", 10)
+        if not character then
+            return
+        end
+        local humanoid = character:WaitForChild("Humanoid")
+        for _, v in ipairs(humanoid:GetPlayingAnimationTracks()) do
+            if v.Name == SharedConfig.RUN_ANIMATION_NAME then
+                v:Stop()
+            end
+        end
+    end
+end
+
 -----------------------------
 -- Handshake
 -----------------------------
@@ -136,7 +177,7 @@ local load = function(fire: FireServer, snapshot)
     PLAYER_STATE:env(ENV_FIRE_SERVER, fire)
     PLAYER_STATE:env(ENV_READY, true)
     log:debug("~~~", PLAYER_STATE:format_state("*"))
-    -- RemoteClient.ConnectToBroadcast(on_cc)
+    RemoteClient.ConnectToBroadcast(on_cc)
     for _, id in Id.C2S:ids() do
         maid:Add(Signal.Connect(id, function(...)
             fire(id, ...)
@@ -156,21 +197,20 @@ local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local DRIVING_BOX_ATT = workspace:WaitForChild("DrivingBox", 10):FindFirstChild("Attachment")
 
-local ACTIVE_RUN_ANIM_TRACK
 -- load run animation
 local animateScript = LOCAL_CHARACTER:WaitForChild("Animate")
 local RUN_ANIM = animateScript:WaitForChild("run"):WaitForChild(SharedConfig.RUN_ANIMATION_NAME)
 
-local function playRunAnimTrack(runAnimTrack)
+playRunAnimTrack = function(runAnimTrack)
     runAnimTrack:Play(0.100000001, 1, 2)
     runAnimTrack.Priority = Enum.AnimationPriority.Action4
 end
 
-local function startRunAnim(character)
+startRunAnim = function(character)
     local runAnimTrack = character.Humanoid:LoadAnimation(RUN_ANIM)
     runAnimTrack.Priority = Enum.AnimationPriority.Action4
-    ACTIVE_RUN_ANIM_TRACK = runAnimTrack
     playRunAnimTrack(runAnimTrack)
+    return runAnimTrack
 end
 
 local function subscribeStartCollider()
@@ -200,6 +240,7 @@ local function subscribeStartCollider()
     end)
 end
 
+-- initial subscription of the start button
 do
     subscribeStartCollider()
 end
@@ -345,21 +386,23 @@ RunService.Heartbeat:Connect(function(dt)
             continue
         end
         local playerId = player.UserId
-        local weapon_id = WORLD:get(playerId, W.WeaponId)
-        if weapon_id and weapon_id ~= Id.Weapon._NONE then
-            local shot_ttl = WORLD:get(playerId, W.TTL)
-            if shot_ttl and shot_ttl <= 0 then
-                fireBullet(player)
+        if WORLD:has(playerId) then
+            local weapon_id = WORLD:get(playerId, W.WeaponId)
+            if weapon_id and weapon_id ~= Id.Weapon._NONE then
+                local shot_ttl = WORLD:get(playerId, W.TTL)
+                if shot_ttl and shot_ttl <= 0 then
+                    fireBullet(player)
+                end
             end
         end
     end
 end)
 
+local ACTIVE_RUN_ANIM_TRACK
 local infrequentLoop = supervisor.create(1, "client-infrequent")
 infrequentLoop:start(function(dt)
     -- player character animation check
     local isRunAnimActive
-    -- TODO: other players animation
     local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
     if flags and Id.flag_test(flags, Id.PlayerF.READY) then
         for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
@@ -371,7 +414,7 @@ infrequentLoop:start(function(dt)
         if not isRunAnimActive then
             if not ACTIVE_RUN_ANIM_TRACK then
                 -- animation track not loaded yet
-                startRunAnim(LOCAL_CHARACTER)
+                ACTIVE_RUN_ANIM_TRACK = startRunAnim(LOCAL_CHARACTER)
             else
                 playRunAnimTrack(ACTIVE_RUN_ANIM_TRACK)
             end
@@ -408,17 +451,11 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
 end)
 
 WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
-    if Id.kind(oldValue) == Id.Kind.Boost then
-        -- delete booster in PlayerState when it is deleted from world
-        PLAYER_STATE:delete(guid)
-    end
-
     if Id.kind(oldValue) == Id.Kind.Clone then
-        -- delete clone if it was deleted from world
+        -- delete clone instance if it was deleted from world
         local instance = workspace:FindFirstChild(guid, true)
         if instance then
             Disposer.dispose(instance)
-            -- WORLD:delete(guid)
         else
             log:error("failed to delete clone instance for player " .. oldValue)
             return

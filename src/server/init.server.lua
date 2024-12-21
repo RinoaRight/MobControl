@@ -109,6 +109,7 @@ local function onPlayerDead(player_state: PSS.PlayerState)
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, false))
 
     cleanUpWorldState(player_state.player_id)
+    Remote.Server.Broadcast(Id.S2CC.PLAYER_STOPPED_SESSION, player_state.player_id)
 end
 
 -----------------------------
@@ -224,7 +225,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         end
     end
 
-    change_weapon(player_state, SharedConfig.STARTING_WEAPON_ID)
+    change_weapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
 
     GameModule.CreatePlayerHpGui(player_state)
 
@@ -233,6 +234,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     --     ServerSupervisor:cancel(main_loop_player_handler)
     -- end
     GameModule.OnPlayerReadyToPlay(player_state, players_already_in_session)
+    Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
 end
 -------------------
 -- S2S
@@ -279,7 +281,7 @@ end
 local function init_player(player_state: PlayerState)
     return function()
         local _game_session_params = player_state.state:constructor(C.RefId, C.TTL, C.Value, C.Bitset) -- weapon_id, weapon_ttl, hp, is_active
-        _game_session_params(Id.PlayerStats.GAME_SESSION, SharedConfig.STARTING_WEAPON_ID, 0, SharedConfig.STARTING_HP, Id.PlayerF.NONE)
+        _game_session_params(Id.PlayerStats.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.STARTING_HP, Id.PlayerF.NONE)
     end
 end
 

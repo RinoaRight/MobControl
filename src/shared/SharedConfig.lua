@@ -58,7 +58,7 @@ m.PLAYER_ALIGN_CONSTR_NAME     = "PlayerAlignConstraint"
 m.CLONE_ATTACHMENT_NAME        = "CloneGuideAtt"
 -- m.ALIGN_CONSTRAINT_NAME        = "AlignConstraint"
 m.RUN_ANIMATION_NAME           = "RunAnim"
-m.STARTING_WEAPON_ID           = Id.Weapon._NONE
+m.DEFAULT_WEAPON_ID            = Id.Weapon.BASIC
 -- TODO: real values
 m.STARTING_HP                  = 10--0
 m.STARTING_CLONE_AMOUNT        = 0

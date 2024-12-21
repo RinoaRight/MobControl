@@ -1538,6 +1538,7 @@ local function replica_delete(self: ReplicaInternal, uid: uid, opt: "respect-met
     local mask = self._masks[uid]
     if not mask then
         if __DEV__ then
+            print(debug.traceback())
             warn(fmt("UID: %* not in this state", self:format_uid(uid)))
         end
         return
