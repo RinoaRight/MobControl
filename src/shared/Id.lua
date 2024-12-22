@@ -70,10 +70,11 @@ local Kind = table.freeze {
     -- protocol:
     S2S             = enum.iota(110, 1, idk.MAX_KIND),
     S2C             = enum.iota'',
+    S2CC            = enum.iota'',
     C2S             = enum.iota'',
     C2C             = enum.iota'',
-    US2SS           = enum.iota'', -- unreliable broadcast
-    RS2SS           = enum.iota'', -- reliable broadcast
+    US2CC           = enum.iota'', -- unreliable broadcast
+    RS2CC           = enum.iota'', -- reliable broadcast
     -- states:
     Quest           = "Quest",
     TestF           = enum.iota''
@@ -613,6 +614,19 @@ Id.S2C = enum.with_id "Id.S2C" {
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)
+
+-- stylua: ignore
+-----------------------------
+-- S2CC
+-----------------------------
+Id.S2CC = enum.with_id "Id.S2CC" {
+    _NONE                   = iota(Id.Kind.S2CC, 0),
+    PLAYER_STARTED_SESSION  = iota'', -- player_id
+    PLAYER_STOPPED_SESSION  = iota'', -- player_id
+    PLAYER_CHANGED_WEAPON   = iota'', -- player_id, weapon_id
+}
+KIND_TO_ENUM[Id.Kind.S2CC] = Id.S2CC
+export type S2CC = typeof(Id.S2CC)
 
 -----------------------------
 -- Quick test

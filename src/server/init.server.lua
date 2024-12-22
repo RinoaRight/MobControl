@@ -138,6 +138,7 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, .
     -- TODO: if the bullet doesn't collide, do nothing
     -- TODO: after hp <= 0, remove the booster and add the boost to the player who's bullet it was
     -- TODO: if it is the new weapon, set it to world state as well as the player's state
+    -- WorldService.SetTTL(player_state.player_id, cooldown)
 end
 
 -------------------

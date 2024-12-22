@@ -47,6 +47,19 @@ m.BULLET_BASE_DISTANCE         = 120 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP               = 100
 m.CONTROL_DISTANCE_TO_TARGET   = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT    = 2 
+m.MOVEMENT_LINEAR_VELOCITY     = 30
+m.BOOSTER_DEPTH                = 10 -- units
+m.CLONES_IN_A_ROW              = 5 
+m.INTERCLONES_DISTANCE         = 5 
+m.CLONES_FOLDER_NAME           = "Clones"
+m.PLAYER_HITBOX_NAME           = "Hitbox"
+m.PLAYER_ALIGN_CONSTR_NAME     = "PlayerAlignConstraint"
+m.CLONE_ATTACHMENT_NAME        = "CloneGuideAtt"
+m.RUN_ANIMATION_NAME           = "RunAnim"
+m.DEFAULT_WEAPON_ID            = Id.Weapon.BASIC
+-- TODO: real values
+m.STARTING_HP                  = 10--0
+m.STARTING_CLONE_AMOUNT        = 0
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
