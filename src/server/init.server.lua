@@ -132,12 +132,6 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, .
     -- set TTL for the next shot in this player's state
     player_state.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, cooldown)
     -- set TTL for the next shot in the world state for other players' reference
-    WorldService.SetTTL(player_state.player_id, cooldown)
-
-    -- TODO: call verify that the bullet collides and after <bullet speed> time, reduce hp from the booster
-    -- TODO: if the bullet doesn't collide, do nothing
-    -- TODO: after hp <= 0, remove the booster and add the boost to the player who's bullet it was
-    -- TODO: if it is the new weapon, set it to world state as well as the player's state
     -- WorldService.SetTTL(player_state.player_id, cooldown)
 end
 

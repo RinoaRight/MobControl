@@ -433,9 +433,6 @@ RunService.Heartbeat:Connect(function(dt)
             continue
         end
         local playerId = player.UserId
-        local shot_ttl = WORLD:get(playerId, W.TTL)
-        if shot_ttl and shot_ttl <= 0 then
-            fireBullet(player)
         if PLAYER_STATE:has(playerId) then
             local weapon_id = PLAYER_STATE:get(playerId, C.ClientRefId)
             if weapon_id and weapon_id ~= Id.Weapon._NONE then

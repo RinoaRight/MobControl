@@ -130,6 +130,10 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     Instance        = iota'', -- Instance(client)
     ValueId         = iota'', -- id
     WorldGui        = iota'', -- any
+    -- client-only
+    ClientRefId     = iota'', -- number
+    ClientFlags     = iota'', -- flag
+    ClientTTL       = iota'', -- sec (*1)
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).
 --     NOTE: W.TTL is a wall time

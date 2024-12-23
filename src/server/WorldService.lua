@@ -53,30 +53,16 @@ local m = {}
 m.W = W
 m.world = state.main(SharedConfig.World.main_config)
 
--- TODO: loop that will check bullet ttl and collisions and do stuff corresponding to the booster destroyed
--- if boostRefid == _Id.Boost.ADD_CLONE then
---     -- TODO: set to playerstate
--- elseif boostRefid == _Id.Boost.BULLET_SPEED_MULT then
---     -- TODO: set to playerstate
--- elseif boostRefid == _Id.Boost.CHANGE_WEAPON then
---     if not boostContentId then
---         boostContentId = _Id.Weapon.DEFAULT
---     end
---     -- TODO: set to playerstate, equip tool, load animation if there is not one, stop the one if there is, then play again
---     local template = assert(S.Weapon[boostContentId].instance, "weapon model id not found")
---     template:Clone().Parent = WeaponsFolder
-
+-- function m.SetTTL(player_id, ttl: num)
+--     m.world:set(player_id, W.TTL, ttl)
 -- end
-function m.SetTTL(player_id, ttl: num)
-    m.world:set(player_id, W.TTL, ttl)
-end
 
 function m.ChangeWeapon(player_id, weapon_id)
     local weapon_instance = S.Weapon[weapon_id].instance
     -- TODO: spawn instance and parent it to the player
     m.world:set(player_id, W.WeaponId, weapon_id)
     m.world:set(player_id, W.ServerInstance, weapon_instance)
-    m.SetTTL(player_id, S.Weapon[weapon_id].cooldown)
+    -- m.SetTTL(player_id, S.Weapon[weapon_id].cooldown)
 -- function m.SetTTL(player_id, ttl: num)
 --     m.world:set(player_id, W.TTL, ttl)
 -- end
@@ -104,7 +90,6 @@ function m.AddPlayer(state)
     if m.world:has(player_id) then
         log:error("non-unique uid: ", player_id, m.world.format_row, m.world, player_id)
     end
-    return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, weapon_instance, Id.Weapon.BASIC, S.Weapon[Id.Weapon.BASIC].cooldown)
     print("LLLLLLLLLLL", player_id)
     return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, nil, Id.Weapon._NONE)
 end

@@ -178,15 +178,6 @@ function m.StartMainLoopWorld(world_state: state.Main)
         oldPos = DRIVING_BOX_INSTANCE.Position
 
         -- ttls of all players' weapons
-        local players = game:GetService("Players"):GetPlayers()
-        for _, v in ipairs(players) do
-            local player_id = v.UserId
-            if world_state:has(player_id) then
-                local shot_ttl = world_state:get(player_id, C.TTL) or 0
-                shot_ttl -= dt
-                world_state:set(player_id, W.TTL, math.max(shot_ttl, 0))
-            end
-        end
         -- local players = game:GetService("Players"):GetPlayers()
         -- for _, v in ipairs(players) do
         --     local player_id = v.UserId
@@ -208,9 +199,6 @@ end
 function m.StartMainLoopPlayer(player_state: PSS.PlayerState)
     return function(dt)
         -- weapon cooldown
-        local shot_ttl = player_state.state:get(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL) :: num
-        shot_ttl -= dt
-        player_state.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, math.max(shot_ttl, 0))
         local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
         if Id.flag_test(flags, Id.PlayerF.READY) then
             local shot_ttl = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
