@@ -38,6 +38,7 @@ local _roflake = require(shared.roflake)
 local S = require(shared.StaticData)
 local logger = require(shared.logger)
 local log = logger.create("WorldService"):set_delimiter(" "):set_prettifier(Id.pp)
+local Remote = require(shared.Remote)
 
 local WeaponsFolder = workspace.Weapons
 
@@ -53,9 +54,9 @@ m.W = W
 m.world = state.main(SharedConfig.World.main_config)
 m.nullary_transient = m.world:constructor("transient")
 
-function m.SetTTL(player_id, ttl: num)
-    m.world:set(player_id, W.TTL, ttl)
-end
+-- function m.SetTTL(player_id, ttl: num)
+--     m.world:set(player_id, W.TTL, ttl)
+-- end
 
 function m.ChangeWeapon(player_id, weapon_id)
     if weapon_id == Id.Weapon._NONE then
@@ -67,17 +68,20 @@ function m.ChangeWeapon(player_id, weapon_id)
         -- TODO: spawn instance and parent it to the player
         m.world:set(player_id, W.WeaponId, weapon_id)
         m.world:set(player_id, W.ServerInstance, weapon_instance)
-        m.SetTTL(player_id, S.Weapon[weapon_id].cooldown)
+        -- m.SetTTL(player_id, S.Weapon[weapon_id].cooldown)
     end
+    Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end
 
-local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId, W.TTL)
+-- TODO: remove ttl field from worldstate and mainGameloop 
+local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId)
 function m.AddPlayer(state)
     local player_id = state.player_id
     if m.world:has(player_id) then
         log:error("non-unique uid: ", player_id, m.world.format_row, m.world, player_id)
     end
-    return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, nil, Id.Weapon._NONE, 0)
+    print("LLLLLLLLLLL", player_id)
+    return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, nil, Id.Weapon._NONE)
 end
 
 function m.RemovePlayer(uid: uid)

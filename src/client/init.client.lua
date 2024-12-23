@@ -131,7 +131,7 @@ on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
 end
 
 -- Server Broadcasts
-local on_cc = {}
+local on_cc = {} :: { [id]: (...any) -> () }
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
     if player_id == LOCAL_PLAYER.UserId then
@@ -165,6 +165,23 @@ on_cc[Id.S2CC.PLAYER_STOPPED_SESSION] = function(player_id: id)
             end
         end
     end
+end
+
+on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
+    if player_id == LOCAL_PLAYER.UserId then
+        return
+    end
+
+    local ttl
+    if weapon_id ~= Id.Weapon._NONE then
+        ttl = S.Weapon[weapon_id].cooldown
+    end
+    if not PLAYER_STATE:has(player_id) then
+        log:error("No entity for this player_id in player's state", player_id)
+        return
+    end
+    PLAYER_STATE:set(player_id, C.ClientRefId, weapon_id)
+    PLAYER_STATE:set(player_id, C.ClientTTL, ttl)
 end
 
 -----------------------------
@@ -240,9 +257,38 @@ local function subscribeStartCollider()
     end)
 end
 
--- initial subscription of the start button
+local _other_player = PLAYER_STATE:constructor(C.ClientRefId, C.ClientTTL)
+local function setOtherPlayerToState(player_id, weapon_id)
+    if PLAYER_STATE:has(player_id) or player_id == LOCAL_PLAYER.UserId then
+        return
+    end
+
+    local ttl
+    if weapon_id ~= Id.Weapon._NONE then
+        ttl = S.Weapon[weapon_id].cooldown
+    end
+    _other_player(player_id, weapon_id, ttl)
+end
+
+-- INITIALIZATIONS
 do
+    -- initial subscription of the start button
     subscribeStartCollider()
+
+    -- initialization of other players to the player_state
+    local allPlayers = Players:GetPlayers()
+    for _, player in ipairs(allPlayers) do
+        if player == LOCAL_PLAYER then
+            continue
+        end
+        local player_id = player.UserId
+        if WORLD:has(player_id) then
+            local weapon_id = WORLD:get(player_id, W.WeaponId)
+            setOtherPlayerToState(player.UserId, WORLD:get(player.UserId, weapon_id))
+        else
+            log:error("No entity for this player_id in world", player_id)
+        end
+    end
 end
 
 local function fireBullet(player)
@@ -253,7 +299,6 @@ local function fireBullet(player)
         bullet = Instance.new("Part")
         bullet.Name = "Bullet"
         bullet.CollisionGroup = "Bullet"
-        -- bullet.Shape = Enum.PartType.Ball
         bullet.CanCollide = false
         bullet.Size = Vector3.new(2, 2, 2)
         bullet.Anchored = true
@@ -275,7 +320,16 @@ local function fireBullet(player)
     end
     table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = ttl, booster = boosterToHit })
     if player == LOCAL_PLAYER then
+        -- reset ttl server-side
         fire_server(Id.C2S.BULLET_SHOT, pos)
+    else
+        -- reset ttl for fake fire on the client
+        local weapon_id = PLAYER_STATE:get(player.UserId, C.ClientRefId)
+        local ttl
+        if weapon_id ~= Id.Weapon._NONE then
+            ttl = S.Weapon[weapon_id].cooldown
+        end
+        PLAYER_STATE:set(player.UserId, C.ClientTTL, ttl)
     end
 end
 
@@ -376,7 +430,6 @@ RunService.Heartbeat:Connect(function(dt)
     end
 
     -- fake bullets' animation for other players
-    -- TODO: fixme. no other players' bullets are shown
     for _, player in ipairs(players) do
         if player == LOCAL_PLAYER then
             continue
@@ -386,12 +439,18 @@ RunService.Heartbeat:Connect(function(dt)
             continue
         end
         local playerId = player.UserId
-        if WORLD:has(playerId) then
-            local weapon_id = WORLD:get(playerId, W.WeaponId)
+        if PLAYER_STATE:has(playerId) then
+            local weapon_id = PLAYER_STATE:get(playerId, C.ClientRefId)
             if weapon_id and weapon_id ~= Id.Weapon._NONE then
-                local shot_ttl = WORLD:get(playerId, W.TTL)
-                if shot_ttl and shot_ttl <= 0 then
-                    fireBullet(player)
+                -- player is inside the game session, fire bullets
+                local shot_ttl = PLAYER_STATE:get(playerId, C.ClientTTL)
+                if shot_ttl then
+                    shot_ttl -= dt
+                    if shot_ttl <= 0 then
+                        fireBullet(player)
+                    else
+                        PLAYER_STATE:set(playerId, C.ClientTTL, shot_ttl)
+                    end
                 end
             end
         end
@@ -434,7 +493,6 @@ WORLD:set_on_attach(W.PLayerId, function(guid: guid, newplayerId: num)
                 log:error("failed to create clone for player " .. newplayerId)
                 return
             end
-            -- WORLD:set(guid, W.ClientInstance, newInstance)
         end
     end
 end)
@@ -450,14 +508,22 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     end
 end)
 
-WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
-    if Id.kind(oldValue) == Id.Kind.Clone then
-        -- delete clone instance if it was deleted from world
-        local instance = workspace:FindFirstChild(guid, true)
-        if instance then
-            Disposer.dispose(instance)
+-- set newly connected players to the player state
+WORLD:set_on_attach(W.WeaponId, function(guid: guid, newValue: num)
+    log:debug("~~~>", guid)
+    if type(guid) == "number" and Id.kind(newValue) == Id.Kind.Weapon then
+        -- new player connected to the server
+        setOtherPlayerToState(guid, newValue)
+    end
+end)
+
+WORLD:set_on_detach(W.WeaponId, function(guid: guid, oldValue: num)
+    if Id.kind(oldValue) == Id.Kind.Weapon then
+        -- player has left the server, delete them from playerState
+        if PLAYER_STATE:has(guid) then
+            PLAYER_STATE:delete(guid)
         else
-            log:error("failed to delete clone instance for player " .. oldValue)
+            log:error("failed to delete player entity from player state")
             return
         end
     end

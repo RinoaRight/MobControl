@@ -668,6 +668,7 @@ Id.S2CC = enum.with_id "Id.S2CC" {
     _NONE                   = iota(Id.Kind.S2CC, 0),
     PLAYER_STARTED_SESSION  = iota'', -- player_id
     PLAYER_STOPPED_SESSION  = iota'', -- player_id
+    PLAYER_CHANGED_WEAPON   = iota'', -- player_id, weapon_id
 }
 KIND_TO_ENUM[Id.Kind.S2CC] = Id.S2CC
 export type S2CC = typeof(Id.S2CC)

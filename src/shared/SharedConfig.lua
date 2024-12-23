@@ -51,18 +51,15 @@ m.MOVEMENT_LINEAR_VELOCITY     = 30
 m.BOOSTER_DEPTH                = 10 -- units
 m.CLONES_IN_A_ROW              = 5 
 m.INTERCLONES_DISTANCE         = 5 
--- m.CLONE_HP                     = 10
 m.CLONES_FOLDER_NAME           = "Clones"
 m.PLAYER_HITBOX_NAME           = "Hitbox"
 m.PLAYER_ALIGN_CONSTR_NAME     = "PlayerAlignConstraint"
 m.CLONE_ATTACHMENT_NAME        = "CloneGuideAtt"
--- m.ALIGN_CONSTRAINT_NAME        = "AlignConstraint"
 m.RUN_ANIMATION_NAME           = "RunAnim"
 m.DEFAULT_WEAPON_ID            = Id.Weapon.BASIC
 -- TODO: real values
 m.STARTING_HP                  = 10--0
 m.STARTING_CLONE_AMOUNT        = 0
--- m.BOOSTER_COLLISION_DAMAGE     = 10
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
@@ -135,7 +132,9 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     Instance        = iota'', -- Instance(client)
     WorldGui        = iota'', -- any
     -- client-only
+    ClientRefId     = iota'', -- number
     ClientFlags     = iota'', -- flag
+    ClientTTL       = iota'', -- sec (*1)
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).
 --     NOTE: W.TTL is a wall time

@@ -184,7 +184,7 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, .
     -- set TTL for the next shot in this player's state
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, cooldown)
     -- set TTL for the next shot in the world state for other players' reference
-    WorldService.SetTTL(player_state.player_id, cooldown)
+    -- WorldService.SetTTL(player_state.player_id, cooldown)
 end
 
 on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, triggerer_id: num | str, ...)
