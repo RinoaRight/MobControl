@@ -200,23 +200,6 @@ function m.StartMainLoopWorld(world_state: state.Main)
         -- driving box movement
         DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
         oldPos = DRIVING_BOX_INSTANCE.Position
-
-        -- ttls of all players' weapons
-        -- local players = game:GetService("Players"):GetPlayers()
-        -- for _, v in ipairs(players) do
-        --     local player_id = v.UserId
-        --     if world_state:has(player_id) then
-        --         local weapon_id = world_state:get(player_id, W.WeaponId)
-        --         if weapon_id ~= Id.Weapon._NONE then
-        --             local shot_ttl = world_state:get(player_id, W.TTL)
-        --             shot_ttl -= dt
-        --             -- reset ttl
-        --             if shot_ttl <= 0 then
-        --                 world_state:set(player_id, W.TTL, S.Weapon[weapon_id].cooldown)
-        --             end
-        --         end
-        --     end
-        -- end
     end
 end
 

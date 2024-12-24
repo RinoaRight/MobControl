@@ -20,7 +20,6 @@ local shared = game.ReplicatedStorage.shared
 local Id = require(shared.Id)
 local Logger = require(shared.logger)
 local log = Logger.create(script and script.Name or "Boosters"):set_prettifier(Id.pp):set_delimiter(" ")
-local TaskPool = require(shared.TaskPool)
 local Signal = require(shared.signal)
 local En = require(shared.enum)
 local _iota = En.iota

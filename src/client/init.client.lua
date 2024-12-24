@@ -62,6 +62,7 @@ local UserInputService = game:GetService("UserInputService")
 local Clones = require(script.Clones)
 local Booster = require(script.Boosters)
 local NumFormat = require(shared.num_format)
+local TaskPool = require(shared.TaskPool)
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
@@ -99,6 +100,20 @@ local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 -- forward declarations
 local playRunAnimTrack
 local startRunAnim
+
+local _other_player = PLAYER_STATE:constructor(C.ClientRefId, C.ClientTTL)
+local function setOtherPlayerToState(player_id, weapon_id)
+    if PLAYER_STATE:has(player_id) or player_id == LOCAL_PLAYER.UserId then
+        return
+    end
+
+    local ttl
+    if weapon_id ~= Id.Weapon._NONE then
+        ttl = S.Weapon[weapon_id].cooldown
+    end
+    _other_player(player_id, weapon_id, ttl)
+end
+
 -----------------------------
 -- Net handlers
 -----------------------------
@@ -122,12 +137,12 @@ end
 on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
     LOCAL_HUMANOID.JumpPower = 50
     LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME):Destroy()
-    -- workspace:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME):Destroy()
     for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
         if v.Name == SharedConfig.RUN_ANIMATION_NAME then
             v:Stop()
         end
     end
+    -- TODO: kill his clones
 end
 
 -- Server Broadcasts
@@ -168,6 +183,42 @@ on_cc[Id.S2CC.PLAYER_STOPPED_SESSION] = function(player_id: id)
 end
 
 on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
+    -- play hold_anim
+    local char
+    local activeHoldAnimTrack
+    if player_id == LOCAL_PLAYER.UserId then
+        char = LOCAL_CHARACTER
+    else
+        local player = Players:GetPlayerByUserId(player_id)
+        if not player then
+            PLAYER_STATE:delete(player_id)
+            return
+        end
+        char = player.Character
+    end
+
+    local humanoid = char:WaitForChild("Humanoid")
+    local animId = S.Animation[Id.Animation.HOLD]
+    for _, animTrack in ipairs(humanoid:GetPlayingAnimationTracks()) do
+        if animTrack.Animation.AnimationId == animId then
+            activeHoldAnimTrack = animTrack
+            break
+        end
+    end
+
+    if weapon_id == Id.Weapon._NONE and activeHoldAnimTrack then
+        activeHoldAnimTrack:Stop()
+    else
+        if not activeHoldAnimTrack then
+            local holdAnimation = Instance.new("Animation")
+            holdAnimation.AnimationId = animId
+            local newHoldAnimTrack = char.Humanoid:LoadAnimation(holdAnimation)
+            activeHoldAnimTrack = newHoldAnimTrack
+        end
+        activeHoldAnimTrack.Priority = Enum.AnimationPriority.Action4
+        activeHoldAnimTrack:Play(0.100000001, 1, 2)
+    end
+
     if player_id == LOCAL_PLAYER.UserId then
         return
     end
@@ -220,12 +271,12 @@ local RUN_ANIM = animateScript:WaitForChild("run"):WaitForChild(SharedConfig.RUN
 
 playRunAnimTrack = function(runAnimTrack)
     runAnimTrack:Play(0.100000001, 1, 2)
-    runAnimTrack.Priority = Enum.AnimationPriority.Action4
+    runAnimTrack.Priority = Enum.AnimationPriority.Action3
 end
 
 startRunAnim = function(character)
     local runAnimTrack = character.Humanoid:LoadAnimation(RUN_ANIM)
-    runAnimTrack.Priority = Enum.AnimationPriority.Action4
+    runAnimTrack.Priority = Enum.AnimationPriority.Action3
     playRunAnimTrack(runAnimTrack)
     return runAnimTrack
 end
@@ -233,10 +284,8 @@ end
 local function subscribeStartCollider()
     local SESSION_STARTER_COLLIDER = assert(workspace:WaitForChild("SessionStarter"):FindFirstChild("Collider"))
     local START_BTN = START_GUI:FindFirstChild("OKButton", true)
-    START_GUI.Enabled = false
     maid.StartCollider = SESSION_STARTER_COLLIDER.Touched:Connect(function(other)
         if other == LOCAL_HUMANOID_ROOT_PART then
-            -- TODO: freeze player?
             START_GUI.Enabled = true
             maid.StartBtn = START_BTN.MouseButton1Click:Connect(function()
                 -- diable jumping
@@ -251,44 +300,34 @@ local function subscribeStartCollider()
                 maid.StartBtn = nil
             end)
             maid.StartCollider = SESSION_STARTER_COLLIDER.TouchEnded:Connect(function(other)
-                subscribeStartCollider()
+                if other == LOCAL_HUMANOID_ROOT_PART then
+                    START_GUI.Enabled = false
+                    subscribeStartCollider()
+                end
             end)
         end
     end)
 end
 
-local _other_player = PLAYER_STATE:constructor(C.ClientRefId, C.ClientTTL)
-local function setOtherPlayerToState(player_id, weapon_id)
-    if PLAYER_STATE:has(player_id) or player_id == LOCAL_PLAYER.UserId then
-        return
-    end
-
-    local ttl
-    if weapon_id ~= Id.Weapon._NONE then
-        ttl = S.Weapon[weapon_id].cooldown
-    end
-    _other_player(player_id, weapon_id, ttl)
-end
-
--- INITIALIZATIONS
 do
-    -- initial subscription of the start button
-    subscribeStartCollider()
+    TaskPool.spawn(function()
+        -- initial subscription of the start button
+        subscribeStartCollider()
 
-    -- initialization of other players to the player_state
-    local allPlayers = Players:GetPlayers()
-    for _, player in ipairs(allPlayers) do
-        if player == LOCAL_PLAYER then
-            continue
-        end
-        local player_id = player.UserId
-        if WORLD:has(player_id) then
+        -- initialization of other players to the player_state
+        local allPlayers = Players:GetPlayers()
+        for _, player in ipairs(allPlayers) do
+            if player == LOCAL_PLAYER then
+                continue
+            end
+            local player_id = player.UserId
+            repeat
+                task.wait()
+            until WORLD:has(player_id)
             local weapon_id = WORLD:get(player_id, W.WeaponId)
-            setOtherPlayerToState(player.UserId, WORLD:get(player.UserId, weapon_id))
-        else
-            log:error("No entity for this player_id in world", player_id)
+            setOtherPlayerToState(player.UserId, weapon_id)
         end
-    end
+    end)
 end
 
 local function fireBullet(player)
@@ -308,9 +347,11 @@ local function fireBullet(player)
     local pos = rootPart.Position + rootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
     bullet.Position = pos
-    -- TODO: refactor, get the weapon from the player Ecs
-    local weapon_id = Id.Weapon.BASIC
-    -- TODO: refactor speed. is to be taken from C.Weapon
+    local weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+    if not weapon_id or weapon_id == Id.Weapon._NONE then
+        return
+    end
+    -- TODO: refactor speed (taking it from player_state) if it is something that can be changed during the session?
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
     local boosterThickness = SharedConfig.BOOSTER_DEPTH
     local ttl = roflake.time() + SharedConfig.BULLET_BASE_DISTANCE / speed
@@ -388,7 +429,13 @@ RunService.Heartbeat:Connect(function(dt)
     local now = roflake.time()
     for i, bulletData in ipairs(activeBulletsDataTable) do
         local bullet = bulletData.bullet :: Part
-        local speed = S.Weapon[Id.Weapon.BASIC].baseSpeed + SharedConfig.MOVEMENT_LINEAR_VELOCITY
+        local weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+        if not weapon_id or weapon_id == Id.Weapon._NONE then
+            -- handles the case of players' death in order to move bullets that have been already fired
+            weapon_id = Id.Weapon.BASIC
+        end
+        -- TODO: take the speed from the PlayerState?
+        local speed = S.Weapon[weapon_id].baseSpeed + SharedConfig.MOVEMENT_LINEAR_VELOCITY
         local targetPos = CFrame.new(bullet.CFrame.Position + (bullet.CFrame.LookVector * speed * dt))
         local booster = bulletData.booster
         local ttl = bulletData.ttl
@@ -420,11 +467,14 @@ RunService.Heartbeat:Connect(function(dt)
     local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
     if flags and Id.flag_test(flags, Id.PlayerF.READY) then
         local weaponId = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+        if not weaponId or weaponId == Id.Weapon._NONE then
+            log:error("No bullet can be fired for this weapon_id", weaponId)
+        end
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
             local shot_ttl = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.TTL) or 0 :: num
             if shot_ttl <= 0 then
                 fireBullet(LOCAL_PLAYER)
-                -- TODO: clones' fire
+                -- TODO: clones' fire (hold anim + little fire on top of the gun barrel)
             end
         end
     end
