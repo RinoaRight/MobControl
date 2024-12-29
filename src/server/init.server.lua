@@ -78,10 +78,10 @@ end
 
 local function change_weapon(player_state, weapon_id: id)
     player_state:ChangeWeapon(weapon_id)
-    WorldService.ChangeWeapon(player_state.player_id, weapon_id)
+    WorldService.ChangeWeapon(player_state, player_state.player_id, weapon_id)
 end
 
-local function cleanUpWorldState(this_player_id: int)
+local function cleanUpWorldState(player_state, this_player_id: int)
     -- clean up clones
     for uid, ref_id, player_id in WorldService.world:select(W.RefId, W.PLayerId) do
         if Id.kind(ref_id) == Id.Kind.Clone and player_id == this_player_id then
@@ -90,7 +90,7 @@ local function cleanUpWorldState(this_player_id: int)
     end
     -- clean up weapon
     if WorldService.world:has(this_player_id) then
-        WorldService.ChangeWeapon(this_player_id, Id.Weapon._NONE)
+        WorldService.ChangeWeapon(player_state, this_player_id, Id.Weapon._NONE)
     end
 end
 
@@ -102,13 +102,14 @@ local function onPlayerDead(player_state: PSS.PlayerState)
     if constraint then
         constraint:Destroy()
     end
+    workerMaid.playerLoop = nil -- stop updating weapon ttl
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, 0)
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Value, 0)
     local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, false))
 
-    cleanUpWorldState(player_state.player_id)
+    cleanUpWorldState(player_state, player_state.player_id)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STOPPED_SESSION, player_state.player_id)
 end
 
@@ -179,12 +180,12 @@ end
 
 on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, ...)
     log:debug(Id.C2S.BULLET_SHOT, player_state.player_id, event_id, ...)
-    local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId) or Id.Weapon.BASIC
+    local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+    if not current_weapon_id or current_weapon_id == Id.Weapon._NONE then
+        return 
+    end
     local cooldown = S.Weapon[current_weapon_id].cooldown
-    -- set TTL for the next shot in this player's state
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, cooldown)
-    -- set TTL for the next shot in the world state for other players' reference
-    -- WorldService.SetTTL(player_state.player_id, cooldown)
 end
 
 on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, triggerer_id: num | str, ...)
@@ -197,7 +198,6 @@ on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str,
     local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
 
     if isPlayer then
-        -- TODO: reduce player hp.
         -- TODO: update player_hp GUI
         -- TODO: SFX
         if player_hp - booster_hp <= 0 then
@@ -230,9 +230,9 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     GameModule.CreatePlayerHpGui(player_state)
 
     local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
-    -- workerMaid.playerLoop = function()
-    --     ServerSupervisor:cancel(main_loop_player_handler)
-    -- end
+    workerMaid.playerLoop = function()
+        ServerSupervisor:cancel(_main_loop_player_handler)
+    end
     GameModule.OnPlayerReadyToPlay(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
 end
@@ -273,7 +273,7 @@ do
                 local flags = thisState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
                 flags = thisState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
                 if not flags then
-                    isReady = false
+                    continue
                 end
                 isReady = Id.flag_test(flags, Id.PlayerF.READY)
                 if isReady then
@@ -321,7 +321,7 @@ game.Players.PlayerRemoving:Connect(function(player)
         -- TODO: correct exit
         -- WorldService.RemovePlayer(state)
         state:Destroy()
-        cleanUpWorldState(player.UserId)
+        cleanUpWorldState(state, player.UserId)
     end)
 end)
 

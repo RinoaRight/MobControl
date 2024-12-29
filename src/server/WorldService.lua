@@ -39,6 +39,7 @@ local S = require(shared.StaticData)
 local logger = require(shared.logger)
 local log = logger.create("WorldService"):set_delimiter(" "):set_prettifier(Id.pp)
 local Remote = require(shared.Remote)
+local Misc = require(shared.Misc)
 
 local WeaponsFolder = workspace.Weapons
 
@@ -54,26 +55,22 @@ m.W = W
 m.world = state.main(SharedConfig.World.main_config)
 m.nullary_transient = m.world:constructor("transient")
 
--- function m.SetTTL(player_id, ttl: num)
---     m.world:set(player_id, W.TTL, ttl)
--- end
-
-function m.ChangeWeapon(player_id, weapon_id)
+function m.ChangeWeapon(player_state, player_id, weapon_id)
     if weapon_id == Id.Weapon._NONE then
         m.world:set(player_id, W.WeaponId, Id.Weapon._NONE)
-        -- TODO: delete instance
         m.world:set(player_id, W.ServerInstance, nil)
     else
-        local weapon_instance = S.Weapon[weapon_id].instance
-        -- TODO: spawn instance and parent it to the player
+        -- spawn instance and parent it to the player
+        local char = player_state.character
+        local weapon_instance = Misc.EquipWeaponModel(char, weapon_id)
+
         m.world:set(player_id, W.WeaponId, weapon_id)
         m.world:set(player_id, W.ServerInstance, weapon_instance)
-        -- m.SetTTL(player_id, S.Weapon[weapon_id].cooldown)
     end
     Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end
 
--- TODO: remove ttl field from worldstate and mainGameloop 
+-- TODO: remove ttl field from worldstate and mainGameloop
 local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId)
 function m.AddPlayer(state)
     local player_id = state.player_id

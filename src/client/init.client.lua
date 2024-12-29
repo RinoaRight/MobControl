@@ -114,6 +114,31 @@ local function setOtherPlayerToState(player_id, weapon_id)
     _other_player(player_id, weapon_id, ttl)
 end
 
+local function handleGunHoldingAnimation(character, weapon_id: int)
+    local humanoid = assert(character:WaitForChild("Humanoid"))
+    local animId = S.Animation[Id.Animation.HOLD]
+    local activeHoldAnimTrack
+    for _, animTrack in ipairs(humanoid:GetPlayingAnimationTracks()) do
+        if animTrack.Animation.AnimationId == animId then
+            activeHoldAnimTrack = animTrack
+            break
+        end
+    end
+
+    if weapon_id == Id.Weapon._NONE and activeHoldAnimTrack then
+        activeHoldAnimTrack:Stop()
+    else
+        if not activeHoldAnimTrack then
+            local holdAnimation = Instance.new("Animation")
+            holdAnimation.AnimationId = animId
+            local newHoldAnimTrack = character.Humanoid:LoadAnimation(holdAnimation)
+            activeHoldAnimTrack = newHoldAnimTrack
+        end
+        activeHoldAnimTrack.Priority = Enum.AnimationPriority.Action4
+        activeHoldAnimTrack:Play(0.100000001, 1, 2)
+    end
+end
+
 -----------------------------
 -- Net handlers
 -----------------------------
@@ -149,6 +174,7 @@ end
 local on_cc = {} :: { [id]: (...any) -> () }
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
+    -- TODO: FIXIT. On every restart fire tempo accelerates
     if player_id == LOCAL_PLAYER.UserId then
         -- the logic is already done in subscribeStartCollider
         return
@@ -183,56 +209,69 @@ on_cc[Id.S2CC.PLAYER_STOPPED_SESSION] = function(player_id: id)
 end
 
 on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
-    -- play hold_anim
-    local char
-    local activeHoldAnimTrack
+    -- handle hold_anim for player
+    local playerChar
     if player_id == LOCAL_PLAYER.UserId then
-        char = LOCAL_CHARACTER
+        playerChar = LOCAL_CHARACTER
     else
         local player = Players:GetPlayerByUserId(player_id)
         if not player then
             PLAYER_STATE:delete(player_id)
             return
         end
-        char = player.Character
+        playerChar = player.Character
     end
 
-    local humanoid = char:WaitForChild("Humanoid")
-    local animId = S.Animation[Id.Animation.HOLD]
-    for _, animTrack in ipairs(humanoid:GetPlayingAnimationTracks()) do
-        if animTrack.Animation.AnimationId == animId then
-            activeHoldAnimTrack = animTrack
-            break
+    handleGunHoldingAnimation(playerChar, weapon_id)
+
+    -- handle hold_anim and weapon_instance for clones
+    local playerRootPart = assert(playerChar.HumanoidRootPart) :: Part
+    local clonesFolder = playerChar:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
+    if clonesFolder then
+        local clones = clonesFolder:GetChildren()
+        if clones and #clones > 1 then
+            for i, clone in ipairs(clones) do
+                handleGunHoldingAnimation(clone, weapon_id)
+                -- handle weapon instance for clones
+                local gunHand = clone:FindFirstChild("RightHand")
+                local weaponInstance = gunHand:FindFirstChildWhichIsA("Model")
+                if weapon_id == Id.Weapon._NONE then
+                    -- player has removed weapon, remove it for clones as well
+                    if weaponInstance then
+                        weaponInstance:Destroy()
+                    end
+                else
+                    -- player has equipped weapon, equip it for clones as well
+                    if not weaponInstance then
+                        -- clone doesn't yet have weapon, equip it
+                        Misc.EquipWeaponModel(clone, weapon_id)
+                    elseif weaponInstance and weaponInstance.Name ~= S.Weapon[weapon_id].name then
+                        -- clone is carrying different weapon than the player, change it
+                        weaponInstance:Destroy()
+                        Misc.EquipWeaponModel(clone, weapon_id)
+                    end
+                end
+            end
         end
     end
 
-    if weapon_id == Id.Weapon._NONE and activeHoldAnimTrack then
-        activeHoldAnimTrack:Stop()
-    else
-        if not activeHoldAnimTrack then
-            local holdAnimation = Instance.new("Animation")
-            holdAnimation.AnimationId = animId
-            local newHoldAnimTrack = char.Humanoid:LoadAnimation(holdAnimation)
-            activeHoldAnimTrack = newHoldAnimTrack
-        end
-        activeHoldAnimTrack.Priority = Enum.AnimationPriority.Action4
-        activeHoldAnimTrack:Play(0.100000001, 1, 2)
-    end
-
+    -- SFX and initial bullet TTL
     if player_id == LOCAL_PLAYER.UserId then
-        return
+        if weapon_id ~= Id.Weapon._NONE then
+            S.Sound[Id.Sound.RELOAD]:Play()
+        end
+    else
+        local ttl = S.Weapon[Id.Weapon.BASIC].cooldown
+        if weapon_id ~= Id.Weapon._NONE then
+            ttl = S.Weapon[weapon_id].cooldown
+        end
+        if not PLAYER_STATE:has(player_id) then
+            log:error("No entity for this player_id in player's state", player_id)
+            return
+        end
+        PLAYER_STATE:set(player_id, C.ClientRefId, weapon_id)
+        PLAYER_STATE:set(player_id, C.ClientTTL, ttl)
     end
-
-    local ttl
-    if weapon_id ~= Id.Weapon._NONE then
-        ttl = S.Weapon[weapon_id].cooldown
-    end
-    if not PLAYER_STATE:has(player_id) then
-        log:error("No entity for this player_id in player's state", player_id)
-        return
-    end
-    PLAYER_STATE:set(player_id, C.ClientRefId, weapon_id)
-    PLAYER_STATE:set(player_id, C.ClientTTL, ttl)
 end
 
 -----------------------------
@@ -347,30 +386,62 @@ local function fireBullet(player)
     local pos = rootPart.Position + rootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
     bullet.Position = pos
-    local weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+    local weapon_id
+    if player == LOCAL_PLAYER then
+        weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+    else
+        weapon_id = PLAYER_STATE:get(player.UserId, C.ClientRefId)
+    end
     if not weapon_id or weapon_id == Id.Weapon._NONE then
         return
     end
     -- TODO: refactor speed (taking it from player_state) if it is something that can be changed during the session?
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
     local boosterThickness = SharedConfig.BOOSTER_DEPTH
-    local ttl = roflake.time() + SharedConfig.BULLET_BASE_DISTANCE / speed
+    local timeToArrive = roflake.time() + SharedConfig.BULLET_BASE_DISTANCE / speed
     local boosterToHit, dist = Misc.IsBoosterToHit(pos)
     if boosterToHit then
-        ttl = roflake.time() + ((dist + boosterThickness) / speed)
+        timeToArrive = roflake.time() + ((dist + boosterThickness) / speed)
     end
-    table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = ttl, booster = boosterToHit })
+    table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = timeToArrive, booster = boosterToHit, owner = player })
     if player == LOCAL_PLAYER then
         -- reset ttl server-side
         fire_server(Id.C2S.BULLET_SHOT, pos)
+        S.Sound[Id.Sound.FIRE_PISTOL]:Play()
     else
+        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.FIRE_PISTOL_OTHER], pos)
         -- reset ttl for fake fire on the client
         local weapon_id = PLAYER_STATE:get(player.UserId, C.ClientRefId)
         local ttl
-        if weapon_id ~= Id.Weapon._NONE then
+        if weapon_id and weapon_id ~= Id.Weapon._NONE then
             ttl = S.Weapon[weapon_id].cooldown
         end
         PLAYER_STATE:set(player.UserId, C.ClientTTL, ttl)
+    end
+
+    -- clones' fire
+    local clones_folder = player_char:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
+    if clones_folder then
+        local all_fires = {}
+        for _, clone in ipairs(clones_folder:GetChildren()) do
+            local gunHand = clone:FindFirstChild("RightHand")
+            local weapon_instance = gunHand:FindFirstChild(S.Weapon[weapon_id].name)
+            if weapon_instance then
+                local fire = weapon_instance:FindFirstChild("Fire")
+                -- TODO: sound seem to
+                Misc.SoundLocalizedAudio(S.Sound[Id.Sound.FIRE_PISTOL_OTHER], fire.Position)
+                if fire then
+                    table.insert(all_fires, fire)
+                end
+            end
+        end
+        TaskPool.defer(function()
+            for _, fire in ipairs(all_fires) do
+                fire.Transparency = 0
+                task.wait(0.3)
+                fire.Transparency = 1
+            end
+        end)
     end
 end
 
@@ -392,7 +463,7 @@ RunService.Heartbeat:Connect(function(dt)
             continue
         end
         local clones = clonesFolder:GetChildren()
-        if #clones < 1 then
+        if clones and #clones < 1 then
             continue
         end
         for i, clone in ipairs(clones) do
@@ -429,7 +500,15 @@ RunService.Heartbeat:Connect(function(dt)
     local now = roflake.time()
     for i, bulletData in ipairs(activeBulletsDataTable) do
         local bullet = bulletData.bullet :: Part
-        local weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+        local booster = bulletData.booster
+        local owner = bulletData.owner
+        local ttl = bulletData.ttl
+        local weapon_id
+        if owner == LOCAL_PLAYER then
+            weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+        else
+            weapon_id = PLAYER_STATE:get(owner.UserId, C.ClientRefId)
+        end
         if not weapon_id or weapon_id == Id.Weapon._NONE then
             -- handles the case of players' death in order to move bullets that have been already fired
             weapon_id = Id.Weapon.BASIC
@@ -437,13 +516,13 @@ RunService.Heartbeat:Connect(function(dt)
         -- TODO: take the speed from the PlayerState?
         local speed = S.Weapon[weapon_id].baseSpeed + SharedConfig.MOVEMENT_LINEAR_VELOCITY
         local targetPos = CFrame.new(bullet.CFrame.Position + (bullet.CFrame.LookVector * speed * dt))
-        local booster = bulletData.booster
-        local ttl = bulletData.ttl
         if booster and booster.Position.Z >= bullet.Position.Z then
             -- bullet collided with the booster, delete it and signal to server
             activeBulletsDataTable[i] = NIL_TABLE
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
-            Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster.Name)
+            if owner == LOCAL_PLAYER then
+                Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster.Name)
+            end
         elseif now >= ttl then
             -- bullet timed-out, delete it
             Array.swap_remove(activeBulletsDataTable, i)
@@ -471,10 +550,10 @@ RunService.Heartbeat:Connect(function(dt)
             log:error("No bullet can be fired for this weapon_id", weaponId)
         end
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            local shot_ttl = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.TTL) or 0 :: num
-            if shot_ttl <= 0 then
+            local shot_ttl = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
+            if shot_ttl and shot_ttl <= 0 then
+                print("LLLLLLLL signal to fire bullet", shot_ttl)
                 fireBullet(LOCAL_PLAYER)
-                -- TODO: clones' fire (hold anim + little fire on top of the gun barrel)
             end
         end
     end
@@ -535,10 +614,11 @@ end, 1, "test")
 WORLD:set_on_attach(W.PLayerId, function(guid: guid, newplayerId: num)
     local id = WORLD:get(guid, W.RefId)
     if id and Id.kind(id) == Id.Kind.Clone then
-        -- local clientInstance = WORLD:get(guid, W.ClientInstance)
         local clientInstance = workspace:FindFirstChild(guid, true)
         if not clientInstance then
             local newInstance = Clones.CreateClone(newplayerId, guid)
+            local weaponId = PLAYER_STATE:get(newplayerId, C.ClientRefId)
+            handleGunHoldingAnimation(newInstance, weaponId)
             if not newInstance then
                 log:error("failed to create clone for player " .. newplayerId)
                 return
@@ -577,4 +657,7 @@ WORLD:set_on_detach(W.WeaponId, function(guid: guid, oldValue: num)
             return
         end
     end
+end)
+
+PLAYER_STATE:set_on_modify(C.TTL, function(guid: guid, newValue: num, oldValue: num)
 end)

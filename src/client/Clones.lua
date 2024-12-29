@@ -73,12 +73,6 @@ function m.CreateClone(playerId: int, cloneGuid: num | str)
             end
         end
 
-        -- delete player hitbox when copying the character
-        -- local playerHitbox = cloneInstance:FindFirstChild(SharedConfig.PLAYER_HITBOX_NAME) :: Humanoid
-        -- if playerHitbox then
-        --     playerHitbox:Destroy()
-        -- end
-
         cloneInstance.Parent = folder
 
         local humanoidRootPart = playerCharacter:WaitForChild("HumanoidRootPart") :: BasePart

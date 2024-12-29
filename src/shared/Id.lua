@@ -68,6 +68,7 @@ local Kind = table.freeze {
     Weapon          = enum.iota'',
     PlayerStats     = enum.iota'',
     TimedEvent      = enum.iota'',
+    Sound           = enum.iota'',
     STMState        = enum.iota'',
     -- protocol:
     S2S             = enum.iota(110, 1, idk.MAX_KIND),
@@ -557,6 +558,19 @@ Id.Animation = enum.with_id "Id.Animation" {
 }
 KIND_TO_ENUM[Id.Kind.Animation] = Id.Animation
 export type Animation = typeof(Id.Animation)
+
+-- stylua: ignore
+-----------------------------
+-- Animation
+-----------------------------
+Id.Sound = enum.with_id "Id.Sound" {
+    _NONE               = iota(Id.Kind.Sound, 0),
+    FIRE_PISTOL         = iota'',
+    FIRE_PISTOL_OTHER   = iota'',
+    RELOAD              = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound
+export type Sound = typeof(Id.Sound)
 
 -- stylua: ignore
 -----------------------------

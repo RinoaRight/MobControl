@@ -73,7 +73,7 @@ m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
     elseif alreadyInCol == 3 then
         x = -dist * 2
     elseif alreadyInCol == 4 then
-        x = dist
+        x = dist * 2
     end
     new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z + z * row)
     return new_pos
@@ -100,6 +100,35 @@ m.AttachHitboxToPlayer = function(player_state)
     hitbox.CanCollide = false
     local width = SharedConfig.INTERCLONES_DISTANCE * (SharedConfig.CLONES_IN_A_ROW - 1)
     hitbox.Size = Vector3.new(width, 6, 4)
+end
+
+m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3)
+    local audioEmitter = audioEmitterTemplate:Clone()
+    audioEmitter.Parent = game.Workspace
+    audioEmitter.Position = pos
+    local aud = audioEmitter:FindFirstChildWhichIsA("Sound") :: Sound
+
+    aud:Play()
+    aud.Ended:Connect(function()
+        audioEmitter:Destroy()
+    end)
+end
+
+m.EquipWeaponModel = function(char, weapon_id: int)
+    local weapon_instance = S.Weapon[weapon_id].instance:Clone()
+    -- spawn instance and parent it to the player
+    local weldingSpot = char:FindFirstChild("RightHand") :: MeshPart
+    local w = weldingSpot:FindFirstChild("WeldConstraint") :: WeldConstraint
+    if not w then
+        w = Instance.new("WeldConstraint", weldingSpot)
+    end
+    weapon_instance.Parent = weldingSpot
+    weapon_instance.Name = S.Weapon[weapon_id].name
+    local newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), math.rad(180), 0)
+    weapon_instance.PrimaryPart:PivotTo(newCF)
+    w.Part0 = weldingSpot
+    w.Part1 = weapon_instance.PrimaryPart
+    return weapon_instance
 end
 
 return m

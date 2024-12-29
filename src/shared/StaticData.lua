@@ -19,6 +19,10 @@ local _fmt = string.format
 local ReplicatedStorage = game.ReplicatedStorage
 local shared = ReplicatedStorage.shared
 local Id = require(shared.Id)
+
+local SoundService = game:GetService("SoundService")
+local SOUNDS_ROOT = assert(SoundService:WaitForChild("SFX"))
+local LOCALIZED_SOUNDS_ROOT = assert(ReplicatedStorage:WaitForChild("Sounds"))
 -----------------------------
 -- Module
 -----------------------------
@@ -26,11 +30,17 @@ local m = {}
 m.__index = m
 
 m.Animation = {
-    [Id.Animation.HOLD] = "rbxassetid://14928151227"
+    [Id.Animation.HOLD] = "rbxassetid://14928151227",
 }
 
 m.Weapon = {
-	[Id.Weapon.BASIC] = { baseSpeed = 40, damage = 10, cooldown = .5, instance = ReplicatedStorage.Weapons.Pistol }, -- units/sec, hp, secs
+    [Id.Weapon.BASIC] = {
+        baseSpeed = 40,
+        damage = 10,
+        cooldown = .5,
+        instance = ReplicatedStorage.Weapons.PistolModel,
+        name = "Pistol",
+    }, -- units/sec, hp, secs
 }
 
 -- stylua: ignore
@@ -38,6 +48,12 @@ m.Weapon = {
 m.Boost = {
     [Id.Boost.ADD_CLONE]         = {valueRange = {2,2}, hpRange = {50, 100}}, 
     [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}}, 
+}
+
+m.Sound = {
+    [Id.Sound.FIRE_PISTOL] = SOUNDS_ROOT:WaitForChild("Fired"),
+    [Id.Sound.FIRE_PISTOL_OTHER] = LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther"),
+    [Id.Sound.RELOAD] = SOUNDS_ROOT:WaitForChild("Reload"),
 }
 
 return m

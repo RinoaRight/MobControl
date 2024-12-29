@@ -240,9 +240,11 @@ function m.OnPlayerReadyToPlay(player_state: PSS.PlayerState, players_already_in
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, true))
 
     local driver_pos = DRIVING_BOX_INSTANCE.Position
-    local random_dround_unit = workspace:FindFirstChild("GroundUnit", true)
+    local ground_folder = workspace:FindFirstChild("GroundUnits")
+    local existing_ground_units = ground_folder:GetChildren()
+    local lastly_spawned_ground_unit = existing_ground_units[#existing_ground_units]
     local boosters = {}
-    for _, child in random_dround_unit:GetChildren() do
+    for _, child in lastly_spawned_ground_unit:GetChildren() do
         if child:FindFirstChild("BoosterGui") then
             table.insert(boosters, child)
         end
