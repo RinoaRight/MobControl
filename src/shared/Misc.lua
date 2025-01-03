@@ -20,7 +20,7 @@ local shared = ReplicatedStorage.shared
 local SharedConfig = require(shared.SharedConfig)
 local Id = require(shared.Id)
 local S = require(shared.StaticData)
-
+local Taskpool = require(shared.TaskPool)
 local Debris = game:GetService("Debris")
 
 local m = {}
@@ -66,6 +66,7 @@ m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
     local new_pos = Vector3.new(pos.X, pos.Y, pos.Z + dist)
     local x = 0
     local z = dist
+    
     if alreadyInCol == 1 then
         x = -dist
     elseif alreadyInCol == 2 then
@@ -102,15 +103,19 @@ m.AttachHitboxToPlayer = function(player_state)
     hitbox.Size = Vector3.new(width, 6, 4)
 end
 
-m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3)
-    local audioEmitter = audioEmitterTemplate:Clone()
-    audioEmitter.Parent = game.Workspace
-    audioEmitter.Position = pos
-    local aud = audioEmitter:FindFirstChildWhichIsA("Sound") :: Sound
+m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num)
+    Taskpool.defer(function()
+        local audioEmitter = audioEmitterTemplate:Clone()
+        audioEmitter.Parent = game.Workspace
+        audioEmitter.Position = pos
+        local aud = audioEmitter:FindFirstChildWhichIsA("Sound") :: Sound
 
-    aud:Play()
-    aud.Ended:Connect(function()
-        audioEmitter:Destroy()
+        task.wait(delay)
+
+        aud:Play()
+        aud.Ended:Connect(function()
+            audioEmitter:Destroy()
+        end)
     end)
 end
 

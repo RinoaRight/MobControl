@@ -66,6 +66,8 @@ function m.CreateClone(playerId: int, cloneGuid: num | str)
             end
         end
         cloneInstance = cloneCharTemplate:Clone()
+        local humanoid = cloneInstance:WaitForChild("Humanoid") :: Humanoid
+        humanoid.DisplayName = " "
         cloneInstance.Name = cloneGuid
         for _, instance in cloneInstance:GetDescendants() do
             if instance:IsA("BasePart") then

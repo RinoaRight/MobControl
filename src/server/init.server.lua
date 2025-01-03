@@ -152,7 +152,6 @@ on[Id.C2S.BOOSTER_HIT] = function(player_state, booster_guid, ...)
         local pos = humanoidRootPart.Position + humanoidRootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
         local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId) or Id.Weapon.BASIC
         local boosterToHit, _distance = Misc.IsBoosterToHit(pos)
-        -- TODO: and check ttl
         if boosterToHit and boosterToHit.Name == booster_guid and WorldService.world:has(booster_guid) then
             -- the hit is legit
             local dmg = S.Weapon[current_weapon_id].damage

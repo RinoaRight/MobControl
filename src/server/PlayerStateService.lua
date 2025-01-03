@@ -258,9 +258,6 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num)
     local current = self.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
     local new_hp = math.max(current - howMuch, 0)
     self.state:set(Id.PlayerStats.GAME_SESSION, C.Value, new_hp)
-    if new_hp <= 0 then
-        -- TODO: remove player
-    end
     return new_hp
 end
 

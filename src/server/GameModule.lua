@@ -235,6 +235,8 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
 end
 
 function m.OnPlayerReadyToPlay(player_state: PSS.PlayerState, players_already_in_session: int)
+    -- NOTE: players_already_in_session includes this player_state.player
+
     -- define spawning position
     local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, true))
@@ -267,8 +269,21 @@ function m.OnPlayerReadyToPlay(player_state: PSS.PlayerState, players_already_in
     end
     x_pos = boosters[index].Position.X
     local y_pos = player_state.root.Position.Y
+    local z_pos = driver_pos.Z - 50
+    if players_already_in_session > 1 then
+        local all_players = game.Players:GetPlayers()
+        local isInSession = false
+        for _, player in all_players do
+            local weapon_id = WorldService.world:get(player.UserId, W.WeaponId)
+            isInSession = weapon_id ~= Id.Weapon._NONE 
+            if isInSession then
+                z_pos = player.Character.HumanoidRootPart.Position.Z
+            end
+        end
+        assert(isInSession) -- sanity check
+    end
 
-    local target_c_frame = CFrame.new(x_pos, y_pos, driver_pos.Z - 50)
+    local target_c_frame = CFrame.new(x_pos, y_pos, z_pos)
     player_state.root.CFrame = target_c_frame
 
     -- set player alignment

@@ -70,7 +70,6 @@ function m.ChangeWeapon(player_state, player_id, weapon_id)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end
 
--- TODO: remove ttl field from worldstate and mainGameloop
 local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId)
 function m.AddPlayer(state)
     local player_id = state.player_id

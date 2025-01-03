@@ -564,10 +564,12 @@ export type Animation = typeof(Id.Animation)
 -- Animation
 -----------------------------
 Id.Sound = enum.with_id "Id.Sound" {
-    _NONE               = iota(Id.Kind.Sound, 0),
-    FIRE_PISTOL         = iota'',
-    FIRE_PISTOL_OTHER   = iota'',
-    RELOAD              = iota'',
+    _NONE                 = iota(Id.Kind.Sound, 0),
+    FIRE_PISTOL           = iota'',
+    FIRE_PISTOL_LOCALIZED = iota'',
+    RELOAD                = iota'',
+    SCREAM                = iota'',
+    SCREAM_LOCALIZED      = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound
 export type Sound = typeof(Id.Sound)

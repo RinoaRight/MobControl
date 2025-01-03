@@ -34,16 +34,18 @@ local GROUND_UNITS_FOLDER = assert(workspace.GroundUnits)
 local workerMaid = disposer.new()
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
+local Misc = require(shared.Misc)
+local S = require(shared.StaticData)
 
 local function onBoosterAdded(worldState, playerState: state.Replica, boosterGuid)
     local instance = workspace:FindFirstChild(boosterGuid, true)
-    workerMaid[boosterGuid] = instance.Touched:Connect(function(other)
-        if other.Name ~= "HumanoidRootPart" then
+    workerMaid[boosterGuid] = instance.Touched:Connect(function(triggerer)
+        if triggerer.Name ~= "HumanoidRootPart" then
             return
         end
 
-        local parent = other.Parent
-        assert(parent:IsA("Model")) -- sanity check
+        local character = triggerer.Parent
+        assert(character:IsA("Model")) -- sanity check
         -- check if this player already collided with this booster.
         if not playerState then
             return
@@ -59,22 +61,18 @@ local function onBoosterAdded(worldState, playerState: state.Replica, boosterGui
 
         -- local player has not yet collided with this booster, do the checks
         local triggererId
-        if parent.Parent == SharedConfig.CLONES_FOLDER_NAME then
+        if character.Parent.Name == SharedConfig.CLONES_FOLDER_NAME then
             -- player's clone collided with the booster, check if it the local player's clone
-            local playerId = worldState:get(parent.Name, W.PLayerId)
-            if playerId ~= LOCAL_PLAYER.UserId then
-                return
-            end
-            triggererId = parent.Name
-            -- TODO:
-        elseif PlayerService:GetPlayerFromCharacter(parent) == LOCAL_PLAYER then
+            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED], triggerer.Position, 0)
+            character:Destroy()
+        elseif PlayerService:GetPlayerFromCharacter(character) == LOCAL_PLAYER then
             -- player themselves collided with the booster
             triggererId = LOCAL_PLAYER.UserId
-            -- TODO:
+            S.Sound[Id.Sound.SCREAM]:Play()
         end
 
         if triggererId then
-            -- player has collided with the booster for the first time, set it to the state
+            -- local player has collided with this booster for the first time, set it to the state
             playerState:set(boosterGuid, C.ClientFlags, true)
             Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, boosterGuid, triggererId)
         end

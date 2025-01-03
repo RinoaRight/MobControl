@@ -167,14 +167,17 @@ on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
             v:Stop()
         end
     end
-    -- TODO: kill his clones
+    -- kill his clones
+    local clonesFolder = LOCAL_CHARACTER:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
+    if clonesFolder then
+        clonesFolder:Destroy()
+    end
 end
 
 -- Server Broadcasts
 local on_cc = {} :: { [id]: (...any) -> () }
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
-    -- TODO: FIXIT. On every restart fire tempo accelerates
     if player_id == LOCAL_PLAYER.UserId then
         -- the logic is already done in subscribeStartCollider
         return
@@ -204,6 +207,11 @@ on_cc[Id.S2CC.PLAYER_STOPPED_SESSION] = function(player_id: id)
             if v.Name == SharedConfig.RUN_ANIMATION_NAME then
                 v:Stop()
             end
+        end
+        -- kill his clones
+        local clonesFolder = character:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
+        if clonesFolder then
+            clonesFolder:Destroy()
         end
     end
 end
@@ -369,8 +377,9 @@ do
     end)
 end
 
-local function fireBullet(player)
+local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     local bullet
+    local pos
     if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
         bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
     else
@@ -381,20 +390,8 @@ local function fireBullet(player)
         bullet.Size = Vector3.new(2, 2, 2)
         bullet.Anchored = true
     end
-    local player_char = player.Character
-    local rootPart = assert(player_char.HumanoidRootPart) :: BasePart
     local pos = rootPart.Position + rootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
-    bullet.Position = pos
-    local weapon_id
-    if player == LOCAL_PLAYER then
-        weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
-    else
-        weapon_id = PLAYER_STATE:get(player.UserId, C.ClientRefId)
-    end
-    if not weapon_id or weapon_id == Id.Weapon._NONE then
-        return
-    end
     -- TODO: refactor speed (taking it from player_state) if it is something that can be changed during the session?
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
     local boosterThickness = SharedConfig.BOOSTER_DEPTH
@@ -403,13 +400,46 @@ local function fireBullet(player)
     if boosterToHit then
         timeToArrive = roflake.time() + ((dist + boosterThickness) / speed)
     end
+
+    bullet.Position = pos
+
     table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = timeToArrive, booster = boosterToHit, owner = player })
+
+    return pos
+end
+
+local function fireBullet(player)
+    local player_char = player.Character
+    local playerRootPart = assert(player_char.HumanoidRootPart) :: BasePart
+    local weapon_id
+
+    if player == LOCAL_PLAYER then
+        weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+    else
+        weapon_id = PLAYER_STATE:get(player.UserId, C.ClientRefId)
+    end
+    if not weapon_id or weapon_id == Id.Weapon._NONE then
+        return
+    end
+
+    -- player's fire
+    local pos = spawnBullet(player, playerRootPart, weapon_id)
+
+    -- clones' fire (is handled as an additional local player's fire)
+    local clones_folder = player_char:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
+    if clones_folder then
+        for _, clone in ipairs(clones_folder:GetChildren()) do
+            local rootPart = clone.HumanoidRootPart
+            spawnBullet(player, rootPart, weapon_id)
+        end
+    end
+
     if player == LOCAL_PLAYER then
         -- reset ttl server-side
         fire_server(Id.C2S.BULLET_SHOT, pos)
         S.Sound[Id.Sound.FIRE_PISTOL]:Play()
     else
-        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.FIRE_PISTOL_OTHER], pos)
+        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.FIRE_PISTOL_LOCALIZED], pos, 0)
         -- reset ttl for fake fire on the client
         local weapon_id = PLAYER_STATE:get(player.UserId, C.ClientRefId)
         local ttl
@@ -419,30 +449,29 @@ local function fireBullet(player)
         PLAYER_STATE:set(player.UserId, C.ClientTTL, ttl)
     end
 
-    -- clones' fire
-    local clones_folder = player_char:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
-    if clones_folder then
-        local all_fires = {}
-        for _, clone in ipairs(clones_folder:GetChildren()) do
-            local gunHand = clone:FindFirstChild("RightHand")
-            local weapon_instance = gunHand:FindFirstChild(S.Weapon[weapon_id].name)
-            if weapon_instance then
-                local fire = weapon_instance:FindFirstChild("Fire")
-                -- TODO: sound seem to
-                Misc.SoundLocalizedAudio(S.Sound[Id.Sound.FIRE_PISTOL_OTHER], fire.Position)
-                if fire then
-                    table.insert(all_fires, fire)
-                end
-            end
-        end
-        TaskPool.defer(function()
-            for _, fire in ipairs(all_fires) do
-                fire.Transparency = 0
-                task.wait(0.3)
-                fire.Transparency = 1
-            end
-        end)
-    end
+    -- -- clones' fire
+    -- local clones_folder = player_char:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
+    -- if clones_folder then
+    --     local all_fires = {}
+    --     for _, clone in ipairs(clones_folder:GetChildren()) do
+    --         local gunHand = clone:FindFirstChild("RightHand")
+    --         local weapon_instance = gunHand:FindFirstChild(S.Weapon[weapon_id].name)
+    --         if weapon_instance then
+    --             local fire = weapon_instance:FindFirstChild("Fire")
+    --             Misc.SoundLocalizedAudio(S.Sound[Id.Sound.FIRE_PISTOL_LOCALIZED], fire.Position)
+    --             if fire then
+    --                 table.insert(all_fires, fire)
+    --             end
+    --         end
+    --     end
+    --     TaskPool.defer(function()
+    --         for _, fire in ipairs(all_fires) do
+    --             fire.Transparency = 0
+    --             task.wait(0.3)
+    --             fire.Transparency = 1
+    --         end
+    --     end)
+    -- end
 end
 
 RunService.Heartbeat:Connect(function(dt)
@@ -552,7 +581,6 @@ RunService.Heartbeat:Connect(function(dt)
         if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
             local shot_ttl = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
             if shot_ttl and shot_ttl <= 0 then
-                print("LLLLLLLL signal to fire bullet", shot_ttl)
                 fireBullet(LOCAL_PLAYER)
             end
         end
@@ -659,5 +687,4 @@ WORLD:set_on_detach(W.WeaponId, function(guid: guid, oldValue: num)
     end
 end)
 
-PLAYER_STATE:set_on_modify(C.TTL, function(guid: guid, newValue: num, oldValue: num)
-end)
+PLAYER_STATE:set_on_modify(C.TTL, function(guid: guid, newValue: num, oldValue: num) end)
