@@ -61,12 +61,13 @@ local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_INIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
 local BOOSTER_TEMPLATE = assert(ReplicatedStorage.Booster)
 local BOOSTER_WIDTH = BOOSTER_TEMPLATE.Size.X
-local BOOSTER_GUI_TEMPLATE = assert(ReplicatedStorage.BoosterGui)
+local BOOSTER_GUI_TEMPLATE = assert(ReplicatedStorage.UI.BoosterGui)
 local BOOSTER_OFFSET_X = 220
 local BOOSTER_OFFSET_Y = 9
 local BOOSTER_OFFSET_Z = -50
 local BOOSTER_GAP = 40
 local GAP_WIDTH = BOOSTER_GAP - BOOSTER_WIDTH
+local BOOSTER_CONTENTS_BILLBOARD_TEMPLATE = assert(ReplicatedStorage.BoosterContentsBillboard)
 
 local FIELD_NAMES = En.with_id("*")({
     FIRST = 1,
@@ -113,16 +114,28 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
     boosterGui.Parent = instance
     boosterGui.Adornee = instance
     boosterGui.TextLabel.Text = NumFormat.format_damage(hp)
+
+    -- TODO: Fill in the data in booster's contents GUI
     local boostContentId = false :: id | bool
-    -- TODO: Fill in the data in booster's GUI
+    local contentsBillboardInstance = BOOSTER_CONTENTS_BILLBOARD_TEMPLATE:Clone()
+    local boosterPos = instance.Position
+    local billboardPos = contentsBillboardInstance.Position
+    contentsBillboardInstance.CFrame = CFrame.new(boosterPos.X, billboardPos.Y, boosterPos.Z)
+    contentsBillboardInstance.Parent = instance
+    local contentsTextbox = contentsBillboardInstance.BoosterContentsGui.TextLabel
+    local txt = ""
+    local col = instance.Color
     if refID == Id.Boost.ADD_CLONE then
-        instance.Color = Color3.fromRGB(0, 255, 0)
+        txt = string.format("+ %d clones", value)
+        col = Color3.fromRGB(0, 255, 0)
     elseif refID == Id.Boost.BULLET_SPEED_MULT then
         -- TODO:
     elseif refID == Id.Boost.CHANGE_WEAPON then
-        -- TODO: actual range of selection
+        -- TODO: actual range of selection + the rest
         boostContentId = math.random(Id.Weapon.DEFAULT, Id.Weapon.DEFAULT)
     end
+    instance.Color = col
+    contentsTextbox.Text = txt
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
     instance.CollisionGroup = "BulletCollidable"
     WorldService.AddBooster(instance, refID, value, hp, boostContentId)
@@ -223,7 +236,7 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     workerMaid[booster_guid] = nil
     -- TODO:
     if boost_ref_id == Id.Boost.ADD_CLONE then
-        for i = 0, value do
+        for i = 1, value do
             local playerId = playerState.player_id
             local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
         end
@@ -275,7 +288,7 @@ function m.OnPlayerReadyToPlay(player_state: PSS.PlayerState, players_already_in
         local isInSession = false
         for _, player in all_players do
             local weapon_id = WorldService.world:get(player.UserId, W.WeaponId)
-            isInSession = weapon_id ~= Id.Weapon._NONE 
+            isInSession = weapon_id ~= Id.Weapon._NONE
             if isInSession then
                 z_pos = player.Character.HumanoidRootPart.Position.Z
             end

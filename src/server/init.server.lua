@@ -197,8 +197,6 @@ on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str,
     local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
 
     if isPlayer then
-        -- TODO: update player_hp GUI
-        -- TODO: SFX
         if player_hp - booster_hp <= 0 then
             onPlayerDead(player_state)
         else

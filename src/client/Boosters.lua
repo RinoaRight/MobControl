@@ -36,6 +36,11 @@ local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local Misc = require(shared.Misc)
 local S = require(shared.StaticData)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
+local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
+local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
+local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 
 local function onBoosterAdded(worldState, playerState: state.Replica, boosterGuid)
     local instance = workspace:FindFirstChild(boosterGuid, true)
@@ -75,6 +80,13 @@ local function onBoosterAdded(worldState, playerState: state.Replica, boosterGui
             -- local player has collided with this booster for the first time, set it to the state
             playerState:set(boosterGuid, C.ClientFlags, true)
             Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, boosterGuid, triggererId)
+            local playerHP = playerState:get(Id.PlayerStats.GAME_SESSION, C.Value)
+            local boosterHP = worldState:get(boosterGuid, W.HP)
+            local remainingHP = playerHP - boosterHP
+            if remainingHP > 0 then
+                Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, remainingHP)
+                -- TODO: pain animation
+            end
         end
     end)
 end

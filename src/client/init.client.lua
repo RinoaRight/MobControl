@@ -93,9 +93,12 @@ until LOCAL_PLAYER.Character
 local LOCAL_CHARACTER = LOCAL_PLAYER.Character
 local LOCAL_HUMANOID = LOCAL_PLAYER.Character:WaitForChild("Humanoid")
 local LOCAL_HUMANOID_ROOT_PART = assert(LOCAL_PLAYER.Character:WaitForChild("HumanoidRootPart"))
+local LOCAL_HUMANOID_HEAD = assert(LOCAL_PLAYER.Character:WaitForChild("Head"))
 
 local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
+local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
+local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 
 -- forward declarations
 local playRunAnimTrack
@@ -179,7 +182,9 @@ local on_cc = {} :: { [id]: (...any) -> () }
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
     if player_id == LOCAL_PLAYER.UserId then
-        -- the logic is already done in subscribeStartCollider
+        local hp = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Value)
+        Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, hp)
+        -- the rest of the logic is already done in subscribeStartCollider
         return
     else
         local player = Players:GetPlayerByUserId(player_id)
@@ -356,6 +361,7 @@ local function subscribeStartCollider()
     end)
 end
 
+-- Initialization
 do
     TaskPool.spawn(function()
         -- initial subscription of the start button
@@ -374,6 +380,9 @@ do
             local weapon_id = WORLD:get(player_id, W.WeaponId)
             setOtherPlayerToState(player.UserId, weapon_id)
         end
+        -- initialize player's hp GUI
+        PLAYER_HP_GUI.Adornee = LOCAL_HUMANOID_HEAD
+        PLAYER_HP_TEXT_BOX.Text = ""
     end)
 end
 

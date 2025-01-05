@@ -58,7 +58,7 @@ m.CLONE_ATTACHMENT_NAME        = "CloneGuideAtt"
 m.RUN_ANIMATION_NAME           = "RunAnim"
 m.DEFAULT_WEAPON_ID            = Id.Weapon.BASIC
 -- TODO: real values
-m.STARTING_HP                  = 10--0
+m.STARTING_HP                  = 100
 m.STARTING_CLONE_AMOUNT        = 0
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",

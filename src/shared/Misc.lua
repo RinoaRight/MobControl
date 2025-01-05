@@ -22,6 +22,8 @@ local Id = require(shared.Id)
 local S = require(shared.StaticData)
 local Taskpool = require(shared.TaskPool)
 local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
+local NumFormat = require(shared.num_format)
 
 local m = {}
 m.__index = m
@@ -33,6 +35,23 @@ local blacklist = {} :: { Instance }
 
 m.AddPlayerCharToRaycastFilter = function(instance)
     table.insert(blacklist, instance)
+end
+
+m.FlickerPlayerHPGui = function(textBox, mult: num, hp: num)
+    Taskpool.spawn(function()
+        local originalSize = textBox.Size :: UDim2
+        local tweenIn =
+            TweenService:Create(textBox, TweenInfo.new(0.1), { Size = UDim2.fromScale(originalSize.X.Scale * mult, originalSize.Y.Scale * mult) })
+        local tweenOut = TweenService:Create(textBox, TweenInfo.new(0.1), { Size = originalSize })
+        local formattedHp = NumFormat.format_number(hp)
+
+        textBox.Text = formattedHp
+        tweenIn:Play()
+        task.wait(0.4)
+        tweenOut:Play()
+        task.wait(0.4)
+        textBox.Text = ""
+    end)
 end
 
 m.IsBoosterToHit = function(pos: Vector3)
@@ -66,7 +85,7 @@ m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
     local new_pos = Vector3.new(pos.X, pos.Y, pos.Z + dist)
     local x = 0
     local z = dist
-    
+
     if alreadyInCol == 1 then
         x = -dist
     elseif alreadyInCol == 2 then
