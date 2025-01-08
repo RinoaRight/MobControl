@@ -60,6 +60,7 @@ m.DEFAULT_WEAPON_ID            = Id.Weapon.BASIC
 -- TODO: real values
 m.STARTING_HP                  = 100
 m.STARTING_CLONE_AMOUNT        = 0
+m.ENEMY_LIFE_TIME              = 10 --sec
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }

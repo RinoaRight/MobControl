@@ -66,6 +66,7 @@ local Kind = table.freeze {
     Countable       = enum.iota'',
     Clone           = enum.iota'',
     Weapon          = enum.iota'',
+    Enemy           = enum.iota'',
     PlayerStats     = enum.iota'',
     TimedEvent      = enum.iota'',
     Sound           = enum.iota'',
@@ -536,6 +537,18 @@ Id.Weapon = enum.with_id "Id.Weapon" {
 }
 KIND_TO_ENUM[Id.Kind.Weapon] = Id.Weapon
 export type Weapon = typeof(Id.Weapon)
+
+-- stylua: ignore
+-----------------------------
+-- Enemy
+-----------------------------
+Id.Enemy = enum.with_id "Id.Enemy" {
+    _NONE   = iota(Id.Kind.Enemy, 0),
+    DEFAULT = iota'',
+    BASIC   = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Enemy] = Id.Enemy
+export type Enemy = typeof(Id.Enemy)
 
 -- stylua: ignore
 -----------------------------

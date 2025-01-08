@@ -101,6 +101,14 @@ function m.AddClone(id: id, player_id: int)
     return guid
 end
 
+function m.AddEnemyToState(id: id, serverInstance)
+    local guid = m.nullary_transient(_roflake.uida)
+    m.world:set(guid, W.RefId, id)
+    m.world:set(guid, W.ServerInstance, serverInstance)
+    m.world:set(guid, W.TTL, SharedConfig.ENEMY_LIFE_TIME)
+    return guid
+end
+
 -------------------
 -- Methods
 -------------------

@@ -39,6 +39,7 @@ local C = SharedConfig.PlayerState.CId
 local Misc = require(shared.Misc)
 local NumFormat = require(shared.num_format)
 local SharedUtils = require(shared.util)
+local Enemies = require(server.Enemies)
 
 local CLONES = {}
 
@@ -136,6 +137,7 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
     end
     instance.Color = col
     contentsTextbox.Text = txt
+    contentsTextbox.TextColor3 = col
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
     instance.CollisionGroup = "BulletCollidable"
     WorldService.AddBooster(instance, refID, value, hp, boostContentId)
@@ -145,6 +147,15 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     GROUND_UNITS[index].unit = groundUnit
     local unitPos = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
     groundUnit.CFrame = unitPos
+
+    local enemyFolder = groundUnit:FindFirstChild("Enemies") 
+    if not enemyFolder then
+        enemyFolder = Instance.new("Folder")
+        assert(enemyFolder)
+        enemyFolder.Parent = groundUnit
+        enemyFolder.Name = "Enemies"
+    end
+
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     trigger.CFrame = CFrame.new(9, 20.5, unitPos.Z - 245)
     groundUnit.Parent = GROUND_UNIT_FOLDER
@@ -171,6 +182,8 @@ local function subscribeTrigger(worldState: state.Main, index, groundUnit)
             GROUND_UNITS[FIELD_NAMES.FOURTH].unit = GROUND_UNITS[FIELD_NAMES.FIFTH].unit
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
+            Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, 20)
+            --  spawn enemies of the next ground unit 
         end
     end)
 end
@@ -213,6 +226,8 @@ function m.StartMainLoopWorld(world_state: state.Main)
         -- driving box movement
         DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
         oldPos = DRIVING_BOX_INSTANCE.Position
+
+        -- TODO: count enemies ttl and RemoveEnitity when ttl is 0
     end
 end
 
