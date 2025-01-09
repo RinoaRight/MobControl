@@ -48,9 +48,10 @@ local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_UNIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
 local GROUND_UNIT_LENGTH_HALF = GROUND_UNIT_LENGTH / 2
 local X_MARGIN = 40
+local SPAWN_SPACE_WIDTH = GROUND_UNIT_TEMPLATE.Size.X - X_MARGIN * 2
 local X_INTERVAL = 20
 local Z_INTERVAL = 20
-local ENEMY_WIDTH = 10
+local ENEMY_SIZE = Vector3.new(2,6,2)
 local MAX_ROW, MAX_COLS = 16, 16
 local DISTANCE_FROM_MID_TO_BOOSTER = 50
 local START_ZONE_GAP = 70
@@ -97,16 +98,17 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         return
     end
     local groundUnitPos = groundUnit.Position
+    local y = ENEMY_SIZE.Z - ENEMY_SIZE.Z/2
     local z = groundUnitPos.Z
     if isFirstHalf then
         z = z - DISTANCE_FROM_MID_TO_BOOSTER
     else
         z = z - GROUND_UNIT_LENGTH_HALF
     end
-    local cell_w = ENEMY_WIDTH + X_INTERVAL
-    local cell_h = ENEMY_WIDTH + Z_INTERVAL
-    local origin = Vector3.new(groundUnitPos.X, 20, z)
-    local cols = 20
+    local cell_w = ENEMY_SIZE.X + X_INTERVAL
+    local cell_h = ENEMY_SIZE.Z + Z_INTERVAL
+    local origin = Vector3.new(groundUnitPos.X, y, z)
+    local cols = math.floor(SPAWN_SPACE_WIDTH / cell_w)
     local rows = 3
 
     -- TODO: make sure that the number of columns correspond with cell_width
@@ -125,24 +127,24 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         until not bitmap[idx]
         bitmap[idx] = true
         local enemyPos = grid[idx]
-        if __DEV__ then
-            warn("enemy pos", enemyPos)
-            local part = Instance.new("Part")
-            part.Name = "EnemyPos"..tostring(enemyPos)
-            part.Size = Vector3.new(1, 1, 1)
-            part.CanCollide = false
-            part.Anchored = true
-            part.CFrame = CFrame.new(enemyPos)
-            part.Parent = workspace
-            part.BrickColor = BrickColor.new("Really red")
-        end
+        -- if __DEV__ then
+        --     warn("enemy pos", enemyPos)
+        --     local part = Instance.new("Part")
+        --     part.Name = "EnemyPos"..tostring(enemyPos)
+        --     part.Size = Vector3.new(1, 1, 1)
+        --     part.CanCollide = false
+        --     part.Anchored = true
+        --     part.CFrame = CFrame.new(enemyPos)
+        --     part.Parent = workspace
+        --     part.BrickColor = BrickColor.new("Really red")
+        -- end
 
 
         -- TODO: real enemy generator
         local enemyId = Id.Enemy.BASIC
         local enemyInstance = Instance.new("Part")
         enemyInstance.Size = Vector3.new(2, 6, 2)
-        enemyInstance.CanCollide = true
+        enemyInstance.CanCollide = false
         enemyInstance.Anchored = true
         enemyInstance.CollisionGroup = "BulletCollidable"
 
