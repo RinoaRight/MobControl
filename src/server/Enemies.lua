@@ -66,7 +66,8 @@ local NUM_OF_COLUMNS = math.floor((GROUND_UNIT_LENGTH - X_MARGIN * 2) / X_INTERV
 -- |  3  |  4  |  o---> X
 -- +-----+-----+
 local function create_grid(cell_w: int, cell_h: int, cols: int, rows: int, origin: Vector3)
-    -- spawns form top left corner
+    -- TODO: shift on X axis for each new row
+    -- spawns from top left corner
     local grid = table.create(cols * rows)
     local bitmap = table.create(#grid, false)
     local x_offset = origin.X - (cols * cell_w) // 2 + cell_w // 2

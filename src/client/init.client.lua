@@ -162,6 +162,11 @@ on[Id.S2C.UPDATE_WORLD] = function(state: state.Replica, update_log)
     WORLD:update(update_log)
 end
 
+on[Id.S2C.PLAYER_DAMAGED] = function(state: state.Replica, new_hp: int)
+    Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, new_hp)
+    S.Sound[Id.Sound.SCREAM]:Play()
+end
+
 on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
     LOCAL_HUMANOID.JumpPower = 50
     LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME):Destroy()

@@ -41,6 +41,7 @@ local NumFormat = require(shared.num_format)
 local SharedUtils = require(shared.util)
 local Enemies = require(server.Enemies)
 local PlayerService = game:GetService("Players")
+local SharedUtil = require(shared.util)
 
 local CLONES = {}
 
@@ -169,10 +170,19 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     end
 end
 
-local function subscribeEnemyToTouch(get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
+local function destroyEnemy(guid)
+    WorldService.RemoveEntity(guid)
+    assert(typeof(guid) == "string") -- sanity check
+    workerMaid[guid] = nil
+end
+
+
+local function subscribeEnemyToTouch(worldState, get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
     workerMaid[enemyGiud] = enemyInstance.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
             -- TODO: make enemy move to the nearest player's root part
+        elseif triggerer.Name == "Bullet" then
+            -- TODO:
         elseif triggerer.Name == "HumanoidRootPart" then
             -- deduct hp
             local enemyDamage = S.Enemy[enemyId].damage
@@ -181,17 +191,18 @@ local function subscribeEnemyToTouch(get_state: (player_id: int) -> PSS.PlayerSt
                 return
             end
             -- NOTE: only a player can collide with the enemy, client-side clones cannot
-            local playerId = PlayerService:GetPlayerFromCharacter(character)
+            local playerId = PlayerService:GetPlayerFromCharacter(character).UserId
             local playerState = get_state(playerId)
-            -- TODO: why does playerState returns nil?
-            print("LLLLLLLLLLLLLL2", playerId, playerState)
             if playerState then
                 local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
-                if playerHP - enemyDamage <= 0 then
+                local newHP = playerHP - enemyDamage
+                if newHP <= 0 then
                     Signal.Fire(Id.S2S.PLAYER_DIED)
                 else
                     playerState:DeductHp(enemyDamage)
+                    playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
                 end
+            destroyEnemy(enemyGiud)    
             end
         end
     end)
@@ -216,7 +227,7 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
                 assert(type(enemyGuid) == "string") -- sanity check
                 local enemyId = worldState:get(enemyGuid, W.RefId)
                 local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
-                subscribeEnemyToTouch(get_state, enemyGuid, enemyId, enemyInstance)
+                subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
             end
         end
     end)
@@ -266,9 +277,7 @@ function m.StartMainLoopWorld(world_state: state.Main)
             ttl -= dt
             world_state:set(guid, W.TTL, ttl)
             if ttl <= 0 then
-                WorldService.RemoveEntity(guid)
-                assert(typeof(guid) == "string") -- sanity check
-                workerMaid[guid] = nil
+                destroyEnemy(guid)
             end
         end
     end
