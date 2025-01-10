@@ -50,6 +50,10 @@ m.Boost = {
     [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}}, 
 }
 
+m.Enemy = {
+    [Id.Enemy.BASIC] = {damage = 10}
+}
+
 m.Sound = {
     [Id.Sound.FIRE_PISTOL]           = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),

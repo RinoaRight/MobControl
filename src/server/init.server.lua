@@ -248,6 +248,10 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
 end
 
+s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
+    onPlayerDead(player_state)
+end
+
 -- initialize main game loop
 do
     TaskPool.spawn(function()

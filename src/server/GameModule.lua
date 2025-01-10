@@ -40,6 +40,7 @@ local Misc = require(shared.Misc)
 local NumFormat = require(shared.num_format)
 local SharedUtils = require(shared.util)
 local Enemies = require(server.Enemies)
+local PlayerService = game:GetService("Players")
 
 local CLONES = {}
 
@@ -148,7 +149,7 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     local unitPos = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
     groundUnit.CFrame = unitPos
 
-    local enemyFolder = groundUnit:FindFirstChild("Enemies") 
+    local enemyFolder = groundUnit:FindFirstChild("Enemies")
     if not enemyFolder then
         enemyFolder = Instance.new("Folder")
         assert(enemyFolder)
@@ -168,11 +169,39 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     end
 end
 
-local function subscribeTrigger(worldState: state.Main, index, groundUnit)
+local function subscribeEnemyToTouch(get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
+    workerMaid[enemyGiud] = enemyInstance.Touched:Connect(function(triggerer)
+        if triggerer == DRIVING_BOX_FRONT then
+            -- TODO: make enemy move to the nearest player's root part
+        elseif triggerer.Name == "HumanoidRootPart" then
+            -- deduct hp
+            local enemyDamage = S.Enemy[enemyId].damage
+            local character = triggerer.Parent
+            if not character:IsA("Model") then -- sanity check
+                return
+            end
+            -- NOTE: only a player can collide with the enemy, client-side clones cannot
+            local playerId = PlayerService:GetPlayerFromCharacter(character)
+            local playerState = get_state(playerId)
+            -- TODO: why does playerState returns nil?
+            print("LLLLLLLLLLLLLL2", playerId, playerState)
+            if playerState then
+                local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+                if playerHP - enemyDamage <= 0 then
+                    Signal.Fire(Id.S2S.PLAYER_DIED)
+                else
+                    playerState:DeductHp(enemyDamage)
+                end
+            end
+        end
+    end)
+end
+
+local function subscribeTrigger(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, index, groundUnit)
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     workerMaid.trigger = trigger.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
-            subscribeTrigger(worldState, FIELD_NAMES.FOURTH, GROUND_UNITS[FIELD_NAMES.FOURTH].unit)
+            subscribeTrigger(worldState, get_state, FIELD_NAMES.FOURTH, GROUND_UNITS[FIELD_NAMES.FOURTH].unit)
             trigger:Destroy()
             deleteGroundUnit(GROUND_UNITS[FIELD_NAMES.FIRST].unit, FIELD_NAMES.FIRST)
             -- shift all other units in the data table accordingly
@@ -182,8 +211,13 @@ local function subscribeTrigger(worldState: state.Main, index, groundUnit)
             GROUND_UNITS[FIELD_NAMES.FOURTH].unit = GROUND_UNITS[FIELD_NAMES.FIFTH].unit
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
-            Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, 20)
-            --  spawn enemies of the next ground unit 
+            local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, 20)
+            for _, enemyGuid in ipairs(enemies) do
+                assert(type(enemyGuid) == "string") -- sanity check
+                local enemyId = worldState:get(enemyGuid, W.RefId)
+                local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
+                subscribeEnemyToTouch(get_state, enemyGuid, enemyId, enemyInstance)
+            end
         end
     end)
 end
@@ -197,7 +231,7 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     local fifthUnit = GROUND_UNIT_TEMPLATE:Clone()
 
     -- init first ground unit
-    subscribeTrigger(worldState, FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
+    subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
     local boosters = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit:GetChildren()
     for i, booster in ipairs(boosters) do
         if booster:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
@@ -228,6 +262,15 @@ function m.StartMainLoopWorld(world_state: state.Main)
         oldPos = DRIVING_BOX_INSTANCE.Position
 
         -- TODO: count enemies ttl and RemoveEnitity when ttl is 0
+        for guid, refId, instance, ttl in world_state:select(W.RefId, W.ServerInstance, W.TTL) do
+            ttl -= dt
+            world_state:set(guid, W.TTL, ttl)
+            if ttl <= 0 then
+                WorldService.RemoveEntity(guid)
+                assert(typeof(guid) == "string") -- sanity check
+                workerMaid[guid] = nil
+            end
+        end
     end
 end
 

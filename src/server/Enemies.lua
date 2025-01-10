@@ -51,7 +51,7 @@ local X_MARGIN = 40
 local SPAWN_SPACE_WIDTH = GROUND_UNIT_TEMPLATE.Size.X - X_MARGIN * 2
 local X_INTERVAL = 20
 local Z_INTERVAL = 20
-local ENEMY_SIZE = Vector3.new(2,6,2)
+local ENEMY_SIZE = Vector3.new(2, 6, 2)
 local MAX_ROW, MAX_COLS = 16, 16
 local DISTANCE_FROM_MID_TO_BOOSTER = 50
 local START_ZONE_GAP = 70
@@ -94,11 +94,12 @@ end
 local m = {}
 
 function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, numOfEnemies: int)
+    local enemies = {}
     if numOfEnemies <= 0 then
-        return
+        return enemies
     end
     local groundUnitPos = groundUnit.Position
-    local y = ENEMY_SIZE.Z - ENEMY_SIZE.Z/2
+    local y = ENEMY_SIZE.Z - ENEMY_SIZE.Z / 2
     local z = groundUnitPos.Z
     if isFirstHalf then
         z = z - DISTANCE_FROM_MID_TO_BOOSTER
@@ -139,7 +140,6 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         --     part.BrickColor = BrickColor.new("Really red")
         -- end
 
-
         -- TODO: real enemy generator
         local enemyId = Id.Enemy.BASIC
         local enemyInstance = Instance.new("Part")
@@ -151,8 +151,10 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         local enemyFolder = assert(groundUnit:FindFirstChild("Enemies"))
         enemyInstance.Parent = enemyFolder
         enemyInstance.CFrame = CFrame.new(enemyPos)
-        WorldService.AddEnemyToState(enemyId, enemyInstance)
+        local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyInstance)
+        table.insert(enemies, enemyGuid)
     end
+    return enemies
 end
 
 return m
