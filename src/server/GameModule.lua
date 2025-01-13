@@ -176,13 +176,20 @@ local function destroyEnemy(guid)
     workerMaid[guid] = nil
 end
 
-
 local function subscribeEnemyToTouch(worldState, get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
     workerMaid[enemyGiud] = enemyInstance.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
-            -- TODO: make enemy move to the nearest player's root part
+            local flags = worldState:get(enemyGiud, W.Bitset)
+            if flags and not Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
+                Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true)
+                -- TODO: it remains false. Why?
+                print("LLLLLLLLLL set", Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED))
+            end
+        elseif triggerer == DRIVING_BOX_INSTANCE then
+            -- TODO: effects
+            destroyEnemy(enemyGiud)
         elseif triggerer.Name == "Bullet" then
-            -- TODO:
+            -- TODO: subscribe client-side and do the logic client-side
         elseif triggerer.Name == "HumanoidRootPart" then
             -- deduct hp
             local enemyDamage = S.Enemy[enemyId].damage
@@ -202,8 +209,10 @@ local function subscribeEnemyToTouch(worldState, get_state: (player_id: int) -> 
                     playerState:DeductHp(enemyDamage)
                     playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
                 end
-            destroyEnemy(enemyGiud)    
             end
+            -- destroy enemy
+            -- TODO: effects
+            destroyEnemy(enemyGiud)
         end
     end)
 end
@@ -261,7 +270,7 @@ function m.CreatePlayerHpGui(player_state: PSS.PlayerState)
     -- create and fill in player_hp gui
 end
 
-function m.StartMainLoopWorld(world_state: state.Main)
+function m.StartMainLoopWorld(worldState: state.Main)
     local oldPos = DRIVING_BOX_INSTANCE.Position
     return function(dt)
         -- allow first ground unit to "move". TODO: should be executed only once (for the first unit),
@@ -272,13 +281,49 @@ function m.StartMainLoopWorld(world_state: state.Main)
         DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
         oldPos = DRIVING_BOX_INSTANCE.Position
 
-        -- TODO: count enemies ttl and RemoveEnitity when ttl is 0
-        for guid, refId, instance, ttl in world_state:select(W.RefId, W.ServerInstance, W.TTL) do
-            ttl -= dt
-            world_state:set(guid, W.TTL, ttl)
-            if ttl <= 0 then
-                destroyEnemy(guid)
+        -- move enemies
+        local enemies = {}
+        local enemyTargets = {}
+        local currentGroundUnits = GROUND_UNIT_FOLDER:GetChildren()
+        for _, unit in ipairs(currentGroundUnits) do
+            local enemyFolder = unit:FindFirstChild("Enemies")
+            if enemyFolder then
+                local enemyInstances = enemyFolder:GetChildren()
+                if #enemyInstances > 0 then
+                    for _, enemyInstance in ipairs(enemyInstances) do
+                        local currentPos = enemyInstance.Position
+                        table.insert(enemies, enemyInstance)
+                        local lookVector = Vector3.new(0, 0, 1)
+                        local flags = worldState:get(enemyInstance.Name, W.Bitset)
+                        if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
+                            -- find the nearest player and seek him
+                            local players = game.Players:GetPlayers()
+                            local isSelected = false
+                            for _, player in ipairs(players) do
+                                if isSelected then
+                                    break
+                                end
+                                local weaponId = worldState:get(player.UserId, W.WeaponId)
+                                if weaponId ~= Id.Weapon._NONE and not isSelected then
+                                    -- TODO: check if he he is closeEnough. Is yes then ->
+                                    local playerRoot = player.Character.HumanoidRootPart
+                                    if (playerRoot.Position - enemyInstance.Position).Magnitude < 20 then
+                                        enemyInstance:PivotTo(playerRoot.CFrame)
+                                        isSelected = true
+                                    end
+                                end
+                            end
+                        end
+                        local enemyId = worldState:get(enemyInstance.Name, W.RefId)
+                        local mult = S.Enemy[enemyId].speed
+                        local newCframe = CFrame.new(currentPos + lookVector * mult)
+                        table.insert(enemyTargets, newCframe)
+                    end
+                end
             end
+        end
+        if #enemies > 0 then
+            workspace:BulkMoveTo(enemies, enemyTargets, Enum.BulkMoveMode.FireCFrameChanged)
         end
     end
 end

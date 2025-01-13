@@ -72,13 +72,15 @@ local function create_grid(cell_w: int, cell_h: int, cols: int, rows: int, origi
     local bitmap = table.create(#grid, false)
     local x_offset = origin.X - (cols * cell_w) // 2 + cell_w // 2
     local z_offset = origin.Z + cell_h // 2
-    for i = 1, cols do
-        for j = 1, rows do
-            local x = x_offset + (i - 1) * cell_w
-            local z = z_offset + (j - 1) * cell_h
+    local X_SHIFT = cell_w // 4
+    for ri = 1, rows do
+        local dx = ri % 2 ~= 0 and X_SHIFT or -X_SHIFT
+        for ci = 1, cols do
+            local x = x_offset + (ci - 1) * cell_w + dx
+            local z = z_offset + (ri - 1) * cell_h
             local pos = Vector3.new(x, origin.Y, z)
-            grid[(i - 1) * rows + j] = pos
-            bitmap[(i - 1) * cell_h + j] = false
+            grid[(ci - 1) * rows + ri] = pos
+            bitmap[(ci - 1) * cell_h + ri] = false
         end
     end
     local rc2idx = function(row: int, col: int)
@@ -153,6 +155,8 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         enemyInstance.Parent = enemyFolder
         enemyInstance.CFrame = CFrame.new(enemyPos)
         local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyInstance)
+        assert(typeof(enemyGuid) == "string")
+        enemyInstance.Name = enemyGuid
         table.insert(enemies, enemyGuid)
     end
     return enemies

@@ -63,6 +63,7 @@ local Kind = table.freeze {
     Pass            = enum.iota'',
     PassF           = enum.iota'',
     PlayerF         = enum.iota'',
+    EnemyF          = enum.iota'',
     Countable       = enum.iota'',
     Clone           = enum.iota'',
     Weapon          = enum.iota'',
@@ -492,6 +493,17 @@ local flags = Id.flag_or(Id.PlayerF.BOUGHT, Id.PlayerF.GRANTED, Id.PlayerF.TEMP)
 warn("flags", Id.pp(flags), Id.flag_test(flags, Id.PlayerF.BOUGHT))
 ```
 --]]
+
+-- stylua: ignore
+-----------------------------
+-- EnemyF
+-----------------------------
+Id.EnemyF = enum.with_id "Id.EnemyF" {
+    NONE            = flag(Id.Kind.EnemyF),
+    SEEK_ACTIVATED  = flag'',
+}
+KIND_TO_ENUM[Id.Kind.EnemyF] = Id.EnemyF
+export type EnemyF = typeof(Id.EnemyF)
 
 -- stylua: ignore
 -----------------------------

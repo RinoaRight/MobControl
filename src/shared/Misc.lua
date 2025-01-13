@@ -24,6 +24,8 @@ local Taskpool = require(shared.TaskPool)
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
 local NumFormat = require(shared.num_format)
+local Queue = require(shared.queue)
+local rand = require(shared.rand)
 
 local m = {}
 m.__index = m
@@ -37,11 +39,14 @@ m.AddPlayerCharToRaycastFilter = function(instance)
     table.insert(blacklist, instance)
 end
 
-m.FlickerPlayerHPGui = function(textBox, mult: num, hp: num)
+local function playFlickerAnim(textBox, mult, hp, isToDestroy) 
     Taskpool.spawn(function()
         local originalSize = textBox.Size :: UDim2
-        local tweenIn =
-            TweenService:Create(textBox, TweenInfo.new(0.1), { Size = UDim2.fromScale(originalSize.X.Scale * mult, originalSize.Y.Scale * mult) })
+        local tweenIn = TweenService:Create(
+            textBox,
+            TweenInfo.new(0.1),
+            { Size = UDim2.fromScale(originalSize.X.Scale * mult, originalSize.Y.Scale * mult) }
+        )
         local tweenOut = TweenService:Create(textBox, TweenInfo.new(0.1), { Size = originalSize })
         local formattedHp = NumFormat.format_number(hp)
 
@@ -51,7 +56,27 @@ m.FlickerPlayerHPGui = function(textBox, mult: num, hp: num)
         tweenOut:Play()
         task.wait(0.4)
         textBox.Text = ""
+        if isToDestroy then
+            local gui = assert(textBox.Parent)
+            gui:Destroy()
+        end
     end)
+end
+
+m.FlickerPlayerHPGui = function(originalTextBox: TextLabel, mult: num, hp: num)
+    local currentTextBox = originalTextBox
+    local isToDestroy = false
+    if currentTextBox.Text ~= "" then
+        local oldGiu = assert(currentTextBox.Parent)
+        local newGuiIntance = oldGiu:Clone() :: BillboardGui
+        newGuiIntance.Parent = oldGiu.Parent
+        local oldExtentsOffset = newGuiIntance.ExtentsOffset
+        local newY = newGuiIntance.ExtentsOffset.Y + 2
+        newGuiIntance.ExtentsOffset = Vector3.new(oldExtentsOffset.X, newY, oldExtentsOffset.Z)
+        currentTextBox = newGuiIntance:FindFirstChild("TextLabel"):: TextLabel
+        isToDestroy = true
+    end
+    playFlickerAnim(currentTextBox, mult, hp, isToDestroy)
 end
 
 m.IsBoosterToHit = function(pos: Vector3)

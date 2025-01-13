@@ -101,11 +101,13 @@ function m.AddClone(id: id, player_id: int)
     return guid
 end
 
+local _enemy = m.world:constructor(W.RefId, W.ServerInstance, W.Bitset)
 function m.AddEnemyToState(id: id, serverInstance)
-    local guid = m.nullary_transient(_roflake.uida)
-    m.world:set(guid, W.RefId, id)
-    m.world:set(guid, W.ServerInstance, serverInstance)
-    m.world:set(guid, W.TTL, SharedConfig.ENEMY_LIFE_TIME)
+    local guid = _enemy(_roflake.uida, id, serverInstance, Id.EnemyF.NONE)
+    -- local guid = m.nullary_transient(_roflake.uida)
+    -- m.world:set(guid, W.RefId, id)
+    -- m.world:set(guid, W.ServerInstance, serverInstance)
+    -- m.world:set(guid, W.TTL, SharedConfig.ENEMY_LIFE_TIME)
     return guid
 end
 

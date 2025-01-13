@@ -51,7 +51,7 @@ m.Boost = {
 }
 
 m.Enemy = {
-    [Id.Enemy.BASIC] = {damage = 10}
+    [Id.Enemy.BASIC] = {damage = 10, health = 100, speed = .3}, -- hp, hp, units/frame
 }
 
 m.Sound = {

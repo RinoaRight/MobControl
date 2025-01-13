@@ -462,30 +462,6 @@ local function fireBullet(player)
         end
         PLAYER_STATE:set(player.UserId, C.ClientTTL, ttl)
     end
-
-    -- -- clones' fire
-    -- local clones_folder = player_char:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
-    -- if clones_folder then
-    --     local all_fires = {}
-    --     for _, clone in ipairs(clones_folder:GetChildren()) do
-    --         local gunHand = clone:FindFirstChild("RightHand")
-    --         local weapon_instance = gunHand:FindFirstChild(S.Weapon[weapon_id].name)
-    --         if weapon_instance then
-    --             local fire = weapon_instance:FindFirstChild("Fire")
-    --             Misc.SoundLocalizedAudio(S.Sound[Id.Sound.FIRE_PISTOL_LOCALIZED], fire.Position)
-    --             if fire then
-    --                 table.insert(all_fires, fire)
-    --             end
-    --         end
-    --     end
-    --     TaskPool.defer(function()
-    --         for _, fire in ipairs(all_fires) do
-    --             fire.Transparency = 0
-    --             task.wait(0.3)
-    --             fire.Transparency = 1
-    --         end
-    --     end)
-    -- end
 end
 
 RunService.Heartbeat:Connect(function(dt)
@@ -558,7 +534,7 @@ RunService.Heartbeat:Connect(function(dt)
         end
         -- TODO: take the speed from the PlayerState?
         local speed = S.Weapon[weapon_id].baseSpeed + SharedConfig.MOVEMENT_LINEAR_VELOCITY
-        local targetPos = CFrame.new(bullet.CFrame.Position + (bullet.CFrame.LookVector * speed * dt))
+        local targetCframe = CFrame.new(bullet.CFrame.Position + (bullet.CFrame.LookVector * speed * dt))
         if booster and booster.Position.Z >= bullet.Position.Z then
             -- bullet collided with the booster, delete it and signal to server
             activeBulletsDataTable[i] = NIL_TABLE
@@ -572,7 +548,7 @@ RunService.Heartbeat:Connect(function(dt)
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
         else
             table.insert(activeBullets, bullet)
-            table.insert(bulletsTargets, targetPos)
+            table.insert(bulletsTargets, targetCframe)
         end
     end
     local activeBulletsDataTableTemp = table.clone(activeBulletsDataTable)

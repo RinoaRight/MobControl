@@ -60,7 +60,7 @@ m.DEFAULT_WEAPON_ID            = Id.Weapon.BASIC
 -- TODO: real values
 m.STARTING_HP                  = 100
 m.STARTING_CLONE_AMOUNT        = 0
-m.ENEMY_LIFE_TIME              = 20 --sec
+-- m.ENEMY_LIFE_TIME              = 20 --sec
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
@@ -89,6 +89,7 @@ World.CId = En.with_id("World.CId") {
     PLayerId       = iota'',   -- number
     WeaponId       = iota'',   -- id
     TTL            = iota'',   -- sec (*1)
+    Bitset         = iota'', -- flag
     -- non-replicated
     -- ClientInstance = iota'',   -- Instance, not replicated
 }
