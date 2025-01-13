@@ -46,12 +46,12 @@ m.Weapon = {
 -- stylua: ignore
 -- TODO: real values
 m.Boost = {
-    [Id.Boost.ADD_CLONE]         = {valueRange = {2,2}, hpRange = {50, 100}}, 
-    [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}}, 
+    [Id.Boost.ADD_CLONE]         = {valueRange = {2,2}, hpRange = {50, 100}},
+    [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}},
 }
 
 m.Enemy = {
-    [Id.Enemy.BASIC] = {damage = 10, health = 100, speed = .3}, -- hp, hp, units/frame
+    [Id.Enemy.BASIC] = {damage = 10, health = 100, speed = 30.0}, -- hp, hp, studs/sec
 }
 
 m.Sound = {

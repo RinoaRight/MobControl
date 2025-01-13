@@ -42,6 +42,7 @@ local SharedUtils = require(shared.util)
 local Enemies = require(server.Enemies)
 local PlayerService = game:GetService("Players")
 local SharedUtil = require(shared.util)
+local rand = require(shared.rand)
 
 local CLONES = {}
 
@@ -289,33 +290,31 @@ function m.StartMainLoopWorld(worldState: state.Main)
                 local enemyInstances = enemyFolder:GetChildren()
                 if #enemyInstances > 0 then
                     for _, enemyInstance in ipairs(enemyInstances) do
-                        local currentPos = enemyInstance.Position
+                        local currentPos:Vector3 = enemyInstance.Position
                         table.insert(enemies, enemyInstance)
                         local lookAt = DRIVING_BOX_INSTANCE.Position
                         local flags = worldState:get(enemyInstance.Name, W.Bitset)
-                        
+
                         local enemyId = worldState:get(enemyInstance.Name, W.RefId)
-                        local mult = assert(S.Enemy[enemyId].speed)
-                        if not mult then
-                            mult = 1
-                        end
-                        local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + mult)
+                        local speed = log:assert(S.Enemy[enemyId].speed, "S.Enemy has no speed for: '%*'", enemyId)
+                        local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + dt * speed)
 
                         if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
                             -- find the nearest player and seek him
                             local players = game.Players:GetPlayers()
-                            local isSelected = false
                             for _, player in ipairs(players) do
-                                if isSelected then
-                                    break
-                                end
                                 local weaponId = worldState:get(player.UserId, W.WeaponId)
-                                if weaponId ~= Id.Weapon._NONE and not isSelected then
+                                if weaponId ~= Id.Weapon._NONE then
                                     local playerRoot = player.Character.HumanoidRootPart
-                                    if (playerRoot.Position - enemyInstance.Position).Magnitude < 50 then
+                                    local to_target = enemyInstance.Position - playerRoot.Position
+                                    local dist_to_target = to_target.Magnitude
+                                    local time_to_target = dist_to_target / speed
+                                    if dist_to_target < 50 then
+                                        -- predict player's position, binomial distribution add some randomness
+                                        local target = playerRoot.Position + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
                                         lookAt = playerRoot.Position
-                                        -- TODO: define newPos
-                                        isSelected = true
+                                        newPos = currentPos:Lerp(target, dt * speed / dist_to_target) -- Move towards the predicted position of the player
+                                        break
                                     end
                                 end
                             end
