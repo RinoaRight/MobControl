@@ -181,9 +181,7 @@ local function subscribeEnemyToTouch(worldState, get_state: (player_id: int) -> 
         if triggerer == DRIVING_BOX_FRONT then
             local flags = worldState:get(enemyGiud, W.Bitset)
             if flags and not Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
-                Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true)
-                -- TODO: it remains false. Why?
-                print("LLLLLLLLLL set", Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED))
+                worldState:set(enemyGiud, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true))
             end
         elseif triggerer == DRIVING_BOX_INSTANCE then
             -- TODO: effects
@@ -293,8 +291,16 @@ function m.StartMainLoopWorld(worldState: state.Main)
                     for _, enemyInstance in ipairs(enemyInstances) do
                         local currentPos = enemyInstance.Position
                         table.insert(enemies, enemyInstance)
-                        local lookVector = Vector3.new(0, 0, 1)
+                        local lookAt = DRIVING_BOX_INSTANCE.Position
                         local flags = worldState:get(enemyInstance.Name, W.Bitset)
+                        
+                        local enemyId = worldState:get(enemyInstance.Name, W.RefId)
+                        local mult = assert(S.Enemy[enemyId].speed)
+                        if not mult then
+                            mult = 1
+                        end
+                        local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + mult)
+
                         if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
                             -- find the nearest player and seek him
                             local players = game.Players:GetPlayers()
@@ -305,18 +311,16 @@ function m.StartMainLoopWorld(worldState: state.Main)
                                 end
                                 local weaponId = worldState:get(player.UserId, W.WeaponId)
                                 if weaponId ~= Id.Weapon._NONE and not isSelected then
-                                    -- TODO: check if he he is closeEnough. Is yes then ->
                                     local playerRoot = player.Character.HumanoidRootPart
-                                    if (playerRoot.Position - enemyInstance.Position).Magnitude < 20 then
-                                        enemyInstance:PivotTo(playerRoot.CFrame)
+                                    if (playerRoot.Position - enemyInstance.Position).Magnitude < 50 then
+                                        lookAt = playerRoot.Position
+                                        -- TODO: define newPos
                                         isSelected = true
                                     end
                                 end
                             end
                         end
-                        local enemyId = worldState:get(enemyInstance.Name, W.RefId)
-                        local mult = S.Enemy[enemyId].speed
-                        local newCframe = CFrame.new(currentPos + lookVector * mult)
+                        local newCframe = CFrame.new(newPos, lookAt)
                         table.insert(enemyTargets, newCframe)
                     end
                 end
