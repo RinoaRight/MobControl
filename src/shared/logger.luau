@@ -1012,9 +1012,7 @@ function m.format_metrics(metrics: Metrics): string
 end
 
 function m.create(name: string?): Logger
-    if not name then
-        name = if game then script.Name else "unknown"
-    end
+    name = name or "unknown"
     assert(name, "type coercion")
     while _loggers[name] ~= nil do
         name = name .. "*"

@@ -66,6 +66,9 @@ local MAX_IDK = encode_flag(MAX_ORD, MAX_ORD)
 warn(fmt("id1919: note: id is in [0x%X .. 0x%X]", MIN_IDK, MAX_IDK))
 
 local function decode(id: id): (kind, ord | bits)
+    if not id then
+        error(debug.traceback("id is nil"))
+    end
     assert(MIN_IDK <= id and id <= MAX_IDK)
     return bit32.band(0x1ff, bit32.rshift(id, 10)), bit32.band(0x1ff, id)
 end

@@ -95,7 +95,11 @@ export type PlayerState = {
     NotifyClient: (self: PlayerState, event_id: id, ...any) -> (),
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
     DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
+    DeductHp: (self: PlayerState, amount: num) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
+    GetCloneAmount: (self: PlayerState, id: id) -> int,
+    nullary_local: (state.uid_or_gen) -> uid,
+    nullary_transient: (state.uid_or_gen) -> uid,
     __index: any,
 }
 
@@ -112,12 +116,9 @@ local function update_ids(main: state.Main)
         end
     end
     local _countable = main:constructor(C.Value, C.Total)
-    merge(Id.Countable, function(id) _countable(id, 0, 0) end)
-    -- TODO: weapon (id, speed, damage, cooldown) and others
-    local _weapon = main:constructor(C.ValueId)
-    merge(Id.PlayerStats, function(id) _weapon(id, Id.Weapon.BASIC) end)
-    local _weapon_ttl = main:constructor(C.TTL)
-    merge(Id.TimedEvent, function(id) _weapon_ttl(id, 0) end)
+    merge(Id.Countable, function(id)
+        _countable(id, 0, 0)
+    end)
     log:debug(main:format_uid(Id.Countable.COIN))
 end
 
@@ -149,7 +150,7 @@ local function fill_state(player_state: PlayerState)
             STORE:RemoveVersionAsync(player_state.state_store_key, info.Version)
             log:error("damaged save for player id: %*, error: %*", player_state.player_id, err0)
             log:error(info.CreatedTime, info.UpdatedTime, info.Version, info:GetUserIds(), info:GetMetadata())
-            log:error( str.hexify(data))
+            log:error(str.hexify(data))
             local player = game:GetService("Players"):GetPlayerByUserId(player_state.player_id)
             if player then
                 local msg = fmt("Error during loading save file: %*, error: %*", player_state.state_store_key, err0)
@@ -181,6 +182,8 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
         root = char:WaitForChild("HumanoidRootPart", TIMEOUT) :: BasePart,
         maid = disposer.new(),
         fire_client = fire_client,
+        nullary_local = state:constructor("local", "transient"),
+        nullary_transient = state:constructor("transient"),
     }, PlayerState)) :: any
     fill_state(player_state)
     local snapshot = state:snapshot("discard-log")
@@ -206,12 +209,11 @@ function PlayerState.Save(self: PlayerState): ()
     end
 end
 
-
 function PlayerState.Destroy(self: PlayerState): ()
     self.maid:Destroy()
 end
 
-function PlayerState.NotifyClient(self: PlayerState, event_id: id, ...:any): ()
+function PlayerState.NotifyClient(self: PlayerState, event_id: id, ...: any): ()
     self.fire_client(event_id, nil, ...)
 end
 
@@ -244,11 +246,30 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
 end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
-    self.state:set(Id.PlayerStats.WEAPON, C.ValueId, weapon_id)
-    self.state:set(Id.TimedEvent.WEAPON_COOLDOWN, C.TTL, S.Weapon[weapon_id].cooldown)
+    self.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, weapon_id)
+    local ttl = 0
+    if weapon_id ~= Id.Weapon._NONE then
+        ttl = S.Weapon[weapon_id].cooldown
+    end
+    self.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, ttl)
 end
 
+function PlayerState.DeductHp(self: PlayerState, howMuch: num)
+    local current = self.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+    local new_hp = math.max(current - howMuch, 0)
+    self.state:set(Id.PlayerStats.GAME_SESSION, C.Value, new_hp)
+    return new_hp
+end
 
+function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
+    local clonesAmount = 0
+    for guid, id in self.state:select(C.RefId) do
+        if Id.kind(id) == Id.Kind.Clone then
+            clonesAmount += 1
+        end
+    end
+    return clonesAmount
+end
 -----------------------------
 -- Quick test
 -----------------------------

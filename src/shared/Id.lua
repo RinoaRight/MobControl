@@ -62,14 +62,20 @@ local Kind = table.freeze {
     Product         = enum.iota'',
     Pass            = enum.iota'',
     PassF           = enum.iota'',
+    PlayerF         = enum.iota'',
+    EnemyF          = enum.iota'',
     Countable       = enum.iota'',
+    Clone           = enum.iota'',
     Weapon          = enum.iota'',
+    Enemy           = enum.iota'',
     PlayerStats     = enum.iota'',
     TimedEvent      = enum.iota'',
+    Sound           = enum.iota'',
     STMState        = enum.iota'',
     -- protocol:
     S2S             = enum.iota(110, 1, idk.MAX_KIND),
     S2C             = enum.iota'',
+    S2CC            = enum.iota'',
     C2S             = enum.iota'',
     C2C             = enum.iota'',
     US2SS           = enum.iota'', -- unreliable broadcast
@@ -472,6 +478,35 @@ export type PassF = typeof(Id.PassF)
 
 -- stylua: ignore
 -----------------------------
+-- PlayerF
+-----------------------------
+Id.PlayerF = enum.with_id "Id.PlayerF" {
+    NONE   = flag(Id.Kind.PlayerF),
+    READY  = flag'',
+}
+KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
+export type PlayerF = typeof(Id.PlayerF)
+--[[
+```luau
+-- usage:
+local flags = Id.flag_or(Id.PlayerF.BOUGHT, Id.PlayerF.GRANTED, Id.PlayerF.TEMP)
+warn("flags", Id.pp(flags), Id.flag_test(flags, Id.PlayerF.BOUGHT))
+```
+--]]
+
+-- stylua: ignore
+-----------------------------
+-- EnemyF
+-----------------------------
+Id.EnemyF = enum.with_id "Id.EnemyF" {
+    NONE            = flag(Id.Kind.EnemyF),
+    SEEK_ACTIVATED  = flag'',
+}
+KIND_TO_ENUM[Id.Kind.EnemyF] = Id.EnemyF
+export type EnemyF = typeof(Id.EnemyF)
+
+-- stylua: ignore
+-----------------------------
 -- Product
 -----------------------------
 Id.Product = enum.with_id "Id.Product" {
@@ -487,9 +522,21 @@ export type Product = typeof(Id.Product)
 Id.Countable = enum.with_id "Id.Countable" {
     _NONE = iota(Id.Kind.Countable, 0),
     COIN = iota'',
+    CLONE = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Countable] = Id.Countable
 export type Countable = typeof(Id.Countable)
+
+-- stylua: ignore
+-----------------------------
+-- Clone
+-----------------------------
+Id.Clone = enum.with_id "Id.Clone" {
+    _NONE   = iota(Id.Kind.Clone, 0),
+    REGULAR = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Clone] = Id.Clone
+export type Clone = typeof(Id.Clone)
 
 -- stylua: ignore
 -----------------------------
@@ -505,11 +552,22 @@ export type Weapon = typeof(Id.Weapon)
 
 -- stylua: ignore
 -----------------------------
+-- Enemy
+-----------------------------
+Id.Enemy = enum.with_id "Id.Enemy" {
+    _NONE   = iota(Id.Kind.Enemy, 0),
+    BASIC   = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Enemy] = Id.Enemy
+export type Enemy = typeof(Id.Enemy)
+
+-- stylua: ignore
+-----------------------------
 -- Timed event
 -----------------------------
 Id.TimedEvent = enum.with_id "Id.TimedEvent" {
     _NONE           = iota(Id.Kind.TimedEvent, 0),
-    WEAPON_COOLDOWN = iota'',
+    -- WEAPON_COOLDOWN = iota'',
 }
 KIND_TO_ENUM[Id.Kind.TimedEvent] = Id.TimedEvent
 export type TimedEvent = typeof(Id.TimedEvent)
@@ -527,11 +585,26 @@ export type Animation = typeof(Id.Animation)
 
 -- stylua: ignore
 -----------------------------
+-- Animation
+-----------------------------
+Id.Sound = enum.with_id "Id.Sound" {
+    _NONE                 = iota(Id.Kind.Sound, 0),
+    FIRE_PISTOL           = iota'',
+    FIRE_PISTOL_LOCALIZED = iota'',
+    RELOAD                = iota'',
+    SCREAM                = iota'',
+    SCREAM_LOCALIZED      = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound
+export type Sound = typeof(Id.Sound)
+
+-- stylua: ignore
+-----------------------------
 -- Player stats
 -----------------------------
 Id.PlayerStats = enum.with_id "Id.PlayerStats" {
-    _NONE   = iota(Id.Kind.PlayerStats, 0),
-    WEAPON  = iota'',
+    _NONE         = iota(Id.Kind.PlayerStats, 0),
+    GAME_SESSION  = iota'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerStats] = Id.PlayerStats
 export type PlayerStats = typeof(Id.PlayerStats)
@@ -581,22 +654,35 @@ export type STMState = typeof(Id.STMState)
 -- S2S
 -----------------------------
 Id.S2S = enum.with_id "Id.S2S" {
-    _NONE = iota(Id.Kind.S2S, 0),
-    PASS_GRANTED      = iota'',
-    PURCHASE_FINISHED = iota'',
+    _NONE                     = iota(Id.Kind.S2S, 0),
+    PASS_GRANTED              = iota'',
+    PURCHASE_FINISHED         = iota'',
+    PLAYER_DIED               = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)
 
 -- stylua: ignore
 -----------------------------
+-- C2C
+-----------------------------
+Id.C2C = enum.with_id "Id.C2C" {
+    _NONE              = iota(Id.Kind.C2C, 0),
+    NEW_BOOSTER_ADDED  = iota'',               -- world_state, player_state, booster_guid
+}
+KIND_TO_ENUM[Id.Kind.C2C] = Id.C2C
+export type C2C = typeof(Id.C2C)
+
+-- stylua: ignore
+-----------------------------
 -- C2S
 -----------------------------
 Id.C2S = enum.with_id "Id.C2S" {
-    _NONE              = iota(Id.Kind.C2S, 0),
-    BOOSTER_HIT        = iota'',               -- booster_guid
-    BULLET_SHOT        = iota'',               -- pos
-
+    _NONE                     = iota(Id.Kind.C2S, 0),
+    BOOSTER_HIT               = iota'', -- booster_guid
+    BULLET_SHOT               = iota'', -- pos
+    PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
+    PLAYER_READY_TO_START     = iota'',               
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
 export type C2S = typeof(Id.C2S)
@@ -606,13 +692,28 @@ export type C2S = typeof(Id.C2S)
 -- S2C
 -----------------------------
 Id.S2C = enum.with_id "Id.S2C" {
-    _NONE         = iota(Id.Kind.S2C, 0),
-    UPDATE_STATE  = iota'',
-    INIT_WORLD    = iota'',
-    UPDATE_WORLD  = iota'',
+    _NONE          = iota(Id.Kind.S2C, 0),
+    UPDATE_STATE   = iota'',
+    INIT_WORLD     = iota'',
+    UPDATE_WORLD   = iota'',
+    PLAYER_DAMAGED = iota'',
+    PLAYER_DIED    = iota'', -- player hp
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)
+
+-- stylua: ignore
+-----------------------------
+-- S2CC
+-----------------------------
+Id.S2CC = enum.with_id "Id.S2CC" {
+    _NONE                   = iota(Id.Kind.S2CC, 0),
+    PLAYER_STARTED_SESSION  = iota'', -- player_id
+    PLAYER_STOPPED_SESSION  = iota'', -- player_id
+    PLAYER_CHANGED_WEAPON   = iota'', -- player_id, weapon_id
+}
+KIND_TO_ENUM[Id.Kind.S2CC] = Id.S2CC
+export type S2CC = typeof(Id.S2CC)
 
 -----------------------------
 -- Quick test
