@@ -282,7 +282,7 @@ do
                 end
             end
         until isReady
-        local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world))
+        local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
     end)
 end
 
