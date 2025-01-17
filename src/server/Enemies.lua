@@ -51,9 +51,9 @@ local X_MARGIN = 40
 local SPAWN_SPACE_WIDTH = GROUND_UNIT_TEMPLATE.Size.X - X_MARGIN * 2
 local X_INTERVAL = 20
 local Z_INTERVAL = 20
-local ENEMY_SIZE = Vector3.new(2, 6, 2)
+local ENEMY_CELL_SIZE = Vector3.new(2, 6, 2)
 local MAX_ROW, MAX_COLS = 16, 16
-local DISTANCE_FROM_MID_TO_BOOSTER = 50
+local DISTANCE_FROM_MID_TO_BOOSTER = SharedConfig.DISTANCE_FROM_MID_TO_BOOSTER
 local START_ZONE_GAP = 70
 local FIRST_HALF_Z_OFFSET = -DISTANCE_FROM_MID_TO_BOOSTER + START_ZONE_GAP
 local SECOND_HALF_Z_OFFSET = -DISTANCE_FROM_MID_TO_BOOSTER - SharedConfig.BOOSTER_DEPTH
@@ -102,15 +102,15 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         return enemies
     end
     local groundUnitPos = groundUnit.Position
-    local y = ENEMY_SIZE.Z - ENEMY_SIZE.Z / 2
+    local y = ENEMY_CELL_SIZE.Z - ENEMY_CELL_SIZE.Z / 2
     local z = groundUnitPos.Z
     if isFirstHalf then
         z = z - DISTANCE_FROM_MID_TO_BOOSTER
     else
         z = z - GROUND_UNIT_LENGTH_HALF
     end
-    local cell_w = ENEMY_SIZE.X + X_INTERVAL
-    local cell_h = ENEMY_SIZE.Z + Z_INTERVAL
+    local cell_w = ENEMY_CELL_SIZE.X + X_INTERVAL
+    local cell_h = ENEMY_CELL_SIZE.Z + Z_INTERVAL
     local origin = Vector3.new(groundUnitPos.X, y, z)
     local cols = math.floor(SPAWN_SPACE_WIDTH / cell_w)
     local rows = 3
@@ -131,6 +131,8 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         until not bitmap[idx]
         bitmap[idx] = true
         local enemyPos = grid[idx]
+        local yOffset = ENEMY_CELL_SIZE.Y / 2
+        enemyPos = Vector3.new(enemyPos.X, enemyPos.Y + yOffset, enemyPos.Z)
         -- if __DEV__ then
         --     warn("enemy pos", enemyPos)
         --     local part = Instance.new("Part")
@@ -145,11 +147,17 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
 
         -- TODO: real enemy generator
         local enemyId = Id.Enemy.BASIC
-        local enemyInstance = Instance.new("Part")
-        enemyInstance.Size = Vector3.new(2, 6, 2)
+
+        local enemyInstance
+        if S.Enemy[enemyId].meshTemplate then
+            enemyInstance = S.Enemy[enemyId].meshTemplate:Clone()
+        else
+            enemyInstance = Instance.new("Part")
+            enemyInstance.Size = Vector3.new(2, 6, 2)
+        end
         enemyInstance.CanCollide = false
         enemyInstance.Anchored = true
-        enemyInstance.CollisionGroup = "BulletCollidable"
+        enemyInstance.CollisionGroup = "BulletCollidable" -- <-- WHAT IS THIS
 
         local enemyFolder = assert(groundUnit:FindFirstChild("Enemies"))
         enemyInstance.Parent = enemyFolder

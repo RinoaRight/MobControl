@@ -224,8 +224,6 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
 
     change_weapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
 
-    GameModule.CreatePlayerHpGui(player_state)
-
     local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     workerMaid.playerLoop = function()
         ServerSupervisor:cancel(_main_loop_player_handler)

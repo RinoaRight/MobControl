@@ -119,7 +119,6 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
     boosterGui.Adornee = instance
     boosterGui.TextLabel.Text = NumFormat.format_damage(hp)
 
-    -- TODO: Fill in the data in booster's contents GUI
     local boostContentId = false :: id | bool
     local contentsBillboardInstance = BOOSTER_CONTENTS_BILLBOARD_TEMPLATE:Clone()
     local boosterPos = instance.Position
@@ -172,12 +171,13 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
 end
 
 local function destroyEnemy(guid)
+    -- TODO: effects
     WorldService.RemoveEntity(guid)
     assert(typeof(guid) == "string") -- sanity check
     workerMaid[guid] = nil
 end
 
-local function subscribeEnemyToTouch(worldState, get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
+local function subscribeEnemyToTouch(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
     workerMaid[enemyGiud] = enemyInstance.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
             local flags = worldState:get(enemyGiud, W.Bitset)
@@ -185,33 +185,9 @@ local function subscribeEnemyToTouch(worldState, get_state: (player_id: int) -> 
                 worldState:set(enemyGiud, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true))
             end
         elseif triggerer == DRIVING_BOX_INSTANCE then
-            -- TODO: effects
             destroyEnemy(enemyGiud)
         elseif triggerer.Name == "Bullet" then
             -- TODO: subscribe client-side and do the logic client-side
-        elseif triggerer.Name == "HumanoidRootPart" then
-            -- -- deduct hp
-            -- local enemyDamage = S.Enemy[enemyId].damage
-            -- local character = triggerer.Parent
-            -- if not character:IsA("Model") then -- sanity check
-            --     return
-            -- end
-            -- -- NOTE: only a player can collide with the enemy, client-side clones cannot
-            -- local playerId = PlayerService:GetPlayerFromCharacter(character).UserId
-            -- local playerState = get_state(playerId)
-            -- if playerState then
-            --     local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
-            --     local newHP = playerHP - enemyDamage
-            --     if newHP <= 0 then
-            --         Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
-            --     else
-            --         playerState:DeductHp(enemyDamage)
-            --         playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
-            --     end
-            -- end
-            -- -- destroy enemy
-            -- -- TODO: effects
-            -- destroyEnemy(enemyGiud)
         end
     end)
 end
@@ -237,6 +213,17 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
                 local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
                 subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
             end
+
+            TaskPool.spawn(function()
+                task.wait(SharedConfig.ENEMY_WAVE_DELAY)
+                local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, false, 20)
+                for _, enemyGuid in ipairs(enemies) do
+                    assert(type(enemyGuid) == "string") -- sanity check
+                    local enemyId = worldState:get(enemyGuid, W.RefId)
+                    local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
+                    subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
+                end
+            end)
         end
     end)
 end
@@ -265,9 +252,6 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
 end
 
-function m.CreatePlayerHpGui(player_state: PSS.PlayerState)
-    -- create and fill in player_hp gui
-end
 
 function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     local oldPos = DRIVING_BOX_INSTANCE.Position
@@ -317,7 +301,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                     if currentPos.Z > rootPart.Position.Z then
                                         -- enemy got behind the player, cancel seeking
                                         worldState:set(enemyInstance.Name, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                                    elseif dist_to_target < 5 then
+                                    elseif dist_to_target < 10 then
                                         -- enemy is right in the front of the player, harm the player, then die
                                         local enemyDamage = S.Enemy[enemyId].damage
                                         if playerState then
@@ -345,8 +329,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                 end
                             end
                         end
-                        lookAt = Vector3.new(lookAt.X, newPos.Y, newPos.Z) -- lock Y axis
-                        local newCframe = CFrame.new(newPos, lookAt)
+                        lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
+                        local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
                         table.insert(enemyTargets, newCframe)
                     end
                 end

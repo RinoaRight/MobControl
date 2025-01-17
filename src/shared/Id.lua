@@ -499,8 +499,8 @@ warn("flags", Id.pp(flags), Id.flag_test(flags, Id.PlayerF.BOUGHT))
 -- EnemyF
 -----------------------------
 Id.EnemyF = enum.with_id "Id.EnemyF" {
-    NONE            = flag(Id.Kind.EnemyF),
-    SEEK_ACTIVATED  = flag'',
+    NONE                     = flag(Id.Kind.EnemyF),
+    SEEK_ACTIVATED           = flag'',
 }
 KIND_TO_ENUM[Id.Kind.EnemyF] = Id.EnemyF
 export type EnemyF = typeof(Id.EnemyF)
