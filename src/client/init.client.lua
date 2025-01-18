@@ -72,7 +72,7 @@ local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
 Misc.AddPlayerCharToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
 local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
 local activeBulletsDataTable = {} :: { table }
-local NIL_TABLE = { "NIL" }
+local NIL_TABLE = table.freeze { "NIL" }
 
 -----------------------------
 -- States
@@ -398,10 +398,11 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
         bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
     else
         bullet = Instance.new("Part")
-        bullet.Name = "Bullet"
+        bullet.Name = SharedConfig.BULLET_NAME
         bullet.CollisionGroup = "Bullet"
+        bullet:SetAttribute(SharedConfig.BULLET_ATTRIBUTE_NAME, player.UserId)
         bullet.CanCollide = false
-        bullet.Size = Vector3.new(2, 2, 2)
+        bullet.Size = Vector3.new(3, 3, 3)
         bullet.Anchored = true
     end
     local pos = rootPart.Position + rootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
@@ -410,14 +411,15 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
     local boosterThickness = SharedConfig.BOOSTER_DEPTH
     local timeToArrive = roflake.time() + SharedConfig.BULLET_BASE_DISTANCE / speed
-    local boosterToHit, dist = Misc.IsBoosterToHit(pos)
-    if boosterToHit then
+    local targetToHit, dist = Misc.IsBoosterToHit(pos)
+
+    if targetToHit then
         timeToArrive = roflake.time() + ((dist + boosterThickness) / speed)
     end
 
     bullet.Position = pos
 
-    table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = timeToArrive, booster = boosterToHit, owner = player })
+    table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = timeToArrive, booster = targetToHit, owner = player })
 
     return pos
 end
@@ -535,22 +537,50 @@ RunService.Heartbeat:Connect(function(dt)
         -- TODO: take the speed from the PlayerState?
         local speed = S.Weapon[weapon_id].baseSpeed + SharedConfig.MOVEMENT_LINEAR_VELOCITY
         local targetCframe = CFrame.new(bullet.CFrame.Position + (bullet.CFrame.LookVector * speed * dt))
-        if booster and booster.Position.Z >= bullet.Position.Z then
-            -- bullet collided with the booster, delete it and signal to server
-            activeBulletsDataTable[i] = NIL_TABLE
-            bullet.Parent = INACTIVE_BULLETS_REPOSITORY
-            if owner == LOCAL_PLAYER then
-                Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster.Name)
+
+        -- check if the bullet collided with any of the enemies. If it did, delete the bullet and cancel all other checks
+        local isEnemyHitAlready = false
+        for guid, id, hp, pos in WORLD:select(W.RefId, W.HP, W.Position) do
+            if Id.kind(id) ~= Id.Kind.Enemy then
+                continue
             end
-        elseif now >= ttl then
-            -- bullet timed-out, delete it
-            Array.swap_remove(activeBulletsDataTable, i)
-            bullet.Parent = INACTIVE_BULLETS_REPOSITORY
-        else
-            table.insert(activeBullets, bullet)
-            table.insert(bulletsTargets, targetCframe)
+
+            if isEnemyHitAlready then
+                break
+            end
+
+            local dist = (pos - bullet.Position).Magnitude
+            if pos and (dist <= SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS) then
+                -- bullet collided with the enemy, delete it and signal to server
+                activeBulletsDataTable[i] = NIL_TABLE
+                bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+                if owner == LOCAL_PLAYER then
+                    isEnemyHitAlready = true
+                    fire_server(Id.C2S.ENEMY_HIT, guid)
+                end
+            end
+        end
+
+        -- bullet has not hit the enemy, do other checks
+        if not isEnemyHitAlready then
+            if booster and booster.Position.Z >= bullet.Position.Z then
+                -- bullet collided with the booster, delete it and signal to server
+                activeBulletsDataTable[i] = NIL_TABLE
+                bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+                if owner == LOCAL_PLAYER then
+                    Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster.Name)
+                end
+            elseif now >= ttl then
+                -- bullet timed-out, delete it
+                activeBulletsDataTable[i] = NIL_TABLE
+                bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+            else
+                table.insert(activeBullets, bullet)
+                table.insert(bulletsTargets, targetCframe)
+            end
         end
     end
+    -- remove all NIL_TABLEs from the table
     local activeBulletsDataTableTemp = table.clone(activeBulletsDataTable)
     table.clear(activeBulletsDataTable)
     for i, bulletData in ipairs(activeBulletsDataTableTemp) do
@@ -562,16 +592,18 @@ RunService.Heartbeat:Connect(function(dt)
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player
-    local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    if flags and Id.flag_test(flags, Id.PlayerF.READY) then
-        local weaponId = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
-        if not weaponId or weaponId == Id.Weapon._NONE then
-            log:error("No bullet can be fired for this weapon_id", weaponId)
-        end
-        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            local shot_ttl = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
-            if shot_ttl and shot_ttl <= 0 then
-                fireBullet(LOCAL_PLAYER)
+    if PLAYER_STATE:has(Id.PlayerStats.GAME_SESSION) then
+        local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+        if flags and Id.flag_test(flags, Id.PlayerF.READY) then
+            local weaponId = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+            if not weaponId or weaponId == Id.Weapon._NONE then
+                log:error("No bullet can be fired for this weapon_id", weaponId)
+            end
+            if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                local shot_ttl = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
+                if shot_ttl and shot_ttl <= 0 then
+                    fireBullet(LOCAL_PLAYER)
+                end
             end
         end
     end
@@ -654,7 +686,19 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         _booster(guid, false)
         Signal.Broadcast(Id.C2C.NEW_BOOSTER_ADDED, WORLD, PLAYER_STATE, guid)
     end
+
+    -- -- check if it was an enemy that has been added
+    -- if Id.kind(newValue) == Id.Kind.Enemy then
+    --     Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
+    -- end
 end)
+
+-- -- cancel collision subscription
+-- WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
+--     if Id.kind(oldValue) == Id.Kind.Enemy then
+--         Signal.Broadcast(Id.C2C.ENEMY_REMOVED, guid)
+--     end
+-- end)
 
 -- set newly connected players to the player state
 WORLD:set_on_attach(W.WeaponId, function(guid: guid, newValue: num)

@@ -669,6 +669,8 @@ export type S2S = typeof(Id.S2S)
 Id.C2C = enum.with_id "Id.C2C" {
     _NONE              = iota(Id.Kind.C2C, 0),
     NEW_BOOSTER_ADDED  = iota'',               -- world_state, player_state, booster_guid
+    -- NEW_ENEMY_ADDED    = iota'',               -- world_state, player_state, enemy_guid
+    -- ENEMY_REMOVED      = iota'',               -- enemy_guid
 }
 KIND_TO_ENUM[Id.Kind.C2C] = Id.C2C
 export type C2C = typeof(Id.C2C)
@@ -681,6 +683,7 @@ Id.C2S = enum.with_id "Id.C2S" {
     _NONE                     = iota(Id.Kind.C2S, 0),
     BOOSTER_HIT               = iota'', -- booster_guid
     BULLET_SHOT               = iota'', -- pos
+    ENEMY_HIT                 = iota'', -- enemy_guid
     PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
     PLAYER_READY_TO_START     = iota'',               
 }

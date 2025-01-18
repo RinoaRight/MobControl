@@ -102,7 +102,7 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         return enemies
     end
     local groundUnitPos = groundUnit.Position
-    local y = ENEMY_CELL_SIZE.Z - ENEMY_CELL_SIZE.Z / 2
+    local y = ENEMY_CELL_SIZE.Z - ENEMY_CELL_SIZE.Z / 2 + 1
     local z = groundUnitPos.Z
     if isFirstHalf then
         z = z - DISTANCE_FROM_MID_TO_BOOSTER
@@ -157,12 +157,12 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         end
         enemyInstance.CanCollide = false
         enemyInstance.Anchored = true
-        enemyInstance.CollisionGroup = "BulletCollidable" -- <-- WHAT IS THIS
+        enemyInstance.CollisionGroup = "BulletCollidable"
 
         local enemyFolder = assert(groundUnit:FindFirstChild("Enemies"))
         enemyInstance.Parent = enemyFolder
         enemyInstance.CFrame = CFrame.new(enemyPos)
-        local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyInstance)
+        local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyPos, enemyInstance)
         assert(typeof(enemyGuid) == "string")
         enemyInstance.Name = enemyGuid
         table.insert(enemies, enemyGuid)

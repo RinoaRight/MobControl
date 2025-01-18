@@ -51,6 +51,7 @@ local m = {} :: {
     StartMainLoopPlayer: (PSS.PlayerState) -> (num) -> (),
     Init: (state: state.Main, (int) -> PSS.PlayerState?) -> (),
     CreatePlayerHpGui: (PSS.PlayerState) -> (),
+    DestroyEnemy: (enemy_guid: str) -> (),
     HandleBoosterDeath: (PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id) -> (),
     StartMainLoopWorld: (world_state: state.Main, (int) -> PSS.PlayerState?) -> (num) -> (),
     SetPlayerAlignment: (PSS.PlayerState) -> (),
@@ -170,13 +171,6 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     end
 end
 
-local function destroyEnemy(guid)
-    -- TODO: effects
-    WorldService.RemoveEntity(guid)
-    assert(typeof(guid) == "string") -- sanity check
-    workerMaid[guid] = nil
-end
-
 local function subscribeEnemyToTouch(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
     workerMaid[enemyGiud] = enemyInstance.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
@@ -185,7 +179,7 @@ local function subscribeEnemyToTouch(worldState: state.Main, get_state: (player_
                 worldState:set(enemyGiud, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true))
             end
         elseif triggerer == DRIVING_BOX_INSTANCE then
-            destroyEnemy(enemyGiud)
+            m.DestroyEnemy(enemyGiud)
         elseif triggerer.Name == "Bullet" then
             -- TODO: subscribe client-side and do the logic client-side
         end
@@ -252,14 +246,10 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
 end
 
-
 function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     local oldPos = DRIVING_BOX_INSTANCE.Position
+    GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
     return function(dt)
-        -- allow first ground unit to "move". TODO: should be executed only once (for the first unit),
-        -- but at the moment when this loop has started. Think of refactoring.
-        GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
-
         -- driving box movement
         DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
         oldPos = DRIVING_BOX_INSTANCE.Position
@@ -298,7 +288,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                     if playerState then
                                         rootPart = playerState.root
                                     end
-                                    if currentPos.Z > rootPart.Position.Z then
+                                    if currentPos.Z - 5 > rootPart.Position.Z then
                                         -- enemy got behind the player, cancel seeking
                                         worldState:set(enemyInstance.Name, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
                                     elseif dist_to_target < 10 then
@@ -314,7 +304,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                                 playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
                                             end
                                             -- TODO: effects
-                                            destroyEnemy(enemyInstance.Name)
+                                            m.DestroyEnemy(enemyInstance.Name)
                                         end
                                     end
 
@@ -328,6 +318,9 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                     end
                                 end
                             end
+                        end
+                        if worldState:has(enemyInstance.Name) then
+                            worldState:set(enemyInstance.Name, W.Position, newPos)
                         end
                         lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
                         local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
@@ -352,6 +345,13 @@ function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
             player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, math.max(shot_ttl, 0))
         end
     end
+end
+
+m.DestroyEnemy = function(guid)
+    -- TODO: effects
+    WorldService.RemoveEntity(guid)
+    assert(typeof(guid) == "string") -- sanity check
+    workerMaid[guid] = nil
 end
 
 function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id)

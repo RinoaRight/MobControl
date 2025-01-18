@@ -177,14 +177,39 @@ on[Id.C2S.BOOSTER_HIT] = function(player_state, booster_guid, ...)
     end
 end
 
-on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, ...)
-    log:debug(Id.C2S.BULLET_SHOT, player_state.player_id, event_id, ...)
+on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_starting_pos, ...)
     local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
     if not current_weapon_id or current_weapon_id == Id.Weapon._NONE then
-        return 
+        return
     end
     local cooldown = S.Weapon[current_weapon_id].cooldown
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, cooldown)
+end
+
+on[Id.C2S.ENEMY_HIT] = function(player_state, enemy_guid, ...)
+    if not enemy_guid then
+        log:error("no enemy guid")
+        return
+    end
+
+    local weaponId = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+    local dmg = 0
+    if S.Weapon[weaponId] and S.Weapon[weaponId].damage then
+        dmg = S.Weapon[weaponId].damage
+    end
+    if not WorldService.world:has(enemy_guid) then
+        -- already dead
+        return
+    end
+    local enemyHP = WorldService.world:get(enemy_guid, W.HP)
+
+    local newHP = enemyHP - dmg
+
+    if enemyHP - dmg <= 0 then
+        GameModule.DestroyEnemy(enemy_guid)
+    else
+        WorldService.world:set(enemy_guid, W.HP, newHP)
+    end
 end
 
 on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, triggerer_id: num | str, ...)
@@ -262,7 +287,7 @@ do
         until playerState ~= nil
         log:info("playerState", playerState, playerState and playerState.player_id)
         assert(playerState, "sanity check failed, no player state found")
-        
+
         -- TODO: this is a hack, we should have a better way to do this
         -- wait until at least 1 player is ready to join the session
         local isReady = false

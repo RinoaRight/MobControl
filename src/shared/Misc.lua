@@ -89,17 +89,17 @@ m.IsBoosterToHit = function(pos: Vector3)
     --     ray.CFrame = CFrame.new(pos, pos + rayDirection)
     --     Debris:AddItem(ray, 3)
     -- end
-    local booster = nil
+    local target = nil
     local distance
     local raycastInstance
     if raycastResult then
         raycastInstance = raycastResult.Instance
         if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
-            booster = raycastInstance
+            target = raycastInstance
             distance = (raycastResult.Position - pos).Magnitude
         end
     end
-    return booster, distance
+    return target, distance
 end
 
 m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
