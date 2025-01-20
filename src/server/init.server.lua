@@ -247,13 +247,14 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         end
     end
 
+    WorldService.world:set(player_state.player_id, W.HP, SharedConfig.STARTING_HP)
     change_weapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
 
     local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     workerMaid.playerLoop = function()
         ServerSupervisor:cancel(_main_loop_player_handler)
     end
-    GameModule.OnPlayerReadyToPlay(player_state, players_already_in_session)
+    GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
 end
 -------------------

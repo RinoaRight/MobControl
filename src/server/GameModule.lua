@@ -55,7 +55,7 @@ local m = {} :: {
     HandleBoosterDeath: (PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id) -> (),
     StartMainLoopWorld: (world_state: state.Main, (int) -> PSS.PlayerState?) -> (num) -> (),
     SetPlayerAlignment: (PSS.PlayerState) -> (),
-    OnPlayerReadyToPlay: (PSS.PlayerState, int) -> (),
+    SpawnPlayer: (PSS.PlayerState, int) -> (),
 }
 
 local workerMaid = disposer.new()
@@ -222,6 +222,20 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
     end)
 end
 
+local function selectPlayer(playersInSession: { Player }, enemyInstance: BasePart): (Player?, BasePart?, num?)
+    local totalPlayers = #playersInSession
+    local ind = math.random(1, totalPlayers)
+    local player = playersInSession[ind] :: Player
+    local char = player.Character :: Model
+    local playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
+    local toTarget = enemyInstance.Position - playerRoot.Position
+    local distToTarget = toTarget.Magnitude
+    if distToTarget >= 200 then
+        return nil, nil, nil
+    end
+    return player, playerRoot, distToTarget
+end
+
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     m.get_state = get_state
     -- init first batch of ground units and fill in the data table
@@ -268,6 +282,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         table.insert(enemies, enemyInstance)
                         local lookAt = DRIVING_BOX_INSTANCE.Position
                         local flags = worldState:get(enemyInstance.Name, W.Bitset)
+                        -- local playerTargetedId = worldState:get(enemyInstance.Name, W.PLayerId)
 
                         local enemyId = worldState:get(enemyInstance.Name, W.RefId)
                         local speed = log:assert(S.Enemy[enemyId].speed, "S.Enemy has no speed for: '%*'", enemyId)
@@ -275,23 +290,60 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                         if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
                             local players = game.Players:GetPlayers()
+                            local playersInSession = {}
                             for _, player in ipairs(players) do
                                 local weaponId = worldState:get(player.UserId, W.WeaponId)
                                 if weaponId ~= Id.Weapon._NONE then
-                                    local playerRoot = player.Character.HumanoidRootPart
-                                    local to_target = enemyInstance.Position - playerRoot.Position
-                                    local dist_to_target = to_target.Magnitude
-                                    local time_to_target = dist_to_target / speed
-                                    local playerId = player.UserId
-                                    local playerState = get_state(playerId)
-                                    local rootPart
-                                    if playerState then
-                                        rootPart = playerState.root
+                                    table.insert(playersInSession, player)
+                                else
+                                    -- player is not in session, remove this enemy's lock on him if any
+                                    local playerId = player.UserId :: int
+                                    if worldState:get(enemyInstance.Name, W.PLayerId) == playerId then
+                                        worldState:set(enemyInstance.Name, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
                                     end
-                                    if currentPos.Z - 5 > rootPart.Position.Z then
+                                end
+                            end
+                            if #playersInSession > 0 then
+                                local player, playerRoot, distToTarget
+                                if
+                                    (not worldState:get(enemyInstance.Name, W.PLayerId))
+                                    or worldState:get(enemyInstance.Name, W.PLayerId) == SharedConfig.DEFAULT_PLAYER_ID
+                                then
+                                    -- select a player that is close enough to the enemy
+                                    player, playerRoot, distToTarget = selectPlayer(playersInSession, enemyInstance)
+                                    if player then
+                                        -- a player that is close enough is selected, set lock to target
+                                        local playerId = player.UserId :: int
+                                        worldState:set(enemyInstance.Name, W.PLayerId, playerId)
+                                    end
+                                else
+                                    -- enemy is already locked on target, assign player, playerRoot and distTotarget
+                                    local playerId = worldState:get(enemyInstance.Name, W.PLayerId)
+                                    player = game.Players:GetPlayerByUserId(playerId)
+                                    local playerState = get_state(worldState:get(enemyInstance.Name, W.PLayerId))
+                                    if playerState then
+                                        playerRoot = playerState.root :: BasePart
+                                        if not playerRoot then
+                                            log:error("No player root found for player: '%*'", worldState:get(enemyInstance.Name, W.PLayerId))
+                                            return
+                                        end
+                                        local toTarget = enemyInstance.Position - playerRoot.Position
+                                        distToTarget = toTarget.Magnitude
+                                    else
+                                        log:error("No player state found for player: '%*'", worldState:get(enemyInstance.Name, W.PLayerId))
+                                        return
+                                    end
+                                end
+
+                                if player and playerRoot and distToTarget then
+                                    local time_to_target = distToTarget / speed
+                                    local playerId = player.UserId :: int
+                                    local playerState = get_state(playerId)
+
+                                    if currentPos.Z - 5 > playerRoot.Position.Z then
                                         -- enemy got behind the player, cancel seeking
                                         worldState:set(enemyInstance.Name, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                                    elseif dist_to_target < 10 then
+                                    elseif distToTarget < 10 then
                                         -- enemy is right in the front of the player, harm the player, then die
                                         local enemyDamage = S.Enemy[enemyId].damage
                                         if playerState then
@@ -306,19 +358,62 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                             -- TODO: effects
                                             m.DestroyEnemy(enemyInstance.Name)
                                         end
-                                    end
-
-                                    -- select the player who's close enough and seek him
-                                    if dist_to_target < 200 then
+                                    else
                                         -- predict player's position, binomial distribution add some randomness
                                         local target = playerRoot.Position + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
                                         lookAt = playerRoot.Position
-                                        newPos = currentPos:Lerp(target, dt * speed / dist_to_target) -- Move towards the predicted position of the player
-                                        break -- is needed to lock this enemy on this player
+                                        newPos = currentPos:Lerp(target, dt * speed / distToTarget) -- Move towards the predicted position of the player
                                     end
+                                else
+                                    -- no player is close enough, remove lock to target if any
+                                    worldState:set(enemyInstance.Name, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
                                 end
                             end
                         end
+                        -- for _, player in ipairs(players) do
+                        --     local weaponId = worldState:get(player.UserId, W.WeaponId)
+                        --     if weaponId ~= Id.Weapon._NONE then
+                        --         local playerRoot = player.Character.HumanoidRootPart
+                        --         local to_target = enemyInstance.Position - playerRoot.Position
+                        --         local dist_to_target = to_target.Magnitude
+                        --         local time_to_target = dist_to_target / speed
+                        --         local playerId = player.UserId
+                        --         local playerState = get_state(playerId)
+                        --         local rootPart
+                        --         if playerState then
+                        --             rootPart = playerState.root
+                        --         end
+                        --         if currentPos.Z - 5 > rootPart.Position.Z then
+                        --             -- enemy got behind the player, cancel seeking
+                        --             worldState:set(enemyInstance.Name, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
+                        --         elseif dist_to_target < 10 then
+                        --             -- enemy is right in the front of the player, harm the player, then die
+                        --             local enemyDamage = S.Enemy[enemyId].damage
+                        --             if playerState then
+                        --                 local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+                        --                 local newHP = playerHP - enemyDamage
+                        --                 if newHP <= 0 then
+                        --                     Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
+                        --                 else
+                        --                     playerState:DeductHp(enemyDamage)
+                        --                     playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
+                        --                 end
+                        --                 -- TODO: effects
+                        --                 m.DestroyEnemy(enemyInstance.Name)
+                        --             end
+                        --         end
+
+                        --         -- select the player who's close enough and seek him
+                        --         if dist_to_target < 200 then
+                        --             -- predict player's position, binomial distribution add some randomness
+                        --             local target = playerRoot.Position + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                        --             lookAt = playerRoot.Position
+                        --             newPos = currentPos:Lerp(target, dt * speed / dist_to_target) -- Move towards the predicted position of the player
+                        --             break -- is needed to lock this enemy on this player
+                        --         end
+                        --     end
+                        -- end
+                        -- end
                         if worldState:has(enemyInstance.Name) then
                             worldState:set(enemyInstance.Name, W.Position, newPos)
                         end
@@ -373,7 +468,7 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     end
 end
 
-function m.OnPlayerReadyToPlay(player_state: PSS.PlayerState, players_already_in_session: int)
+function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session: int)
     -- NOTE: players_already_in_session includes this player_state.player
 
     -- define spawning position
