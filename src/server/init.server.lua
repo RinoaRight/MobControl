@@ -76,9 +76,14 @@ if not workspace then
     return
 end
 
-local function change_weapon(player_state, weapon_id: id)
+local function changeWeapon(player_state, weapon_id: id)
     player_state:ChangeWeapon(weapon_id)
     WorldService.ChangeWeapon(player_state, player_state.player_id, weapon_id)
+end
+
+local function resetHp(player_state)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Value, SharedConfig.PLAYER_BASE_HP)
+    WorldService.world:set(player_state.player_id, W.HP, SharedConfig.PLAYER_BASE_HP)
 end
 
 local function cleanUpWorldState(player_state, this_player_id: int)
@@ -247,8 +252,8 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         end
     end
 
-    WorldService.world:set(player_state.player_id, W.HP, SharedConfig.STARTING_HP)
-    change_weapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
+    resetHp(player_state)
+    changeWeapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
 
     local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     workerMaid.playerLoop = function()
@@ -270,6 +275,10 @@ end
 
 s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
+end
+
+s2s[Id.S2S.CHANGE_WEAPON] = function(player_state, weapon_id, ...)
+    changeWeapon(player_state, weapon_id)
 end
 
 s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
@@ -317,7 +326,7 @@ end
 local function init_player(player_state: PlayerState)
     return function()
         local _game_session_params = player_state.state:constructor(C.RefId, C.TTL, C.Value, C.Bitset) -- weapon_id, weapon_ttl, hp, is_active
-        _game_session_params(Id.PlayerStats.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.STARTING_HP, Id.PlayerF.NONE)
+        _game_session_params(Id.PlayerStats.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
     end
 end
 

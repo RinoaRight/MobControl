@@ -383,7 +383,7 @@ export type Struct = typeof(Id.Struct)
 Id.Boost = enum.with_id "Id.Boost" {
     NONE                = iota(Id.Kind.Boost, 0),
     ADD_CLONE           = iota'',
-    BULLET_SPEED_MULT   = iota'',
+    -- BULLET_SPEED_MULT   = iota'',
     CHANGE_WEAPON       = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Boost] = Id.Boost
@@ -546,6 +546,7 @@ Id.Weapon = enum.with_id "Id.Weapon" {
     _NONE   = iota(Id.Kind.Weapon, 0),
     DEFAULT = iota'',
     BASIC   = iota'',
+    SMG     = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Weapon] = Id.Weapon
 export type Weapon = typeof(Id.Weapon)
@@ -657,6 +658,7 @@ Id.S2S = enum.with_id "Id.S2S" {
     _NONE                     = iota(Id.Kind.S2S, 0),
     PASS_GRANTED              = iota'',
     PURCHASE_FINISHED         = iota'',
+    CHANGE_WEAPON             = iota'', -- weapon_id
     PLAYER_DIED               = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S

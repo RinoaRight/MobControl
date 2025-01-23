@@ -187,7 +187,7 @@ local on_cc = {} :: { [id]: (...any) -> () }
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
     if player_id == LOCAL_PLAYER.UserId then
-        local hp = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Value)
+        local hp = SharedConfig.PLAYER_BASE_HP
         Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, hp)
         -- the rest of the logic is already done in subscribeStartCollider
         return
@@ -402,12 +402,12 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
         bullet.CollisionGroup = "Bullet"
         bullet:SetAttribute(SharedConfig.BULLET_ATTRIBUTE_NAME, player.UserId)
         bullet.CanCollide = false
+        -- TODO: size depends on weapon_id
         bullet.Size = Vector3.new(3, 3, 3)
         bullet.Anchored = true
     end
     local pos = rootPart.Position + rootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
-    -- TODO: refactor speed (taking it from player_state) if it is something that can be changed during the session?
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
     local boosterThickness = SharedConfig.BOOSTER_DEPTH
     local timeToArrive = roflake.time() + SharedConfig.BULLET_BASE_DISTANCE / speed
@@ -534,13 +534,12 @@ RunService.Heartbeat:Connect(function(dt)
             -- handles the case of players' death in order to move bullets that have been already fired
             weapon_id = Id.Weapon.BASIC
         end
-        -- TODO: take the speed from the PlayerState?
         local speed = S.Weapon[weapon_id].baseSpeed + SharedConfig.MOVEMENT_LINEAR_VELOCITY
         local targetCframe = CFrame.new(bullet.CFrame.Position + (bullet.CFrame.LookVector * speed * dt))
 
         -- check if the bullet collided with any of the enemies. If it did, delete the bullet and cancel all other checks
         local isEnemyHitAlready = false
-        for guid, id, hp, pos in WORLD:select(W.RefId, W.HP, W.Position) do
+        for guid, id, hp in WORLD:select(W.RefId, W.HP) do
             if Id.kind(id) ~= Id.Kind.Enemy then
                 continue
             end
@@ -549,8 +548,15 @@ RunService.Heartbeat:Connect(function(dt)
                 break
             end
 
-            local dist = (pos - bullet.Position).Magnitude
-            if pos and (dist <= SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS) then
+            local enemyInstance = workspace:FindFirstChild(guid, true)
+
+            if not enemyInstance then
+                -- enemy is dead already
+                break
+            end
+            local pos = enemyInstance.Position
+            local dist = (pos - bullet.Position).Magnitude - SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
+            if pos and (dist <= 0) then
                 -- bullet collided with the enemy, delete it and signal to server
                 activeBulletsDataTable[i] = NIL_TABLE
                 bullet.Parent = INACTIVE_BULLETS_REPOSITORY
