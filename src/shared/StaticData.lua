@@ -36,27 +36,38 @@ m.Animation = {
 
 m.Weapon = {
     [Id.Weapon.BASIC] = {
-        baseSpeed = 40,
+        baseSpeed = 50, -- units/sec
         damage = 10,
-        cooldown = 0.5,
+        cooldown = 0.5, --sec
+        bulletSize = 1.5,
         instance = ReplicatedStorage.Weapons.PistolModel,
         name = "Pistol",
-    }, -- units/sec, hp, secs
+    }, 
     [Id.Weapon.SMG] = {
-        baseSpeed = 80,
+        baseSpeed = 30,
         damage = 5,
         cooldown = 0.2,
+        bulletSize = 1,
         -- TODO: change model
         instance = ReplicatedStorage.Weapons.PistolModel,
         name = "SMG",
-    }, -- units/sec, hp, secs
+    }, 
+    [Id.Weapon.SHOTGUN] = {
+        baseSpeed = 20,
+        damage = 5,
+        cooldown = 0.7,
+        bulletSize = 1.5,
+        -- TODO: change model
+        instance = ReplicatedStorage.Weapons.PistolModel,
+        name = "Shotgun",
+    }, 
 }
 
 -- stylua: ignore
 m.Boost = {
     -- TODO: real values
     [Id.Boost.ADD_CLONE]         = {valueRange = {2,2}, hpRange = {50, 100}},
-    [Id.Boost.CHANGE_WEAPON]     = {valueRange = {0, 0}, hpRange = {50, 100}, contentsRange = {Id.Weapon.SMG, Id.Weapon.SMG}},
+    [Id.Boost.CHANGE_WEAPON]     = {valueRange = {0, 0}, hpRange = {50, 100}, contentsRange = {Id.Weapon.SMG, Id.Weapon.SHOTGUN}},
     -- [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}},
 }
 

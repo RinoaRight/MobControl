@@ -547,6 +547,7 @@ Id.Weapon = enum.with_id "Id.Weapon" {
     DEFAULT = iota'',
     BASIC   = iota'',
     SMG     = iota'',
+    SHOTGUN = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Weapon] = Id.Weapon
 export type Weapon = typeof(Id.Weapon)

@@ -134,6 +134,9 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
         boostContentId = math.random(contents[1], contents[#contents])
         txt = string.format("%s", S.Weapon[boostContentId :: id].name)
         col = Color3.fromRGB(169, 132, 255)
+        if boostContentId == Id.Weapon.SHOTGUN then
+            col = Color3.fromRGB(177, 94, 11)
+        end
     end
     -- set GUI
     instance.Color = col
@@ -204,7 +207,7 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
             -- TODO: take enemy numbers from main difficulty data table
-            local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, 50)
+            local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, 20)
             for _, enemyGuid in ipairs(enemies) do
                 assert(type(enemyGuid) == "string") -- sanity check
                 local enemyId = worldState:get(enemyGuid, W.RefId)
@@ -214,8 +217,8 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
 
             TaskPool.spawn(function()
                 task.wait(SharedConfig.ENEMY_WAVE_DELAY)
-            -- TODO: take enemy numbers from main difficulty data table
-                local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, false, 50)
+                -- TODO: take enemy numbers from main difficulty data table
+                local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, false, 20)
                 for _, enemyGuid in ipairs(enemies) do
                     assert(type(enemyGuid) == "string") -- sanity check
                     local enemyId = worldState:get(enemyGuid, W.RefId)
@@ -236,7 +239,7 @@ local function selectPlayer(playersInSession: { Player }, enemyInstance: BasePar
     local toTarget = enemyInstance.Position - playerRoot.Position
     local distToTarget = toTarget.Magnitude
     local closenessByX = math.abs(enemyInstance.Position.X - playerRoot.Position.X)
-    if distToTarget >= 150 or closenessByX > 10 then
+    if distToTarget >= 150 or closenessByX > SharedConfig.ENEMY_SIGHT_RADIUS then
         return nil, nil, nil
     end
     return player, playerRoot, distToTarget
@@ -350,8 +353,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                     if currentPos.Z - 5 > playerRoot.Position.Z then
                                         -- enemy got behind the player, cancel seeking
                                         worldState:set(enemyInstance.Name, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                                    -- if currentPos.Z > playerRoot.Position.Z - 40 then
-                                    --     local pos = Vector3.new(playerRoot.Position.X, currentPos.Y, currentPos.Z + dt * speed)
+                                        -- if currentPos.Z > playerRoot.Position.Z - 40 then
+                                        --     local pos = Vector3.new(playerRoot.Position.X, currentPos.Y, currentPos.Z + dt * speed)
                                         -- TODO: lerp to the new position so that the locked enemy X == players X
 
                                         -- local target = playerRoot.Position + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
@@ -373,12 +376,51 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                             m.DestroyEnemy(enemyInstance.Name)
                                         end
                                     else
+                                        ---[[ old code
                                         -- predict player's position, binomial distribution add some randomness
                                         local playerPos = playerRoot.Position
                                         local target = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z) + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
                                         -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
                                         lookAt = playerRoot.Position
                                         newPos = currentPos:Lerp(target, dt * speed / distToTarget) -- Move towards the predicted position slightly ahead of the player
+                                        --]]
+
+                                        --[[ My crap
+                                        -- TODO: tune this, this is the speed at which the enemy will rotate to face the player
+                                        local K = 0.05 -- in radians/sec
+                                        -- predict player's position, binomial distribution add some randomness
+                                        local playerPos = playerRoot.Position
+                                        local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                                        -- Calculate desired look direction
+                                        local desiredLook = (target - currentPos).Unit
+                                        local currentLook: Vector3 = enemyInstance.CFrame.LookVector
+                                        local angle = currentLook:Angle(desiredLook, Vector3.UP)
+
+                                        -- Limit rotation angle
+                                        angle = math.sign(angle) * math.min(math.abs(angle), K * dt) 
+                                        
+                                        local rotation = CFrame.fromAxisAngle(Vector3.UP, angle)
+                                        lookAt = rotation.LookVector
+                                        newPos = currentPos + lookAt * dt * speed
+                                        --]]
+
+                                        --[[ Cloude version
+                                        -- TODO: tune this, this is the speed at which the enemy will rotate to face the player
+                                        local K = 0.05 --2.5 -- radians/sec
+                                        local playerPos = playerRoot.Position
+                                        local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                                        local desiredLook = (target - currentPos).Unit
+                                        local currentLook = enemyInstance.CFrame.LookVector
+                                        local angle = math.acos(currentLook:Dot(desiredLook))
+                                        -- Determine rotation direction using cross product
+                                        local axis = currentLook:Cross(desiredLook)
+                                        local rotationDirection = axis.Y > 0 and 1 or -1
+                                        angle = rotationDirection * math.min(math.abs(angle), K * dt)
+                                        local rotation = CFrame.fromAxisAngle(Vector3.yAxis, angle)
+                                        lookAt = currentPos + rotation.LookVector
+                                        newPos = currentPos:Lerp(currentPos - rotation.LookVector * speed, dt)
+                                        --]]
+
                                     end
                                 else
                                     -- no player is close enough, remove lock to target if any
