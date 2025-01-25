@@ -70,7 +70,7 @@ function m.ChangeWeapon(player_state, player_id, weapon_id)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end
 
-local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId)
+local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId) -- player hp, weapon instance, weapon id
 function m.AddPlayer(state)
     local player_id = state.player_id
     if m.world:has(player_id) then
@@ -101,14 +101,30 @@ function m.AddClone(id: id, player_id: int)
     return guid
 end
 
-local _enemy = m.world:constructor(W.RefId, W.ServerInstance, W.Bitset)
-function m.AddEnemyToState(id: id, serverInstance)
-    local guid = _enemy(_roflake.uida, id, serverInstance, Id.EnemyF.NONE)
-    -- local guid = m.nullary_transient(_roflake.uida)
-    -- m.world:set(guid, W.RefId, id)
-    -- m.world:set(guid, W.ServerInstance, serverInstance)
-    -- m.world:set(guid, W.TTL, SharedConfig.ENEMY_LIFE_TIME)
+local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.ServerInstance, W.PLayerId, W.Bitset)
+function m.AddEnemyToState(id: id, pos, serverInstance)
+    local hp = S.Enemy[id].health
+    local guid = _enemy(_roflake.uida, id, hp, pos, serverInstance, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
     return guid
+end
+
+local _gameSession = m.world:constructor(W.Value) -- enemy wave count
+function m.GetPreviousWaveNumber()
+    local currentNum = m.world:get(Id.WorldStats.GAME_SESSION, W.Value)
+    if not currentNum then
+        currentNum = 0
+        _gameSession(Id.WorldStats.GAME_SESSION, currentNum)
+    end
+    return currentNum
+end
+function m.UpdateWaveCount()
+    local newNum = m.GetPreviousWaveNumber() + 1
+    m.world:set(Id.WorldStats.GAME_SESSION, W.Value, newNum)
+    return newNum
+end
+function m.ResetWaveCount()
+    local _ = m.GetPreviousWaveNumber() -- to make sure that the entity is created
+    m.world:set(Id.WorldStats.GAME_SESSION, W.Value, 0)
 end
 
 -------------------

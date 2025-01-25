@@ -39,14 +39,11 @@ m.AddPlayerCharToRaycastFilter = function(instance)
     table.insert(blacklist, instance)
 end
 
-local function playFlickerAnim(textBox, mult, hp, isToDestroy) 
+local function playFlickerAnim(textBox, mult, hp, isToDestroy)
     Taskpool.spawn(function()
         local originalSize = textBox.Size :: UDim2
-        local tweenIn = TweenService:Create(
-            textBox,
-            TweenInfo.new(0.1),
-            { Size = UDim2.fromScale(originalSize.X.Scale * mult, originalSize.Y.Scale * mult) }
-        )
+        local tweenIn =
+            TweenService:Create(textBox, TweenInfo.new(0.1), { Size = UDim2.fromScale(originalSize.X.Scale * mult, originalSize.Y.Scale * mult) })
         local tweenOut = TweenService:Create(textBox, TweenInfo.new(0.1), { Size = originalSize })
         local formattedHp = NumFormat.format_number(hp)
 
@@ -73,7 +70,7 @@ m.FlickerPlayerHPGui = function(originalTextBox: TextLabel, mult: num, hp: num)
         local oldExtentsOffset = newGuiIntance.ExtentsOffset
         local newY = newGuiIntance.ExtentsOffset.Y + 2
         newGuiIntance.ExtentsOffset = Vector3.new(oldExtentsOffset.X, newY, oldExtentsOffset.Z)
-        currentTextBox = newGuiIntance:FindFirstChild("TextLabel"):: TextLabel
+        currentTextBox = newGuiIntance:FindFirstChild("TextLabel") :: TextLabel
         isToDestroy = true
     end
     playFlickerAnim(currentTextBox, mult, hp, isToDestroy)
@@ -92,17 +89,17 @@ m.IsBoosterToHit = function(pos: Vector3)
     --     ray.CFrame = CFrame.new(pos, pos + rayDirection)
     --     Debris:AddItem(ray, 3)
     -- end
-    local booster = nil
+    local target = nil
     local distance
     local raycastInstance
     if raycastResult then
         raycastInstance = raycastResult.Instance
         if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
-            booster = raycastInstance
+            target = raycastInstance
             distance = (raycastResult.Position - pos).Magnitude
         end
     end
-    return booster, distance
+    return target, distance
 end
 
 m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
@@ -129,6 +126,7 @@ m.AttachHitboxToPlayer = function(player_state)
     local player_character = player_state.character
     local humanoid_root_part = player_state.root
     local hitbox = Instance.new("Part")
+    hitbox.Size = Vector3.new(5, 5, 5)
     hitbox.Transparency = 1
     hitbox.CanCollide = false
     hitbox.Anchored = false

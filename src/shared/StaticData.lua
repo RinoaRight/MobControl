@@ -23,6 +23,7 @@ local Id = require(shared.Id)
 local SoundService = game:GetService("SoundService")
 local SOUNDS_ROOT = assert(SoundService:WaitForChild("SFX"))
 local LOCALIZED_SOUNDS_ROOT = assert(ReplicatedStorage:WaitForChild("Sounds"))
+local ENEMIES_TEMPLATE_FOLDER = ReplicatedStorage:WaitForChild("Enemies")
 -----------------------------
 -- Module
 -----------------------------
@@ -35,31 +36,51 @@ m.Animation = {
 
 m.Weapon = {
     [Id.Weapon.BASIC] = {
-        baseSpeed = 40,
+        baseSpeed = 50, -- units/sec
         damage = 10,
-        cooldown = .5,
+        cooldown = 0.5, --sec
+        bulletSize = 1.5,
         instance = ReplicatedStorage.Weapons.PistolModel,
         name = "Pistol",
-    }, -- units/sec, hp, secs
+    }, 
+    [Id.Weapon.SMG] = {
+        baseSpeed = 30,
+        damage = 5,
+        cooldown = 0.2,
+        bulletSize = 1,
+        -- TODO: change model
+        instance = ReplicatedStorage.Weapons.PistolModel,
+        name = "SMG",
+    }, 
+    [Id.Weapon.SHOTGUN] = {
+        baseSpeed = 15,
+        damage = 5,
+        cooldown = 0.7,
+        bulletSize = 1.5,
+        -- TODO: change model
+        instance = ReplicatedStorage.Weapons.PistolModel,
+        name = "Shotgun",
+    }, 
 }
 
 -- stylua: ignore
--- TODO: real values
 m.Boost = {
+    -- TODO: real values
     [Id.Boost.ADD_CLONE]         = {valueRange = {2,2}, hpRange = {50, 100}},
-    [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}},
+    [Id.Boost.CHANGE_WEAPON]     = {valueRange = {0, 0}, hpRange = {50, 100}, contentsRange = {Id.Weapon.SMG, Id.Weapon.SHOTGUN}},
+    -- [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}},
 }
 
 m.Enemy = {
-    [Id.Enemy.BASIC] = {damage = 10, health = 100, speed = 30.0}, -- hp, hp, studs/sec
+    [Id.Enemy.BASIC] = { damage = 10, health = 10, speed = 30.0, meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_1") }, -- hp, hp, studs/sec, assetId
 }
 
 m.Sound = {
-    [Id.Sound.FIRE_PISTOL]           = assert(SOUNDS_ROOT:WaitForChild("Fired")),
+    [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
-    [Id.Sound.RELOAD]                = assert(SOUNDS_ROOT:WaitForChild("Reload")),
-    [Id.Sound.SCREAM]                = assert(SOUNDS_ROOT:WaitForChild("Scream")),
-    [Id.Sound.SCREAM_LOCALIZED]      = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Scream")),
+    [Id.Sound.RELOAD] = assert(SOUNDS_ROOT:WaitForChild("Reload")),
+    [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
+    [Id.Sound.SCREAM_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Scream")),
 }
 
 return m

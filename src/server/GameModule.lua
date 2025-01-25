@@ -51,10 +51,11 @@ local m = {} :: {
     StartMainLoopPlayer: (PSS.PlayerState) -> (num) -> (),
     Init: (state: state.Main, (int) -> PSS.PlayerState?) -> (),
     CreatePlayerHpGui: (PSS.PlayerState) -> (),
+    DestroyEnemy: (enemy_guid: str) -> (),
     HandleBoosterDeath: (PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id) -> (),
-    StartMainLoopWorld: (world_state: state.Main) -> (num) -> (),
+    StartMainLoopWorld: (world_state: state.Main, (int) -> PSS.PlayerState?) -> (num) -> (),
     SetPlayerAlignment: (PSS.PlayerState) -> (),
-    OnPlayerReadyToPlay: (PSS.PlayerState, int) -> (),
+    SpawnPlayer: (PSS.PlayerState, int) -> (),
 }
 
 local workerMaid = disposer.new()
@@ -109,17 +110,13 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
 end
 
 local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerState?)
-    -- TODO: actual range of selection
-    local refID = math.random(Id.Boost.ADD_CLONE, Id.Boost.ADD_CLONE)
-    local value = math.random(S.Boost[refID].valueRange[1], S.Boost[refID].valueRange[2])
-    local hp = math.random(S.Boost[refID].hpRange[1], S.Boost[refID].hpRange[2])
-    -- set GUI
-    local boosterGui = BOOSTER_GUI_TEMPLATE:Clone()
-    boosterGui.Parent = instance
-    boosterGui.Adornee = instance
-    boosterGui.TextLabel.Text = NumFormat.format_damage(hp)
+    -- TODO: actual range of selection of every type
+    local refID = math.random(Id.Boost.ADD_CLONE, Id.Boost.CHANGE_WEAPON)
+    local valueRange = S.Boost[refID].valueRange
+    local value = math.random(valueRange[1], valueRange[#valueRange])
+    local hpRange = S.Boost[refID].hpRange
+    local hp = math.random(hpRange[1], hpRange[#hpRange])
 
-    -- TODO: Fill in the data in booster's contents GUI
     local boostContentId = false :: id | bool
     local contentsBillboardInstance = BOOSTER_CONTENTS_BILLBOARD_TEMPLATE:Clone()
     local boosterPos = instance.Position
@@ -132,15 +129,25 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
     if refID == Id.Boost.ADD_CLONE then
         txt = string.format("+ %d clones", value)
         col = Color3.fromRGB(0, 255, 0)
-    elseif refID == Id.Boost.BULLET_SPEED_MULT then
-        -- TODO:
     elseif refID == Id.Boost.CHANGE_WEAPON then
-        -- TODO: actual range of selection + the rest
-        boostContentId = math.random(Id.Weapon.DEFAULT, Id.Weapon.DEFAULT)
+        local contents = assert(S.Boost[refID].contentsRange)
+        boostContentId = math.random(contents[1], contents[#contents])
+        txt = string.format("%s", S.Weapon[boostContentId :: id].name)
+        col = Color3.fromRGB(169, 132, 255)
+        if boostContentId == Id.Weapon.SHOTGUN then
+            col = Color3.fromRGB(177, 94, 11)
+        end
     end
+    -- set GUI
     instance.Color = col
     contentsTextbox.Text = txt
     contentsTextbox.TextColor3 = col
+    local boosterGui = BOOSTER_GUI_TEMPLATE:Clone()
+    boosterGui.Parent = instance
+    boosterGui.Adornee = instance
+    boosterGui.TextLabel.Text = NumFormat.format_damage(hp)
+    boosterGui.TextLabel.TextColor3 = col
+
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
     instance.CollisionGroup = "BulletCollidable"
     WorldService.AddBooster(instance, refID, value, hp, boostContentId)
@@ -171,13 +178,7 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     end
 end
 
-local function destroyEnemy(guid)
-    WorldService.RemoveEntity(guid)
-    assert(typeof(guid) == "string") -- sanity check
-    workerMaid[guid] = nil
-end
-
-local function subscribeEnemyToTouch(worldState, get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
+local function subscribeEnemyToTouch(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
     workerMaid[enemyGiud] = enemyInstance.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
             local flags = worldState:get(enemyGiud, W.Bitset)
@@ -185,34 +186,9 @@ local function subscribeEnemyToTouch(worldState, get_state: (player_id: int) -> 
                 worldState:set(enemyGiud, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true))
             end
         elseif triggerer == DRIVING_BOX_INSTANCE then
-            -- TODO: effects
-            destroyEnemy(enemyGiud)
-        elseif triggerer.Name == "Bullet" then
-            -- TODO: subscribe client-side and do the logic client-side
-        elseif triggerer.Name == "HumanoidRootPart" then
-            -- deduct hp
-            local enemyDamage = S.Enemy[enemyId].damage
-            local character = triggerer.Parent
-            if not character:IsA("Model") then -- sanity check
-                return
-            end
-            -- NOTE: only a player can collide with the enemy, client-side clones cannot
-            local playerId = PlayerService:GetPlayerFromCharacter(character).UserId
-            local playerState = get_state(playerId)
-            if playerState then
-                local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
-                local newHP = playerHP - enemyDamage
-                if newHP <= 0 then
-                    Signal.Fire(Id.S2S.PLAYER_DIED)
-                else
-                    playerState:DeductHp(enemyDamage)
-                    playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
-                end
-            end
-            -- destroy enemy
-            -- TODO: effects
-            destroyEnemy(enemyGiud)
+            m.DestroyEnemy(enemyGiud)
         end
+        -- NOTE: bullet collision are handled on the client
     end)
 end
 
@@ -230,15 +206,64 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             GROUND_UNITS[FIELD_NAMES.FOURTH].unit = GROUND_UNITS[FIELD_NAMES.FIFTH].unit
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
-            local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, 20)
+
+            local newWave = WorldService.UpdateWaveCount()
+            local howMany = 20
+            local ids = { Id.Enemy.BASIC }
+            if Enemies.ENEMIES_DATA_TABLE[newWave] then
+                if Enemies.ENEMIES_DATA_TABLE[newWave].count then
+                    howMany = Enemies.ENEMIES_DATA_TABLE[newWave].count
+                end
+                if Enemies.ENEMIES_DATA_TABLE[newWave].ids then
+                    ids = Enemies.ENEMIES_DATA_TABLE[newWave].ids
+                end
+            end
+            local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
             for _, enemyGuid in ipairs(enemies) do
                 assert(type(enemyGuid) == "string") -- sanity check
                 local enemyId = worldState:get(enemyGuid, W.RefId)
                 local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
                 subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
             end
+
+            TaskPool.spawn(function()
+                task.wait(SharedConfig.ENEMY_WAVE_DELAY)
+                local newWave = WorldService.UpdateWaveCount()
+                local howMany = 20
+                local ids = { Id.Enemy.BASIC }
+                if Enemies.ENEMIES_DATA_TABLE[newWave] then
+                    if Enemies.ENEMIES_DATA_TABLE[newWave].count then
+                        howMany = Enemies.ENEMIES_DATA_TABLE[newWave].count
+                    end
+                    if Enemies.ENEMIES_DATA_TABLE[newWave].ids then
+                        ids = Enemies.ENEMIES_DATA_TABLE[newWave].ids
+                    end
+                end
+                local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
+                for _, enemyGuid in ipairs(enemies) do
+                    assert(type(enemyGuid) == "string") -- sanity check
+                    local enemyId = worldState:get(enemyGuid, W.RefId)
+                    local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
+                    subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
+                end
+            end)
         end
     end)
+end
+
+local function selectPlayer(playersInSession: { Player }, enemyInstance: BasePart): (Player?, BasePart?, num?)
+    local totalPlayers = #playersInSession
+    local ind = math.random(1, totalPlayers)
+    local player = playersInSession[ind] :: Player
+    local char = player.Character :: Model
+    local playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
+    local toTarget = enemyInstance.Position - playerRoot.Position
+    local distToTarget = toTarget.Magnitude
+    local closenessByX = math.abs(enemyInstance.Position.X - playerRoot.Position.X)
+    if distToTarget >= 150 or closenessByX > SharedConfig.ENEMY_SIGHT_RADIUS then
+        return nil, nil, nil
+    end
+    return player, playerRoot, distToTarget
 end
 
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
@@ -265,17 +290,10 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
 end
 
-function m.CreatePlayerHpGui(player_state: PSS.PlayerState)
-    -- create and fill in player_hp gui
-end
-
-function m.StartMainLoopWorld(worldState: state.Main)
+function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     local oldPos = DRIVING_BOX_INSTANCE.Position
+    GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
     return function(dt)
-        -- allow first ground unit to "move". TODO: should be executed only once (for the first unit),
-        -- but at the moment when this loop has started. Think of refactoring.
-        GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
-
         -- driving box movement
         DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
         oldPos = DRIVING_BOX_INSTANCE.Position
@@ -290,36 +308,152 @@ function m.StartMainLoopWorld(worldState: state.Main)
                 local enemyInstances = enemyFolder:GetChildren()
                 if #enemyInstances > 0 then
                     for _, enemyInstance in ipairs(enemyInstances) do
-                        local currentPos:Vector3 = enemyInstance.Position
+                        local currentPos: Vector3 = enemyInstance.Position
                         table.insert(enemies, enemyInstance)
-                        local lookAt = DRIVING_BOX_INSTANCE.Position
+                        -- local lookAt = DRIVING_BOX_INSTANCE.Position
+                        local lookAt = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + 5)
                         local flags = worldState:get(enemyInstance.Name, W.Bitset)
+                        -- local playerTargetedId = worldState:get(enemyInstance.Name, W.PLayerId)
 
                         local enemyId = worldState:get(enemyInstance.Name, W.RefId)
                         local speed = log:assert(S.Enemy[enemyId].speed, "S.Enemy has no speed for: '%*'", enemyId)
                         local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + dt * speed)
 
                         if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
-                            -- find the nearest player and seek him
                             local players = game.Players:GetPlayers()
+                            local playersInSession = {}
                             for _, player in ipairs(players) do
                                 local weaponId = worldState:get(player.UserId, W.WeaponId)
                                 if weaponId ~= Id.Weapon._NONE then
-                                    local playerRoot = player.Character.HumanoidRootPart
-                                    local to_target = enemyInstance.Position - playerRoot.Position
-                                    local dist_to_target = to_target.Magnitude
-                                    local time_to_target = dist_to_target / speed
-                                    if dist_to_target < 50 then
-                                        -- predict player's position, binomial distribution add some randomness
-                                        local target = playerRoot.Position + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                                        lookAt = playerRoot.Position
-                                        newPos = currentPos:Lerp(target, dt * speed / dist_to_target) -- Move towards the predicted position of the player
-                                        break
+                                    table.insert(playersInSession, player)
+                                else
+                                    -- player is not in session, remove this enemy's lock on him if any
+                                    local playerId = player.UserId :: int
+                                    if worldState:get(enemyInstance.Name, W.PLayerId) == playerId then
+                                        worldState:set(enemyInstance.Name, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
                                     end
                                 end
                             end
+                            if #playersInSession > 0 then
+                                local player, playerRoot, distToTarget
+                                if
+                                    (not worldState:get(enemyInstance.Name, W.PLayerId))
+                                    or worldState:get(enemyInstance.Name, W.PLayerId) == SharedConfig.DEFAULT_PLAYER_ID
+                                then
+                                    -- select a player that is close enough to the enemy
+                                    player, playerRoot, distToTarget = selectPlayer(playersInSession, enemyInstance)
+                                    if player then
+                                        -- a player that is close enough is selected, set lock to target
+                                        local playerId = player.UserId :: int
+                                        worldState:set(enemyInstance.Name, W.PLayerId, playerId)
+                                    end
+                                else
+                                    -- enemy is already locked on target, assign player, playerRoot and distTotarget
+                                    local playerId = worldState:get(enemyInstance.Name, W.PLayerId)
+                                    player = game.Players:GetPlayerByUserId(playerId)
+                                    local playerState = get_state(worldState:get(enemyInstance.Name, W.PLayerId))
+                                    if playerState then
+                                        playerRoot = playerState.root :: BasePart
+                                        if not playerRoot then
+                                            log:error("No player root found for player: '%*'", worldState:get(enemyInstance.Name, W.PLayerId))
+                                            return
+                                        end
+                                        local toTarget = enemyInstance.Position - playerRoot.Position
+                                        distToTarget = toTarget.Magnitude
+                                    else
+                                        log:error("No player state found for player: '%*'", worldState:get(enemyInstance.Name, W.PLayerId))
+                                        return
+                                    end
+                                end
+
+                                if player and playerRoot and distToTarget then
+                                    local time_to_target = distToTarget / speed
+                                    local playerId = player.UserId :: int
+                                    local playerState = get_state(playerId)
+
+                                    if currentPos.Z - 5 > playerRoot.Position.Z then
+                                        -- enemy got behind the player, cancel seeking
+                                        worldState:set(enemyInstance.Name, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
+                                        -- if currentPos.Z > playerRoot.Position.Z - 40 then
+                                        --     local pos = Vector3.new(playerRoot.Position.X, currentPos.Y, currentPos.Z + dt * speed)
+                                        -- TODO: lerp to the new position so that the locked enemy X == players X
+
+                                        -- local target = playerRoot.Position + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                                        -- lookAt = playerRoot.Position
+                                        -- newPos = currentPos:Lerp(target, dt * speed / distToTarget) -- Move towards the predicted position of the player
+                                    elseif distToTarget < 10 then
+                                        -- enemy is close to player, harm them, then die
+                                        local enemyDamage = S.Enemy[enemyId].damage
+                                        if playerState then
+                                            local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+                                            local newHP = playerHP - enemyDamage
+                                            if newHP <= 0 then
+                                                Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
+                                            else
+                                                playerState:DeductHp(enemyDamage)
+                                                playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
+                                            end
+                                            -- TODO: effects
+                                            m.DestroyEnemy(enemyInstance.Name)
+                                        end
+                                    else
+                                        ---[[ old code
+                                        -- predict player's position, binomial distribution add some randomness
+                                        local playerPos = playerRoot.Position
+                                        local target = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z)
+                                            + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                                        -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                                        lookAt = playerRoot.Position
+                                        newPos = currentPos:Lerp(target, dt * speed / distToTarget) -- Move towards the predicted position slightly ahead of the player
+                                        --]]
+
+                                        --[[ My crap
+                                        -- TODO: tune this, this is the speed at which the enemy will rotate to face the player
+                                        local K = 0.05 -- in radians/sec
+                                        -- predict player's position, binomial distribution add some randomness
+                                        local playerPos = playerRoot.Position
+                                        local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                                        -- Calculate desired look direction
+                                        local desiredLook = (target - currentPos).Unit
+                                        local currentLook: Vector3 = enemyInstance.CFrame.LookVector
+                                        local angle = currentLook:Angle(desiredLook, Vector3.UP)
+
+                                        -- Limit rotation angle
+                                        angle = math.sign(angle) * math.min(math.abs(angle), K * dt) 
+                                        
+                                        local rotation = CFrame.fromAxisAngle(Vector3.UP, angle)
+                                        lookAt = rotation.LookVector
+                                        newPos = currentPos + lookAt * dt * speed
+                                        --]]
+
+                                        --[[ Cloude version
+                                        -- TODO: tune this, this is the speed at which the enemy will rotate to face the player
+                                        local K = 0.05 --2.5 -- radians/sec
+                                        local playerPos = playerRoot.Position
+                                        local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                                        local desiredLook = (target - currentPos).Unit
+                                        local currentLook = enemyInstance.CFrame.LookVector
+                                        local angle = math.acos(currentLook:Dot(desiredLook))
+                                        -- Determine rotation direction using cross product
+                                        local axis = currentLook:Cross(desiredLook)
+                                        local rotationDirection = axis.Y > 0 and 1 or -1
+                                        angle = rotationDirection * math.min(math.abs(angle), K * dt)
+                                        local rotation = CFrame.fromAxisAngle(Vector3.yAxis, angle)
+                                        lookAt = currentPos + rotation.LookVector
+                                        newPos = currentPos:Lerp(currentPos - rotation.LookVector * speed, dt)
+                                        --]]
+                                    end
+                                else
+                                    -- no player is close enough, remove lock to target if any
+                                    worldState:set(enemyInstance.Name, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                                end
+                            end
                         end
-                        local newCframe = CFrame.new(newPos, lookAt)
+                        if worldState:has(enemyInstance.Name) then
+                            worldState:set(enemyInstance.Name, W.Position, newPos)
+                        end
+                        lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
+                        local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
                         table.insert(enemyTargets, newCframe)
                     end
                 end
@@ -343,26 +477,32 @@ function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
     end
 end
 
+m.DestroyEnemy = function(guid)
+    -- TODO: effects
+    WorldService.RemoveEntity(guid)
+    assert(typeof(guid) == "string") -- sanity check
+    workerMaid[guid] = nil
+end
+
 function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id)
     if not boost_ref_id then
         log:error("no boost_id", debug.traceback)
     end
     -- unsubscribe booster
     workerMaid[booster_guid] = nil
-    -- TODO:
+    -- TODO: others
     if boost_ref_id == Id.Boost.ADD_CLONE then
         for i = 1, value do
             local playerId = playerState.player_id
             local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
         end
-    elseif boost_ref_id == Id.Boost.BULLET_SPEED_MULT then
-        -- TODO:
     elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
+        Signal.Fire(Id.S2S.CHANGE_WEAPON, playerState.player_id, boost_content_id)
         -- TODO:
     end
 end
 
-function m.OnPlayerReadyToPlay(player_state: PSS.PlayerState, players_already_in_session: int)
+function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session: int)
     -- NOTE: players_already_in_session includes this player_state.player
 
     -- define spawning position
@@ -372,9 +512,9 @@ function m.OnPlayerReadyToPlay(player_state: PSS.PlayerState, players_already_in
     local driver_pos = DRIVING_BOX_INSTANCE.Position
     local ground_folder = workspace:FindFirstChild("GroundUnits")
     local existing_ground_units = ground_folder:GetChildren()
-    local lastly_spawned_ground_unit = existing_ground_units[#existing_ground_units]
+    local last_spawned_ground_unit = existing_ground_units[#existing_ground_units]
     local boosters = {}
-    for _, child in lastly_spawned_ground_unit:GetChildren() do
+    for _, child in last_spawned_ground_unit:GetChildren() do
         if child:FindFirstChild("BoosterGui") then
             table.insert(boosters, child)
         end

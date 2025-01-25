@@ -72,7 +72,7 @@ local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
 Misc.AddPlayerCharToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
 local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
 local activeBulletsDataTable = {} :: { table }
-local NIL_TABLE = { "NIL" }
+local NIL_TABLE = table.freeze { "NIL" }
 
 -----------------------------
 -- States
@@ -187,7 +187,7 @@ local on_cc = {} :: { [id]: (...any) -> () }
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
     if player_id == LOCAL_PLAYER.UserId then
-        local hp = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Value)
+        local hp = SharedConfig.PLAYER_BASE_HP
         Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, hp)
         -- the rest of the logic is already done in subscribeStartCollider
         return
@@ -391,6 +391,77 @@ do
     end)
 end
 
+-- local function spawnBulletsShotgun(player, rootPart: BasePart)
+--     local bullets = {}
+--     for i = 1, 5 do
+--         local bullet
+--         if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
+--             bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
+--         else
+--             bullet = Instance.new("Part")
+--             bullet.Name = SharedConfig.BULLET_NAME
+--             bullet.CollisionGroup = "Bullet"
+--             bullet:SetAttribute(SharedConfig.BULLET_ATTRIBUTE_NAME, player.UserId)
+--             bullet.CanCollide = false
+--             local s = 1
+--             if S.Weapon[Id.Weapon.SHOTGUN].bulletSize then
+--                 s = S.Weapon[Id.Weapon.SHOTGUN].bulletSize
+--             end
+--             bullet.Size = Vector3.new(s, s, s)
+--             bullet.Anchored = true
+--         end
+--         table.insert(bullets, bullet)
+--         bullet.Parent = ACTIVE_BULLETS_REPOSITORY
+--     end
+
+--     local playerLookVector = rootPart.CFrame.LookVector
+--     local lookVector2 = Vector3.new(playerLookVector.X, playerLookVector.Y, playerLookVector.Z + 2)
+--     local lookVector3 = Vector3.new(playerLookVector.X, playerLookVector.Y, playerLookVector.Z + 4)
+--     local lookVector4 = Vector3.new(playerLookVector.X, playerLookVector.Y, playerLookVector.Z - 2)
+--     local lookVector5 = Vector3.new(playerLookVector.X, playerLookVector.Y, playerLookVector.Z - 4)
+--     local pos1 = rootPart.Position + playerLookVector * SharedConfig.BULLET_RAYCAST_START_MULT
+--     local pos2 = rootPart.Position + lookVector2 * SharedConfig.BULLET_RAYCAST_START_MULT
+--     local pos3 = rootPart.Position + lookVector3 * SharedConfig.BULLET_RAYCAST_START_MULT
+--     local pos4 = rootPart.Position + lookVector4 * SharedConfig.BULLET_RAYCAST_START_MULT
+--     local pos5 = rootPart.Position + lookVector5 * SharedConfig.BULLET_RAYCAST_START_MULT
+--     local positions = { pos1, pos2, pos3, pos4, pos5 }
+
+--     local speed = S.Weapon[Id.Weapon.SHOTGUN].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
+--     local boosterThickness = SharedConfig.BOOSTER_DEPTH
+
+--     for index, pos in ipairs(positions) do
+--         local timeToArrive = roflake.time() + SharedConfig.BULLET_BASE_DISTANCE / speed
+--         local targetToHit, dist = Misc.IsBoosterToHit(pos)
+--         if targetToHit then
+--             timeToArrive = roflake.time() + ((dist + boosterThickness) / speed)
+--         end
+--         bullets[index].Position = pos
+
+--         local rot = 0
+--         if index == 2 then
+--             rot = 1
+--         elseif index == 3 then
+--             rot = 2
+--         elseif index == 4 then
+--             rot = -1
+--         elseif index == 5 then
+--             rot = -2
+--         end
+
+--         table.insert(activeBulletsDataTable, {
+--             bullet = bullets[index],
+--             speed = speed,
+--             ttl = timeToArrive,
+--             booster = targetToHit,
+--             owner = player,
+--             weapon_id = Id.Weapon.SHOTGUN,
+--             rotation = CFrame.Angles(0, math.rad(1), 0),
+--         })
+--     end
+
+--     return positions
+-- end
+
 local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     local bullet
     local pos
@@ -398,27 +469,64 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
         bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
     else
         bullet = Instance.new("Part")
-        bullet.Name = "Bullet"
+        bullet.Name = SharedConfig.BULLET_NAME
         bullet.CollisionGroup = "Bullet"
+        bullet:SetAttribute(SharedConfig.BULLET_ATTRIBUTE_NAME, player.UserId)
         bullet.CanCollide = false
-        bullet.Size = Vector3.new(2, 2, 2)
+        local s = 1
+        if S.Weapon[weapon_id].bulletSize then
+            s = S.Weapon[weapon_id].bulletSize
+        end
+        bullet.Size = Vector3.new(s, s, s)
         bullet.Anchored = true
     end
     local pos = rootPart.Position + rootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
-    -- TODO: refactor speed (taking it from player_state) if it is something that can be changed during the session?
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
     local boosterThickness = SharedConfig.BOOSTER_DEPTH
     local timeToArrive = roflake.time() + SharedConfig.BULLET_BASE_DISTANCE / speed
-    local boosterToHit, dist = Misc.IsBoosterToHit(pos)
-    if boosterToHit then
+    local targetToHit, dist = Misc.IsBoosterToHit(pos)
+
+    if targetToHit then
         timeToArrive = roflake.time() + ((dist + boosterThickness) / speed)
     end
 
     bullet.Position = pos
 
-    table.insert(activeBulletsDataTable, { bullet = bullet, speed = speed, ttl = timeToArrive, booster = boosterToHit, owner = player })
+    table.insert(activeBulletsDataTable, {
+        bullet = bullet,
+        speed = speed,
+        ttl = timeToArrive,
+        booster = targetToHit,
+        owner = player,
+        weapon_id = weapon_id,
+        rotation = CFrame.Angles(0, 0, 0),
+    })
 
+    local indexInTable = #activeBulletsDataTable
+
+    return pos, indexInTable
+end
+
+local function setShotgunBulletsToDataTable(player, playerRootPart, weapon_id)
+    -- generate multiple bullets and set different rotation for each of them to the data table of active bullets
+    local pos
+    for i = 1, 5 do
+        local bulletPos, indexInTable = spawnBullet(player, playerRootPart, weapon_id)
+        local yRot = 0
+        if i == 2 then
+            yRot = 2
+        elseif i == 3 then
+            yRot = 4
+        elseif i == 4 then
+            yRot = -2
+        elseif i == 5 then
+            yRot = -4
+        end
+        pos = bulletPos -- they are overwriting each other, but it doesnt' matter cuz they are the same
+        local rot = CFrame.Angles(0, math.rad(yRot), 0)
+        activeBulletsDataTable[indexInTable].rotation = rot
+    end
     return pos
 end
 
@@ -437,22 +545,35 @@ local function fireBullet(player)
     end
 
     -- player's fire
-    local pos = spawnBullet(player, playerRootPart, weapon_id)
+    local pos
+    if weapon_id == Id.Weapon.SHOTGUN then
+        pos = setShotgunBulletsToDataTable(player, playerRootPart, weapon_id)
+    else
+        pos = spawnBullet(player, playerRootPart, weapon_id)
+    end
 
     -- clones' fire (is handled as an additional local player's fire)
     local clones_folder = player_char:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
     if clones_folder then
         for _, clone in ipairs(clones_folder:GetChildren()) do
             local rootPart = clone.HumanoidRootPart
-            spawnBullet(player, rootPart, weapon_id)
+            pos = spawnBullet(player, rootPart, Id.Weapon.BASIC)
+            -- NOTE: LEGACY. Clones using the same weapon as the player
+            -- if weapon_id == Id.Weapon.SHOTGUN then
+            --     pos = setShotgunBulletsToDataTable(player, rootPart, weapon_id)
+            -- else
+            --     pos = spawnBullet(player, rootPart, weapon_id)
+            -- end
         end
     end
 
     if player == LOCAL_PLAYER then
         -- reset ttl server-side
         fire_server(Id.C2S.BULLET_SHOT, pos)
+        -- TODO: change sound for each type of weapon
         S.Sound[Id.Sound.FIRE_PISTOL]:Play()
     else
+        -- TODO: change sound for each type of weapon
         Misc.SoundLocalizedAudio(S.Sound[Id.Sound.FIRE_PISTOL_LOCALIZED], pos, 0)
         -- reset ttl for fake fire on the client
         local weapon_id = PLAYER_STATE:get(player.UserId, C.ClientRefId)
@@ -522,6 +643,7 @@ RunService.Heartbeat:Connect(function(dt)
         local booster = bulletData.booster
         local owner = bulletData.owner
         local ttl = bulletData.ttl
+        local rot = bulletData.rotation
         local weapon_id
         if owner == LOCAL_PLAYER then
             weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
@@ -531,26 +653,63 @@ RunService.Heartbeat:Connect(function(dt)
         if not weapon_id or weapon_id == Id.Weapon._NONE then
             -- handles the case of players' death in order to move bullets that have been already fired
             weapon_id = Id.Weapon.BASIC
-        end
-        -- TODO: take the speed from the PlayerState?
-        local speed = S.Weapon[weapon_id].baseSpeed + SharedConfig.MOVEMENT_LINEAR_VELOCITY
-        local targetCframe = CFrame.new(bullet.CFrame.Position + (bullet.CFrame.LookVector * speed * dt))
-        if booster and booster.Position.Z >= bullet.Position.Z then
-            -- bullet collided with the booster, delete it and signal to server
-            activeBulletsDataTable[i] = NIL_TABLE
-            bullet.Parent = INACTIVE_BULLETS_REPOSITORY
-            if owner == LOCAL_PLAYER then
-                Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster.Name)
-            end
-        elseif now >= ttl then
-            -- bullet timed-out, delete it
-            Array.swap_remove(activeBulletsDataTable, i)
-            bullet.Parent = INACTIVE_BULLETS_REPOSITORY
         else
-            table.insert(activeBullets, bullet)
-            table.insert(bulletsTargets, targetCframe)
+            -- gets the value of the weapon the bullet has been fired from
+            weapon_id = bulletData.weapon_id
+        end
+        local speed = S.Weapon[weapon_id].baseSpeed + SharedConfig.MOVEMENT_LINEAR_VELOCITY
+        local targetCframe = CFrame.new(bullet.CFrame.Position + (bullet.CFrame.LookVector * speed * dt)) * rot
+
+        -- check if the bullet collided with any of the enemies. If it did, delete the bullet and cancel all other checks
+        local isEnemyHitAlready = false
+        for guid, id, hp in WORLD:select(W.RefId, W.HP) do
+            if Id.kind(id) ~= Id.Kind.Enemy then
+                continue
+            end
+
+            if isEnemyHitAlready then
+                break
+            end
+
+            local enemyInstance = workspace:FindFirstChild(guid, true)
+
+            if not enemyInstance then
+                -- enemy is dead already
+                break
+            end
+            local pos = enemyInstance.Position
+            local dist = (pos - bullet.Position).Magnitude - SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
+            if pos and (dist <= 0) then
+                -- bullet collided with the enemy, delete it and signal to server
+                activeBulletsDataTable[i] = NIL_TABLE
+                bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+                if owner == LOCAL_PLAYER then
+                    isEnemyHitAlready = true
+                    fire_server(Id.C2S.ENEMY_HIT, guid)
+                end
+            end
+        end
+
+        -- bullet has not hit the enemy, do other checks
+        if not isEnemyHitAlready then
+            if booster and booster.Position.Z >= bullet.Position.Z then
+                -- bullet collided with the booster, delete it and signal to server
+                activeBulletsDataTable[i] = NIL_TABLE
+                bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+                if owner == LOCAL_PLAYER then
+                    Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster.Name)
+                end
+            elseif now >= ttl then
+                -- bullet timed-out, delete it
+                activeBulletsDataTable[i] = NIL_TABLE
+                bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+            else
+                table.insert(activeBullets, bullet)
+                table.insert(bulletsTargets, targetCframe)
+            end
         end
     end
+    -- remove all NIL_TABLEs from the table
     local activeBulletsDataTableTemp = table.clone(activeBulletsDataTable)
     table.clear(activeBulletsDataTable)
     for i, bulletData in ipairs(activeBulletsDataTableTemp) do
@@ -562,16 +721,18 @@ RunService.Heartbeat:Connect(function(dt)
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player
-    local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    if flags and Id.flag_test(flags, Id.PlayerF.READY) then
-        local weaponId = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
-        if not weaponId or weaponId == Id.Weapon._NONE then
-            log:error("No bullet can be fired for this weapon_id", weaponId)
-        end
-        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-            local shot_ttl = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
-            if shot_ttl and shot_ttl <= 0 then
-                fireBullet(LOCAL_PLAYER)
+    if PLAYER_STATE:has(Id.PlayerStats.GAME_SESSION) then
+        local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+        if flags and Id.flag_test(flags, Id.PlayerF.READY) then
+            local weaponId = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+            if not weaponId or weaponId == Id.Weapon._NONE then
+                log:error("No bullet can be fired for this weapon_id", weaponId)
+            end
+            if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                local shot_ttl = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
+                if shot_ttl and shot_ttl <= 0 then
+                    fireBullet(LOCAL_PLAYER)
+                end
             end
         end
     end
@@ -654,7 +815,19 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         _booster(guid, false)
         Signal.Broadcast(Id.C2C.NEW_BOOSTER_ADDED, WORLD, PLAYER_STATE, guid)
     end
+
+    -- -- check if it was an enemy that has been added
+    -- if Id.kind(newValue) == Id.Kind.Enemy then
+    --     Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
+    -- end
 end)
+
+-- -- cancel collision subscription
+-- WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
+--     if Id.kind(oldValue) == Id.Kind.Enemy then
+--         Signal.Broadcast(Id.C2C.ENEMY_REMOVED, guid)
+--     end
+-- end)
 
 -- set newly connected players to the player state
 WORLD:set_on_attach(W.WeaponId, function(guid: guid, newValue: num)

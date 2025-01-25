@@ -76,9 +76,14 @@ if not workspace then
     return
 end
 
-local function change_weapon(player_state, weapon_id: id)
+local function changeWeapon(player_state, weapon_id: id)
     player_state:ChangeWeapon(weapon_id)
     WorldService.ChangeWeapon(player_state, player_state.player_id, weapon_id)
+end
+
+local function resetHp(player_state)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Value, SharedConfig.PLAYER_BASE_HP)
+    WorldService.world:set(player_state.player_id, W.HP, SharedConfig.PLAYER_BASE_HP)
 end
 
 local function cleanUpWorldState(player_state, this_player_id: int)
@@ -177,14 +182,39 @@ on[Id.C2S.BOOSTER_HIT] = function(player_state, booster_guid, ...)
     end
 end
 
-on[Id.C2S.BULLET_SHOT] = function(player_state, event_id, bullet_starting_pos, ...)
-    log:debug(Id.C2S.BULLET_SHOT, player_state.player_id, event_id, ...)
+on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_starting_pos, ...)
     local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
     if not current_weapon_id or current_weapon_id == Id.Weapon._NONE then
-        return 
+        return
     end
     local cooldown = S.Weapon[current_weapon_id].cooldown
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, cooldown)
+end
+
+on[Id.C2S.ENEMY_HIT] = function(player_state, enemy_guid, ...)
+    if not enemy_guid then
+        log:error("no enemy guid")
+        return
+    end
+
+    local weaponId = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+    local dmg = 0
+    if S.Weapon[weaponId] and S.Weapon[weaponId].damage then
+        dmg = S.Weapon[weaponId].damage
+    end
+    if not WorldService.world:has(enemy_guid) then
+        -- already dead
+        return
+    end
+    local enemyHP = WorldService.world:get(enemy_guid, W.HP)
+
+    local newHP = enemyHP - dmg
+
+    if enemyHP - dmg <= 0 then
+        GameModule.DestroyEnemy(enemy_guid)
+    else
+        WorldService.world:set(enemy_guid, W.HP, newHP)
+    end
 end
 
 on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, triggerer_id: num | str, ...)
@@ -222,15 +252,14 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         end
     end
 
-    change_weapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
-
-    GameModule.CreatePlayerHpGui(player_state)
+    resetHp(player_state)
+    changeWeapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
 
     local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     workerMaid.playerLoop = function()
         ServerSupervisor:cancel(_main_loop_player_handler)
     end
-    GameModule.OnPlayerReadyToPlay(player_state, players_already_in_session)
+    GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
 end
 -------------------
@@ -248,42 +277,50 @@ s2s[Id.S2S.PURCHASE_FINISHED] = function(player_state, ...)
     log:error(Id.S2S.PURCHASE_FINISHED, "TODO")
 end
 
+s2s[Id.S2S.CHANGE_WEAPON] = function(player_state, weapon_id, ...)
+    changeWeapon(player_state, weapon_id)
+end
+
 s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
     onPlayerDead(player_state)
 end
 
 -- initialize main game loop
 do
-    TaskPool.spawn(function()
-        GameModule.Init(WorldService.world, get_state)
+    local function startGameSession()
+        TaskPool.spawn(function()
+            GameModule.Init(WorldService.world, get_state)
 
-        local playerState
-        repeat
-            task.wait()
-            playerState = get_state(next(STATES) :: int)
-        until playerState ~= nil
-        log:info("playerState", playerState, playerState and playerState.player_id)
-        assert(playerState, "sanity check failed, no player state found")
-        
-        -- TODO: this is a hack, we should have a better way to do this
-        -- wait until at least 1 player is ready to join the session
-        local isReady = false
-        repeat
-            task.wait(0.1)
-            for _, thisState in pairs(STATES) do
-                local flags = thisState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-                flags = thisState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-                if not flags then
-                    continue
+            local playerState
+            repeat
+                task.wait()
+                playerState = get_state(next(STATES) :: int)
+            until playerState ~= nil
+            log:info("playerState", playerState, playerState and playerState.player_id)
+            assert(playerState, "sanity check failed, no player state found")
+
+            -- TODO: this is a hack, we should have a better way to do this
+            -- wait until at least 1 player is ready to join the session
+            local isReady = false
+            repeat
+                task.wait(0.1)
+                for _, thisState in pairs(STATES) do
+                    local flags = thisState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+                    flags = thisState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+                    if not flags then
+                        continue
+                    end
+                    isReady = Id.flag_test(flags, Id.PlayerF.READY)
+                    if isReady then
+                        break
+                    end
                 end
-                isReady = Id.flag_test(flags, Id.PlayerF.READY)
-                if isReady then
-                    break
-                end
-            end
-        until isReady
-        local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world))
-    end)
+            until isReady
+            local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
+        end)
+    end
+    
+    startGameSession()
 end
 
 -----------------------------
@@ -293,7 +330,7 @@ end
 local function init_player(player_state: PlayerState)
     return function()
         local _game_session_params = player_state.state:constructor(C.RefId, C.TTL, C.Value, C.Bitset) -- weapon_id, weapon_ttl, hp, is_active
-        _game_session_params(Id.PlayerStats.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.STARTING_HP, Id.PlayerF.NONE)
+        _game_session_params(Id.PlayerStats.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
     end
 end
 

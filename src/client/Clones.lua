@@ -72,6 +72,9 @@ function m.CreateClone(playerId: int, cloneGuid: num | str)
         for _, instance in cloneInstance:GetDescendants() do
             if instance:IsA("BasePart") then
                 instance.CollisionGroup = "DriverNonCollidable"
+                -- if instance.Name == SharedConfig.PLAYER_HITBOX_NAME then
+                --     instance:Destroy()
+                -- end
             end
         end
 
