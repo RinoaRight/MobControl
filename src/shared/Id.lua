@@ -69,6 +69,7 @@ local Kind = table.freeze {
     Weapon          = enum.iota'',
     Enemy           = enum.iota'',
     PlayerStats     = enum.iota'',
+    WorldStats      = enum.iota'',
     TimedEvent      = enum.iota'',
     Sound           = enum.iota'',
     STMState        = enum.iota'',
@@ -610,6 +611,17 @@ Id.PlayerStats = enum.with_id "Id.PlayerStats" {
 }
 KIND_TO_ENUM[Id.Kind.PlayerStats] = Id.PlayerStats
 export type PlayerStats = typeof(Id.PlayerStats)
+
+-- stylua: ignore
+-----------------------------
+-- World stats
+-----------------------------
+Id.WorldStats = enum.with_id "Id.WorldStats" {
+    _NONE         = iota(Id.Kind.WorldStats, 0),
+    GAME_SESSION  = iota'',
+}
+KIND_TO_ENUM[Id.Kind.WorldStats] = Id.WorldStats
+export type WorldStats = typeof(Id.WorldStats)
 
 -- stylua: ignore
 -----------------------------

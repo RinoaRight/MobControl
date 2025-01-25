@@ -508,6 +508,28 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     return pos, indexInTable
 end
 
+local function setShotgunBulletsToDataTable(player, playerRootPart, weapon_id)
+    -- generate multiple bullets and set different rotation for each of them to the data table of active bullets
+    local pos
+    for i = 1, 5 do
+        local bulletPos, indexInTable = spawnBullet(player, playerRootPart, weapon_id)
+        local yRot = 0
+        if i == 2 then
+            yRot = 2
+        elseif i == 3 then
+            yRot = 4
+        elseif i == 4 then
+            yRot = -2
+        elseif i == 5 then
+            yRot = -4
+        end
+        pos = bulletPos -- they are overwriting each other, but it doesnt' matter cuz they are the same
+        local rot = CFrame.Angles(0, math.rad(yRot), 0)
+        activeBulletsDataTable[indexInTable].rotation = rot
+    end
+    return pos
+end
+
 local function fireBullet(player)
     local player_char = player.Character
     local playerRootPart = assert(player_char.HumanoidRootPart) :: BasePart
@@ -525,11 +547,7 @@ local function fireBullet(player)
     -- player's fire
     local pos
     if weapon_id == Id.Weapon.SHOTGUN then
-        for i = 1, 5 do
-            pos = spawnBullet(player, playerRootPart, weapon_id)
-        end
-        -- local positions = spawnBulletsShotgun(player, playerRootPart)
-        -- pos = positions[1]
+        pos = setShotgunBulletsToDataTable(player, playerRootPart, weapon_id)
     else
         pos = spawnBullet(player, playerRootPart, weapon_id)
     end
@@ -539,28 +557,13 @@ local function fireBullet(player)
     if clones_folder then
         for _, clone in ipairs(clones_folder:GetChildren()) do
             local rootPart = clone.HumanoidRootPart
-            if weapon_id == Id.Weapon.SHOTGUN then
-                -- generate multiple bullets and set different rotation for each of them to the data table of active bullets
-                for i = 1, 5 do
-                    local bulletPos, indexInTable = spawnBullet(player, playerRootPart, weapon_id)
-                    local yRot = 0
-                    if i == 2 then
-                        yRot = 2
-                    elseif i == 3 then
-                        yRot = 4
-                    elseif i == 4 then
-                        yRot = -2
-                    elseif i == 5 then
-                        yRot = -4
-                    end
-                    pos = bulletPos
-                    local rot = CFrame.Angles(0, math.rad(yRot), 0)
-                    activeBulletsDataTable[indexInTable].rotation = rot
-                end
-                -- local _ = spawnBulletsShotgun(player, playerRootPart)
-            else
-                pos = spawnBullet(player, rootPart, weapon_id)
-            end
+            pos = spawnBullet(player, rootPart, Id.Weapon.BASIC)
+            -- NOTE: LEGACY. Clones using the same weapon as the player
+            -- if weapon_id == Id.Weapon.SHOTGUN then
+            --     pos = setShotgunBulletsToDataTable(player, rootPart, weapon_id)
+            -- else
+            --     pos = spawnBullet(player, rootPart, weapon_id)
+            -- end
         end
     end
 

@@ -59,6 +59,7 @@ local FIRST_HALF_Z_OFFSET = -DISTANCE_FROM_MID_TO_BOOSTER + START_ZONE_GAP
 local SECOND_HALF_Z_OFFSET = -DISTANCE_FROM_MID_TO_BOOSTER - SharedConfig.BOOSTER_DEPTH
 local NUM_OF_COLUMNS = math.floor((GROUND_UNIT_LENGTH - X_MARGIN * 2) / X_INTERVAL)
 
+
 -- origin is a center-top
 -- +-----O-----+ -Z   `O` is origin
 -- |  1  |  2  |  ^
@@ -96,9 +97,15 @@ end
 
 local m = {}
 
-function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, numOfEnemies: int)
+-- Every odd wave spawns in the current ground unit in front of the boosters, every even - after some time, behind the boosters
+m.ENEMIES_DATA_TABLE = {
+    {count = 20, ids = {Id.Enemy.BASIC}},
+    {count = 20, ids = {Id.Enemy.BASIC}},
+}
+
+function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, numberOfEnemies: int, ids:{id})
     local enemies = {}
-    if numOfEnemies <= 0 then
+    if numberOfEnemies <= 0 then
         return enemies
     end
     local groundUnitPos = groundUnit.Position
@@ -118,13 +125,13 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
     -- TODO: make sure that the number of columns correspond with cell_width
 
     -- make sure the grid fits all the required enemies
-    while numOfEnemies > cols * rows do
+    while numberOfEnemies > cols * rows do
         rows += 1
     end
 
     local grid, bitmap, _rc2idx, _idx2rc = create_grid(cell_w, cell_h, cols, rows, origin)
 
-    for i = 1, numOfEnemies do
+    for i = 1, numberOfEnemies do
         local idx: int
         repeat
             idx = math.random(#grid)
@@ -145,8 +152,12 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         --     part.BrickColor = BrickColor.new("Really red")
         -- end
 
-        -- TODO: real enemy generator
+        -- define enemy id
         local enemyId = Id.Enemy.BASIC
+        if ids then 
+            local ind = math.random(1, #ids)
+            enemyId = ids[ind]
+        end
 
         local enemyInstance
         if S.Enemy[enemyId].meshTemplate then

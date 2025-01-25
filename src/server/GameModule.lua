@@ -206,8 +206,19 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             GROUND_UNITS[FIELD_NAMES.FOURTH].unit = GROUND_UNITS[FIELD_NAMES.FIFTH].unit
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
-            -- TODO: take enemy numbers from main difficulty data table
-            local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, 20)
+
+            local newWave = WorldService.UpdateWaveCount()
+            local howMany = 20
+            local ids = { Id.Enemy.BASIC }
+            if Enemies.ENEMIES_DATA_TABLE[newWave] then
+                if Enemies.ENEMIES_DATA_TABLE[newWave].count then
+                    howMany = Enemies.ENEMIES_DATA_TABLE[newWave].count
+                end
+                if Enemies.ENEMIES_DATA_TABLE[newWave].ids then
+                    ids = Enemies.ENEMIES_DATA_TABLE[newWave].ids
+                end
+            end
+            local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
             for _, enemyGuid in ipairs(enemies) do
                 assert(type(enemyGuid) == "string") -- sanity check
                 local enemyId = worldState:get(enemyGuid, W.RefId)
@@ -217,8 +228,18 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
 
             TaskPool.spawn(function()
                 task.wait(SharedConfig.ENEMY_WAVE_DELAY)
-                -- TODO: take enemy numbers from main difficulty data table
-                local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, false, 20)
+                local newWave = WorldService.UpdateWaveCount()
+                local howMany = 20
+                local ids = { Id.Enemy.BASIC }
+                if Enemies.ENEMIES_DATA_TABLE[newWave] then
+                    if Enemies.ENEMIES_DATA_TABLE[newWave].count then
+                        howMany = Enemies.ENEMIES_DATA_TABLE[newWave].count
+                    end
+                    if Enemies.ENEMIES_DATA_TABLE[newWave].ids then
+                        ids = Enemies.ENEMIES_DATA_TABLE[newWave].ids
+                    end
+                end
+                local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
                 for _, enemyGuid in ipairs(enemies) do
                     assert(type(enemyGuid) == "string") -- sanity check
                     local enemyId = worldState:get(enemyGuid, W.RefId)
@@ -379,7 +400,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                         ---[[ old code
                                         -- predict player's position, binomial distribution add some randomness
                                         local playerPos = playerRoot.Position
-                                        local target = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z) + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                                        local target = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z)
+                                            + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
                                         -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
                                         lookAt = playerRoot.Position
                                         newPos = currentPos:Lerp(target, dt * speed / distToTarget) -- Move towards the predicted position slightly ahead of the player
@@ -420,7 +442,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                         lookAt = currentPos + rotation.LookVector
                                         newPos = currentPos:Lerp(currentPos - rotation.LookVector * speed, dt)
                                         --]]
-
                                     end
                                 else
                                     -- no player is close enough, remove lock to target if any

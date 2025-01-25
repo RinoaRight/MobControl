@@ -53,7 +53,7 @@ m.Weapon = {
         name = "SMG",
     }, 
     [Id.Weapon.SHOTGUN] = {
-        baseSpeed = 20,
+        baseSpeed = 15,
         damage = 5,
         cooldown = 0.7,
         bulletSize = 1.5,

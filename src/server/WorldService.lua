@@ -108,6 +108,25 @@ function m.AddEnemyToState(id: id, pos, serverInstance)
     return guid
 end
 
+local _gameSession = m.world:constructor(W.Value) -- enemy wave count
+function m.GetPreviousWaveNumber()
+    local currentNum = m.world:get(Id.WorldStats.GAME_SESSION, W.Value)
+    if not currentNum then
+        currentNum = 0
+        _gameSession(Id.WorldStats.GAME_SESSION, currentNum)
+    end
+    return currentNum
+end
+function m.UpdateWaveCount()
+    local newNum = m.GetPreviousWaveNumber() + 1
+    m.world:set(Id.WorldStats.GAME_SESSION, W.Value, newNum)
+    return newNum
+end
+function m.ResetWaveCount()
+    local _ = m.GetPreviousWaveNumber() -- to make sure that the entity is created
+    m.world:set(Id.WorldStats.GAME_SESSION, W.Value, 0)
+end
+
 -------------------
 -- Methods
 -------------------
