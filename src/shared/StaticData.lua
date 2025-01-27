@@ -37,6 +37,7 @@ m.Animation = {
 m.Weapon = {
     [Id.Weapon.BASIC] = {
         baseSpeed = 50, -- units/sec
+        range = 240, -- units
         damage = 10,
         cooldown = 0.5, --sec
         bulletSize = 1.5,
@@ -44,7 +45,8 @@ m.Weapon = {
         name = "Pistol",
     }, 
     [Id.Weapon.SMG] = {
-        baseSpeed = 30,
+        baseSpeed = 50,
+        range = 200, -- units
         damage = 5,
         cooldown = 0.2,
         bulletSize = 1,
@@ -53,7 +55,8 @@ m.Weapon = {
         name = "SMG",
     }, 
     [Id.Weapon.SHOTGUN] = {
-        baseSpeed = 15,
+        baseSpeed = 50,
+        range = 150, -- units
         damage = 5,
         cooldown = 0.7,
         bulletSize = 1.5,
