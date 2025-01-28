@@ -501,18 +501,17 @@ local function fireBullet(player)
         for _, clone in ipairs(clones_folder:GetChildren()) do
             local rootPart = clone.HumanoidRootPart
             pos = spawnBullet(player, rootPart, Id.Weapon.BASIC)
-            -- NOTE: LEGACY. Clones using the same weapon as the player
-            -- if weapon_id == Id.Weapon.SHOTGUN then
-            --     pos = setShotgunBulletsToDataTable(player, rootPart, weapon_id)
-            -- else
-            --     pos = spawnBullet(player, rootPart, weapon_id)
-            -- end
+            if weapon_id == Id.Weapon.SHOTGUN then
+                pos = setShotgunBulletsToDataTable(player, rootPart, weapon_id)
+            else
+                pos = spawnBullet(player, rootPart, weapon_id)
+            end
         end
     end
 
     if player == LOCAL_PLAYER then
         -- reset ttl server-side
-        fire_server(Id.C2S.BULLET_SHOT, pos)
+        fire_server(Id.C2S.BULLET_SHOT)
         -- TODO: change sound for each type of weapon
         S.Sound[Id.Sound.FIRE_PISTOL]:Play()
     else
@@ -528,6 +527,8 @@ local function fireBullet(player)
     end
 end
 
+
+-- TODO: move the whole bullets logic to server and make the shooting automatic
 RunService.Heartbeat:Connect(function(dt)
     local players = game:GetService("Players"):GetPlayers()
     if #players < 1 then
@@ -591,22 +592,11 @@ RunService.Heartbeat:Connect(function(dt)
         local weapon_id = bulletData.weapon_id
         local speed = bulletData.speed
         local target, _dist = Misc.IsBulletCollidableToHit(bullet.Position)
-        -- if owner == LOCAL_PLAYER then
-        --     weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
-        -- else
-        --     weapon_id = PLAYER_STATE:get(owner.UserId, C.ClientRefId)
-        -- end
-        -- if not weapon_id or weapon_id == Id.Weapon._NONE then
-        --     -- handles the case of players' death in order to move bullets that have been already fired
-        --     weapon_id = Id.Weapon.BASIC
-        -- else
-        --     -- gets the value of the weapon the bullet has been fired from
-        --     weapon_id = bulletData.weapon_id
-        -- end
-        -- local speed = S.Weapon[weapon_id].baseSpeed + SharedConfig.MOVEMENT_LINEAR_VELOCITY
-        local targetCframe = CFrame.new(bullet.CFrame.Position + (bullet.CFrame.LookVector * speed * dt)) * rot
+
+        local targetCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * speed * dt)) * rot
         local targetThickness
         local targetRefId
+        local isTargetKillable
         if target and WORLD:has(target.Name) then
             targetRefId = WORLD:get(target.Name, W.RefId)
             -- local instance = WORLD:get(target.Name, W.ServerInstance)
@@ -616,23 +606,21 @@ RunService.Heartbeat:Connect(function(dt)
             end
             if Id.kind(targetRefId) == Id.Kind.Boost then
                 targetThickness = SharedConfig.BOOSTER_DEPTH
+                isTargetKillable = true
             elseif Id.kind(targetRefId) == Id.Kind.Enemy then
                 targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
+                isTargetKillable = true
             end
-            -- TODO: why bullet.Poition.Z is larger that it actually is? Visually it is already behind the target, 
-            -- but the Z is always less that that of the target??
-            print("LLLLLLLL", target.Position.Z, bullet.Position.Z, target.Position.Z + targetThickness / 2 >= bullet.Position.Z)
         end
-        if target and (target.Position.Z + targetThickness / 2 >= bullet.Position.Z) then
+        if target and isTargetKillable and (target.Position.Z + targetThickness + 1 >= bullet.Position.Z) then
             -- bullet collided with the target, delete it and signal to server
-            print("LLLLLLLLL collision")
             activeBulletsDataTable[i] = NIL_TABLE
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
             if owner == LOCAL_PLAYER then
                 if Id.kind(targetRefId) == Id.Kind.Boost then
-                    Signal.Broadcast(Id.C2S.BOOSTER_HIT, target.Name)
+                    Signal.Broadcast(Id.C2S.BOOSTER_HIT)
                 elseif Id.kind(targetRefId) == Id.Kind.Enemy then
-                    fire_server(Id.C2S.ENEMY_HIT, target.Name)
+                    fire_server(Id.C2S.ENEMY_HIT)
                 end
             end
         elseif now >= ttl then
@@ -643,55 +631,6 @@ RunService.Heartbeat:Connect(function(dt)
             table.insert(activeBullets, bullet)
             table.insert(bulletsTargets, targetCframe)
         end
-
-        -- check if the bullet collided with any of the enemies. If it did, delete the bullet and cancel all other checks
-        -- local isEnemyHitAlready = false
-        -- for guid, id, hp in WORLD:select(W.RefId, W.HP) do
-        --     if Id.kind(id) ~= Id.Kind.Enemy then
-        --         continue
-        --     end
-
-        --     if isEnemyHitAlready then
-        --         break
-        --     end
-
-        --     local enemyInstance = workspace:FindFirstChild(guid, true)
-
-        --     if not enemyInstance then
-        --         -- enemy is dead already
-        --         break
-        --     end
-        --     local pos = enemyInstance.Position
-        --     local dist = (pos - bullet.Position).Magnitude - SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
-        --     if pos and (dist <= 0) then
-        --         -- bullet collided with the enemy, delete it and signal to server
-        --         activeBulletsDataTable[i] = NIL_TABLE
-        --         bullet.Parent = INACTIVE_BULLETS_REPOSITORY
-        --         if owner == LOCAL_PLAYER then
-        --             isEnemyHitAlready = true
-        --             fire_server(Id.C2S.ENEMY_HIT, guid)
-        --         end
-        --     end
-        -- end
-
-        -- bullet has not hit the enemy, do other checks
-        -- if not isEnemyHitAlready then
-        --     if booster and booster.Position.Z >= bullet.Position.Z then
-        --         -- bullet collided with the booster, delete it and signal to server
-        --         activeBulletsDataTable[i] = NIL_TABLE
-        --         bullet.Parent = INACTIVE_BULLETS_REPOSITORY
-        --         if owner == LOCAL_PLAYER then
-        --             Signal.Broadcast(Id.C2S.BOOSTER_HIT, booster.Name)
-        --         end
-        --     elseif now >= ttl then
-        --         -- bullet timed-out, delete it
-        --         activeBulletsDataTable[i] = NIL_TABLE
-        --         bullet.Parent = INACTIVE_BULLETS_REPOSITORY
-        --     else
-        --         table.insert(activeBullets, bullet)
-        --         table.insert(bulletsTargets, targetCframe)
-        --     end
-        -- end
     end
     -- remove all NIL_TABLEs from the table
     local activeBulletsDataTableTemp = table.clone(activeBulletsDataTable)

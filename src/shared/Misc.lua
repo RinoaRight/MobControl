@@ -100,7 +100,6 @@ m.IsBulletCollidableToHit = function(pos: Vector3)
             distance = (raycastResult.Position - pos).Magnitude
         end
     end
-    print("LLLLLLLL", raycastInstance)
     return target, distance
 end
 
