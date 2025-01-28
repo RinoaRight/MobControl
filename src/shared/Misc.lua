@@ -76,7 +76,7 @@ m.FlickerPlayerHPGui = function(originalTextBox: TextLabel, mult: num, hp: num)
     playFlickerAnim(currentTextBox, mult, hp, isToDestroy)
 end
 
-m.IsBoosterToHit = function(pos: Vector3)
+m.IsBulletCollidableToHit = function(pos: Vector3)
     raycastParams.FilterDescendantsInstances = blacklist
     local rayDirection = Vector3.new(0, 0, -SharedConfig.BULLET_BASE_DISTANCE)
     local raycastResult = workspace:Raycast(pos, rayDirection, raycastParams)
@@ -94,7 +94,8 @@ m.IsBoosterToHit = function(pos: Vector3)
     local raycastInstance
     if raycastResult then
         raycastInstance = raycastResult.Instance
-        if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+        -- if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+        if raycastInstance.CollisionGroup == SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME then
             target = raycastInstance
             distance = (raycastResult.Position - pos).Magnitude
         end
