@@ -46,7 +46,7 @@ local disposer = require(script.Parent.disposer)
 m.BULLET_BASE_DISTANCE = 240 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP = 100
 m.CONTROL_DISTANCE_TO_TARGET = 1 -- == distance, in units (always positive)
-m.BULLET_RAYCAST_START_MULT = 2
+m.BULLET_START_OFFSET_MULT = 4
 m.MOVEMENT_LINEAR_VELOCITY = 30
 m.ENEMY_WAVE_DELAY = 7
 m.REGULAR_ENEMY_HITBOX_RADIUS = 2

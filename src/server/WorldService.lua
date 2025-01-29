@@ -70,7 +70,7 @@ function m.ChangeWeapon(player_state, player_id, weapon_id)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end
 
-local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId) -- player hp, weapon instance, weapon id
+local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId) -- player hp, weapon instance, weapon id, weapon cooldown
 function m.AddPlayer(state)
     local player_id = state.player_id
     if m.world:has(player_id) then

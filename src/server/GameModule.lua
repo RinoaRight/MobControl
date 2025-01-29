@@ -43,6 +43,7 @@ local Enemies = require(server.Enemies)
 local PlayerService = game:GetService("Players")
 local SharedUtil = require(shared.util)
 local rand = require(shared.rand)
+local Bullets = require(server.Bullets)
 
 local CLONES = {}
 
@@ -266,6 +267,15 @@ local function selectPlayer(playersInSession: { Player }, enemyInstance: BasePar
     return player, playerRoot, distToTarget
 end
 
+local function unsubscribeDeadInstance(instance)
+    -- unsubscribe booster
+    local boosterGuid = instance.Name :: string
+    if typeof(boosterGuid) ~= "string" and not WorldService.world:has(boosterGuid) then
+        log:error("There is no such booster uid in the world")
+    end
+    workerMaid[boosterGuid] = nil
+end
+
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     m.get_state = get_state
     -- init first batch of ground units and fill in the data table
@@ -462,6 +472,12 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         if #enemies > 0 then
             workspace:BulkMoveTo(enemies, enemyTargets, Enum.BulkMoveMode.FireCFrameChanged)
         end
+
+        -- move bullets
+        local targetDead = Bullets.HandleExistingBullets(get_state, dt)
+        if targetDead then
+            unsubscribeDeadInstance(targetDead)
+        end
     end
 end
 
@@ -484,23 +500,23 @@ m.DestroyEnemy = function(guid)
     workerMaid[guid] = nil
 end
 
-function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id)
-    if not boost_ref_id then
-        log:error("no boost_id", debug.traceback)
-    end
-    -- unsubscribe booster
-    workerMaid[booster_guid] = nil
-    -- TODO: others
-    if boost_ref_id == Id.Boost.ADD_CLONE then
-        for i = 1, value do
-            local playerId = playerState.player_id
-            local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
-        end
-    elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
-        Signal.Fire(Id.S2S.CHANGE_WEAPON, playerState.player_id, boost_content_id)
-        -- TODO:
-    end
-end
+-- function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id)
+--     if not boost_ref_id then
+--         log:error("no boost_id", debug.traceback)
+--     end
+--     -- unsubscribe booster
+--     workerMaid[booster_guid] = nil
+--     -- TODO: others
+--     if boost_ref_id == Id.Boost.ADD_CLONE then
+--         for i = 1, value do
+--             local playerId = playerState.player_id
+--             local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
+--         end
+--     elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
+--         Signal.Fire(Id.S2S.CHANGE_WEAPON, playerState.player_id, boost_content_id)
+--         -- TODO:
+--     end
+-- end
 
 function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session: int)
     -- NOTE: players_already_in_session includes this player_state.player
