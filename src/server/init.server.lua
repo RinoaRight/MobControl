@@ -262,6 +262,7 @@ end
 
 on[Id.C2S.ENEMY_HIT] = function(player_state, ...)
     -- TODO: refactor. Now we are checking humanoid rootPart. but for fan-like bullets that doesnt work.
+    -- TODO: refactor. Enemies are now client-side, they cannot be raycasted, take enemy's pos from the worldstate
     local humanoidRootPart = player_state.root :: BasePart
     local pos = humanoidRootPart.Position + humanoidRootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
     local targetToHit, _distance = Misc.IsBulletCollidableToHit(pos)

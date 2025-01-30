@@ -61,12 +61,15 @@ local ContentProvider = game:GetService("ContentProvider")
 local UserInputService = game:GetService("UserInputService")
 local Clones = require(script.Clones)
 local Booster = require(script.Boosters)
+local EnemiesClient = require(script.EnemiesClient)
 local NumFormat = require(shared.num_format)
 local TaskPool = require(shared.TaskPool)
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
 local ENV_WORLD_READY = "WORLD_READY"
+
+local ENEMIES_FOLDER = assert(workspace:WaitForChild("Enemies"))
 
 local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
 Misc.AddPlayerCharToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
@@ -527,7 +530,6 @@ local function fireBullet(player)
     end
 end
 
-
 -- TODO: move the whole bullets logic to server and make the shooting automatic
 RunService.Heartbeat:Connect(function(dt)
     local players = game:GetService("Players"):GetPlayers()
@@ -578,6 +580,33 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 
+    -- move enemies
+    local enemies = {}
+    local enemyTargets = {}
+    for enemyGuid, refId, _hp, newPos, _playerId, _bitset in WORLD:select(W.RefId, W.HP, W.Position, W.PLayerId, W.Bitset) do
+        if Id.kind(refId) == Id.Kind.Enemy then
+            -- EnemiesClient.MoveEnemyInstances(WORLD, pos)
+            local enemyInstance = ENEMIES_FOLDER:FindFirstChild(enemyGuid)
+            local currentPos: Vector3 = enemyInstance.Position
+            table.insert(enemies, enemyInstance)
+            local lookAt = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + 5)
+
+            -- enemy is already locked on target, define lookAt
+            local playerId = WORLD:get(enemyInstance.Name, W.PLayerId)
+            local player = game.Players:GetPlayerByUserId(playerId)
+            if player then
+                local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                lookAt = playerRoot.Position
+            end
+            lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
+            local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
+            table.insert(enemyTargets, newCframe)
+        end
+    end
+    if #enemies > 0 then
+        workspace:BulkMoveTo(enemies, enemyTargets, Enum.BulkMoveMode.FireCFrameChanged)
+    end
+
     -- move existing bullets
     local activeBullets = {}
     local bulletsTargets = {}
@@ -612,10 +641,13 @@ RunService.Heartbeat:Connect(function(dt)
                 isTargetKillable = true
             end
         end
+
         if target and isTargetKillable and (target.Position.Z + targetThickness + 1 >= bullet.Position.Z) then
             -- bullet collided with the target, delete it and signal to server
             activeBulletsDataTable[i] = NIL_TABLE
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+            -- TODO: refactor. Send other players' hits as well. But target.Positon for enemies should be refactored
+            -- into taking it from worldstate
             if owner == LOCAL_PLAYER then
                 if Id.kind(targetRefId) == Id.Kind.Boost then
                     Signal.Broadcast(Id.C2S.BOOSTER_HIT)
@@ -739,18 +771,18 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         Signal.Broadcast(Id.C2C.NEW_BOOSTER_ADDED, WORLD, PLAYER_STATE, guid)
     end
 
-    -- -- check if it was an enemy that has been added
-    -- if Id.kind(newValue) == Id.Kind.Enemy then
-    --     Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
-    -- end
+    -- check if it was an enemy that has been added
+    if Id.kind(newValue) == Id.Kind.Enemy then
+        Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
+    end
 end)
 
--- -- cancel collision subscription
--- WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
---     if Id.kind(oldValue) == Id.Kind.Enemy then
---         Signal.Broadcast(Id.C2C.ENEMY_REMOVED, guid)
---     end
--- end)
+-- kill enemy client instance
+WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
+    if Id.kind(oldValue) == Id.Kind.Enemy then
+        Signal.Broadcast(Id.C2C.ENEMY_REMOVED, guid)
+    end
+end)
 
 -- set newly connected players to the player state
 WORLD:set_on_attach(W.WeaponId, function(guid: guid, newValue: num)

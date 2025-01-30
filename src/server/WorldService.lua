@@ -101,10 +101,10 @@ function m.AddClone(id: id, player_id: int)
     return guid
 end
 
-local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.ServerInstance, W.PLayerId, W.Bitset)
-function m.AddEnemyToState(id: id, pos, serverInstance)
+local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PLayerId, W.Bitset)
+function m.AddEnemyToState(id: id, pos)
     local hp = S.Enemy[id].health
-    local guid = _enemy(_roflake.uida, id, hp, pos, serverInstance, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
+    local guid = _enemy(_roflake.uida, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
     return guid
 end
 

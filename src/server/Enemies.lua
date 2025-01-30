@@ -104,9 +104,9 @@ m.ENEMIES_DATA_TABLE = {
 }
 
 function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, numberOfEnemies: int, ids:{id})
-    local enemies = {}
+    local enemiesGuids = {}
     if numberOfEnemies <= 0 then
-        return enemies
+        return enemiesGuids
     end
     local groundUnitPos = groundUnit.Position
     local y = ENEMY_CELL_SIZE.Z - ENEMY_CELL_SIZE.Z / 2 + 1
@@ -159,26 +159,26 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
             enemyId = ids[ind]
         end
 
-        local enemyInstance
-        if S.Enemy[enemyId].meshTemplate then
-            enemyInstance = S.Enemy[enemyId].meshTemplate:Clone()
-        else
-            enemyInstance = Instance.new("Part")
-            enemyInstance.Size = Vector3.new(2, 6, 2)
-        end
-        enemyInstance.CanCollide = false
-        enemyInstance.Anchored = true
-        enemyInstance.CollisionGroup = "BulletCollidable"
+        -- local enemyInstance
+        -- if S.Enemy[enemyId].meshTemplate then
+        --     enemyInstance = S.Enemy[enemyId].meshTemplate:Clone()
+        -- else
+        --     enemyInstance = Instance.new("Part")
+        --     enemyInstance.Size = Vector3.new(2, 6, 2)
+        -- end
+        -- enemyInstance.CanCollide = false
+        -- enemyInstance.Anchored = true
+        -- enemyInstance.CollisionGroup = "BulletCollidable"
 
-        local enemyFolder = assert(groundUnit:FindFirstChild("Enemies"))
-        enemyInstance.Parent = enemyFolder
-        enemyInstance.CFrame = CFrame.new(enemyPos)
-        local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyPos, enemyInstance)
-        assert(typeof(enemyGuid) == "string")
-        enemyInstance.Name = enemyGuid
-        table.insert(enemies, enemyGuid)
+        -- local enemyFolder = assert(groundUnit:FindFirstChild("Enemies"))
+        -- enemyInstance.Parent = enemyFolder
+        -- enemyInstance.CFrame = CFrame.new(enemyPos)
+        local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyPos)
+        -- assert(typeof(enemyGuid) == "string")
+        -- enemyInstance.Name = enemyGuid
+        table.insert(enemiesGuids, enemyGuid)
     end
-    return enemies
+    return enemiesGuids
 end
 
 return m

@@ -98,7 +98,7 @@ World.CId = En.with_id("World.CId") {
     TTL            = iota'',   -- sec (*1)
     Bitset         = iota'',   -- flag
     -- non-replicated
-    -- ClientInstance = iota'',   -- Instance, not replicated
+    ClientInstance = iota'',   -- Instance, not replicated
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId
@@ -108,7 +108,7 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(W)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PLayerId, W.WeaponId, W.TTL)
+        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PLayerId, W.WeaponId, W.TTL, W.Bitset)
         :set_destructor(W.ServerInstance, disposer.dispose)
         :build_with_replica()
 
