@@ -70,6 +70,13 @@ function m.ChangeWeapon(player_state, player_id, weapon_id)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end
 
+local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PLayerId, W.Bitset, W.ClientInstance)
+function m.AddEnemyToState(id: id, pos, clientInstance)
+    local hp = S.Enemy[id].health
+    local guid = _enemy(_roflake.uida, id, hp, pos, clientInstance, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
+    return guid
+end
+
 local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId) -- player hp, weapon instance, weapon id
 function m.AddPlayer(state)
     local player_id = state.player_id
@@ -98,13 +105,6 @@ function m.AddClone(id: id, player_id: int)
     local guid = m.nullary_transient(_roflake.uida)
     m.world:set(guid, W.RefId, id)
     m.world:set(guid, W.PLayerId, player_id)
-    return guid
-end
-
-local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.ServerInstance, W.PLayerId, W.Bitset)
-function m.AddEnemyToState(id: id, pos, serverInstance)
-    local hp = S.Enemy[id].health
-    local guid = _enemy(_roflake.uida, id, hp, pos, serverInstance, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
     return guid
 end
 

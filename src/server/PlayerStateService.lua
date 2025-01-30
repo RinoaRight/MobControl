@@ -270,6 +270,17 @@ function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
     end
     return clonesAmount
 end
+
+-- function m.AddEnemyInstanceToState(self: PlayerState, id: id, instance)
+--     local _enemy = self.state:constructor(C.RefId, C.Instance)
+--     local hp = S.Enemy[id].health
+--     local guid = _enemy(_roflake.uida, id, instance)
+--     return guid
+-- end
+
+-- function m.DestroyEntity(self: PlayerState, uid: uid)
+--     self.state:delete(uid)
+-- end
 -----------------------------
 -- Quick test
 -----------------------------

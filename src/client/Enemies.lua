@@ -18,7 +18,6 @@ local _fmt = string.format
 
 local __DEV__ = not workspace or game:GetService("RunService"):IsStudio()
 
---[[ stylua: ignore]] if not game then(function() game = require("game") end)() end
 local shared = game.ReplicatedStorage.shared
 local server = game.ServerScriptService.server
 local Id = require(shared.Id)
@@ -35,7 +34,6 @@ local SharedConfig = require(shared.SharedConfig)
 local W = SharedConfig.World.CId
 local state = require(shared.state)
 local roflake = require(shared.roflake)
-local WorldService = require(server.WorldService)
 local S = require(shared.StaticData)
 local C = SharedConfig.PlayerState.CId
 local Misc = require(shared.Misc)
@@ -43,6 +41,10 @@ local NumFormat = require(shared.num_format)
 local SharedUtils = require(shared.util)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local workerMaid = disposer.new()
+
+local DRIVING_BOX_INSTANCE = workspace:FindFirstChild("DrivingBox")
+local DRIVING_BOX_FRONT = assert(DRIVING_BOX_INSTANCE.PartFront)
 local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_UNIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
@@ -59,6 +61,11 @@ local FIRST_HALF_Z_OFFSET = -DISTANCE_FROM_MID_TO_BOOSTER + START_ZONE_GAP
 local SECOND_HALF_Z_OFFSET = -DISTANCE_FROM_MID_TO_BOOSTER - SharedConfig.BOOSTER_DEPTH
 local NUM_OF_COLUMNS = math.floor((GROUND_UNIT_LENGTH - X_MARGIN * 2) / X_INTERVAL)
 
+-- Every odd wave spawns in the current ground unit in front of the boosters, every even - after some time, behind the boosters
+local ENEMIES_DATA_TABLE = {
+    {count = 20, ids = {Id.Enemy.BASIC}},
+    {count = 20, ids = {Id.Enemy.BASIC}},
+}
 
 -- origin is a center-top
 -- +-----O-----+ -Z   `O` is origin
@@ -95,15 +102,7 @@ local function create_grid(cell_w: int, cell_h: int, cols: int, rows: int, origi
     return grid, bitmap, rc2idx, idx2rc
 end
 
-local m = {}
-
--- Every odd wave spawns in the current ground unit in front of the boosters, every even - after some time, behind the boosters
-m.ENEMIES_DATA_TABLE = {
-    {count = 20, ids = {Id.Enemy.BASIC}},
-    {count = 20, ids = {Id.Enemy.BASIC}},
-}
-
-function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, numberOfEnemies: int, ids:{id})
+local function addEnemies(groundUnit: BasePart, isFirstHalf: bool, numberOfEnemies: int, ids:{id})
     local enemies = {}
     if numberOfEnemies <= 0 then
         return enemies
@@ -174,11 +173,51 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         enemyInstance.Parent = enemyFolder
         enemyInstance.CFrame = CFrame.new(enemyPos)
         local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyPos, enemyInstance)
+        -- TODO: signal to server to add this instance to to world state
         assert(typeof(enemyGuid) == "string")
         enemyInstance.Name = enemyGuid
         table.insert(enemies, enemyGuid)
     end
     return enemies
+end
+
+local function subscribeEnemyToTouch(playerState: state.Replica, enemyGiud: str, enemyId)
+    local enemyInstance = playerState:get(enemyGiud, C.Instance)
+    workerMaid[enemyGiud] = enemyInstance.Touched:Connect(function(triggerer)
+        if triggerer == DRIVING_BOX_FRONT then
+            local flags = playerState:get(enemyGiud, C.Bitset)
+            if flags and not Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
+                playerState:set(enemyGiud, C.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true))
+            end
+        elseif triggerer == DRIVING_BOX_INSTANCE then
+            workerMaid[enemyGiud] = nil
+            -- TODO: signal to server to kill the enemy in the world state and player state
+        end
+        -- NOTE: bullet collision are handled in the main client script
+    end)
+end
+
+local m = {}
+
+m.GenerateEnemies = function(worldState, playerState: state.Replica, groundUnit: BasePart, waveIndex: int, isFirstHalf: bool)
+    local howMany = 20
+    local ids = { Id.Enemy.BASIC }
+
+    if ENEMIES_DATA_TABLE[waveIndex] then
+        if ENEMIES_DATA_TABLE[waveIndex].count then
+            howMany = ENEMIES_DATA_TABLE[waveIndex].count
+        end
+        if ENEMIES_DATA_TABLE[waveIndex].ids then
+            ids = ENEMIES_DATA_TABLE[waveIndex].ids
+        end
+    end
+    local enemies = addEnemies(groundUnit, isFirstHalf, howMany, ids)
+    for _, enemyGuid in ipairs(enemies) do
+        assert(type(enemyGuid) == "string") -- sanity check
+        local enemyId = worldState:get(enemyGuid, W.RefId)
+        subscribeEnemyToTouch(playerState, enemyGuid, enemyId)
+        subscribeEnemyToTouch(playerState, enemyGuid, enemyId)
+    end
 end
 
 return m

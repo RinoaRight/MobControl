@@ -61,6 +61,7 @@ local ContentProvider = game:GetService("ContentProvider")
 local UserInputService = game:GetService("UserInputService")
 local Clones = require(script.Clones)
 local Booster = require(script.Boosters)
+local Enemies = require(script.Enemies)
 local NumFormat = require(shared.num_format)
 local TaskPool = require(shared.TaskPool)
 
@@ -184,6 +185,10 @@ end
 
 -- Server Broadcasts
 local on_cc = {} :: { [id]: (...any) -> () }
+
+on_cc[Id.S2CC.GENERATE_ENEMIES] = function(player_id: id, groundUnit: BasePart, waveIndex: int, isFirstHalf: bool)
+    Enemies.GenerateEnemies(PLAYER_STATE, groundUnit, waveIndex, isFirstHalf)
+end
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
     if player_id == LOCAL_PLAYER.UserId then
@@ -616,6 +621,7 @@ RunService.Heartbeat:Connect(function(dt)
             -- bullet collided with the target, delete it and signal to server
             activeBulletsDataTable[i] = NIL_TABLE
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+            -- TODO: refactor. not only from local_player's bullets but for other players as well.
             if owner == LOCAL_PLAYER then
                 if Id.kind(targetRefId) == Id.Kind.Boost then
                     Signal.Broadcast(Id.C2S.BOOSTER_HIT)

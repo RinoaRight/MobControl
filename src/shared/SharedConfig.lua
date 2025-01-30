@@ -98,7 +98,7 @@ World.CId = En.with_id("World.CId") {
     TTL            = iota'',   -- sec (*1)
     Bitset         = iota'',   -- flag
     -- non-replicated
-    -- ClientInstance = iota'',   -- Instance, not replicated
+    ClientInstance = iota'',   -- Instance, not replicated
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId
@@ -136,11 +136,12 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     TTE             = iota'', -- epoch
     -- values
     Value           = iota'', -- number
+    Position        = iota'', -- Vector3
     Total           = iota'', -- number
     Bitset          = iota'', -- flag
-    Instance        = iota'', -- Instance(client)
     WorldGui        = iota'', -- any
     -- client-only
+    Instance        = iota'', -- Instance(client)
     ClientRefId     = iota'', -- number
     ClientFlags     = iota'', -- flag
     ClientTTL       = iota'', -- sec (*1)
@@ -157,6 +158,7 @@ do
         :set_pretty_printer(Id.pp)
         :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
         :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_destructor(C.Instance, disposer.dispose)
         :build_with_replica()
 
     PlayerState.main_config = main_config

@@ -726,6 +726,7 @@ export type S2C = typeof(Id.S2C)
 -----------------------------
 Id.S2CC = enum.with_id "Id.S2CC" {
     _NONE                   = iota(Id.Kind.S2CC, 0),
+    GENERATE_ENEMIES        = iota'', -- groundUnit: BasePart, waveIndex: int, isFirstHalf: bool
     PLAYER_STARTED_SESSION  = iota'', -- player_id
     PLAYER_STOPPED_SESSION  = iota'', -- player_id
     PLAYER_CHANGED_WEAPON   = iota'', -- player_id, weapon_id
