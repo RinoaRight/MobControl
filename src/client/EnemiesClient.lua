@@ -73,32 +73,6 @@ local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: s
     enemyInstance.Name = enemyGuid
 
     workerMaid[enemyGuid] = enemyInstance
-    -- workerMaid[enemyGuid] = instance.Touched:Connect(function(triggerer)
-    --     -- sanity-check if the enemy is still alive
-    --     if not worldState:has(enemyGuid) then
-    --         onEnemyRemoved(enemyGuid)
-    --         return
-    --     end
-
-    --     -- check if the triggerer is a bullet
-    --     if triggerer.Name ~= SharedConfig.BULLET_NAME then
-    --         return
-    --     end
-
-    --     -- check if the bullet belongs to the local player
-    --     local bulletOwnerId = triggerer.Name:GetAttribute(SharedConfig.BULLET_ATTRIBUTE_NAME)
-    --     if bulletOwnerId ~= LOCAL_PLAYER.UserId then
-    --         return
-    --     end
-
-    --     -- check if there is a weapon
-    --     local weaponId = playerState:get(Id.PlayerStats.GAME_SESSION, C.RefId)
-    --     if not weaponId then
-    --         error("weaponId is nil")
-    --     end
-
-    --     Signal.Broadcast(Id.C2S.ENEMY_HIT, enemyGuid)
-    -- end)
 end
 
 local m = {}

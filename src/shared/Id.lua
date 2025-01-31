@@ -697,8 +697,8 @@ export type C2C = typeof(Id.C2C)
 Id.C2S = enum.with_id "Id.C2S" {
     _NONE                     = iota(Id.Kind.C2S, 0),
     BOOSTER_HIT               = iota'', 
-    BULLET_SHOT               = iota'', 
-    ENEMY_HIT                 = iota'', 
+    BULLET_SHOT               = iota'', -- {bullet_guids}
+    ENEMY_HIT                 = iota'', -- enemy_guid, bullet_guid
     PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
     PLAYER_READY_TO_START     = iota'',               
 }

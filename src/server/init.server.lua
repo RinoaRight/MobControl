@@ -109,7 +109,7 @@ local function onPlayerDead(player_state: PSS.PlayerState)
     end
     workerMaid.playerLoop = nil -- stop updating weapon ttl
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, Id.Weapon._NONE)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, 0)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, 0)
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Value, 0)
     local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, false))
@@ -189,14 +189,29 @@ on[Id.C2S.BOOSTER_HIT] = function(player_state, ...)
     end
 end
 
-on[Id.C2S.BULLET_SHOT] = function(player_state, ...)
+on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, ...)
     -- reset the weapon's cooldown
     local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
     if not current_weapon_id or current_weapon_id == Id.Weapon._NONE then
         return
     end
+
+    -- TODO: check the legitimacy of the shot
+    local currentTTE = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTE)
+    if currentTTE and currentTTE > 0 then
+        log:error("The shot happened faster than it had to be", C.TTE)
+        return
+    end
+
     local cooldown = S.Weapon[current_weapon_id].cooldown
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, cooldown)
+    local playerRoot = player_state.root
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, cooldown)
+    local bulletStartPos = playerRoot.Position + playerRoot.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
+    for i = 1, #bullet_guids do
+        WorldService.AddBulletToState(bullet_guids[i], current_weapon_id, bulletStartPos, player_state.player_id)
+    end
+
+    -- TODO: setall currentclones' bullets to state (all info the same as the player, but the starting_pos is different)
 
     -- check for collisions with enemies and boosters
     -- local humanoidRootPart = player_state.root :: BasePart
@@ -255,40 +270,44 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, ...)
     --             log:error("The target id is not of ENEMY or BOOST kind")
     --             return
     --         end
-        
-        -- end
+
+    -- end
     -- end
 end
 
-on[Id.C2S.ENEMY_HIT] = function(player_state, ...)
-    -- TODO: refactor. Now we are checking humanoid rootPart. but for fan-like bullets that doesnt work.
-    -- TODO: refactor. Enemies are now client-side, they cannot be raycasted, take enemy's pos from the worldstate
-    local humanoidRootPart = player_state.root :: BasePart
-    local pos = humanoidRootPart.Position + humanoidRootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
-    local targetToHit, _distance = Misc.IsBulletCollidableToHit(pos)
-    if targetToHit then
-        local enemyGuid = targetToHit.Name
-        local targetRefId = WorldService.world:get(targetToHit.Name, W.RefId)
-        if Id.kind(targetRefId) ~= Id.Kind.Enemy then
-            log:error("The target id is not of ENEMY kind")
+on[Id.C2S.ENEMY_HIT] = function(playerState, enemyGuid, bulletGuid, ...)
+    -- TODO: clones' bullets
+    if WorldService.world:has(enemyGuid) then
+        local enemyPos = WorldService.world:get(enemyGuid, W.Position)
+        local bulletStartPos = WorldService.world:get(bulletGuid, W.Position)
+        local distance = (bulletStartPos - enemyPos).Magnitude
+        local bulletWeaponId = WorldService.world:get(bulletGuid, W.WeaponId)
+        
+        -- check for the range hacks
+        local range = SharedConfig.BULLET_BASE_DISTANCE
+        if S.Weapon[bulletWeaponId].range then
+            range = S.Weapon[bulletWeaponId].range
+        end
+        if range < distance then
+            log:error("Weapon's range is smaller than the distance of the bullet")
             return
         end
-        if WorldService.world:has(enemyGuid) then
-            local weaponId = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
-            local dmg = 0
-            if S.Weapon[weaponId] and S.Weapon[weaponId].damage then
-                dmg = S.Weapon[weaponId].damage
-            end
-            local enemyHP = WorldService.world:get(enemyGuid, W.HP)
 
-            local newHP = enemyHP - dmg
-
-            if enemyHP - dmg <= 0 then
-                GameModule.DestroyEnemy(enemyGuid)
-            else
-                WorldService.world:set(enemyGuid, W.HP, newHP)
-            end
+        local enemyHP = WorldService.world:get(enemyGuid, W.HP)
+        local dmg = 0
+        if S.Weapon[bulletWeaponId] and S.Weapon[bulletWeaponId].damage then
+            dmg = S.Weapon[bulletWeaponId].damage
         end
+        local newHP = enemyHP - dmg
+
+        if enemyHP - dmg <= 0 then
+            GameModule.DestroyEnemy(enemyGuid)
+        else
+            WorldService.world:set(enemyGuid, W.HP, newHP)
+        end
+
+        -- delete bullet entity
+        WorldService.RemoveEntity(bulletGuid)
     end
 end
 
@@ -404,7 +423,7 @@ end
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
-        local _game_session_params = player_state.state:constructor(C.RefId, C.TTL, C.Value, C.Bitset) -- weapon_id, weapon_ttl, hp, is_active
+        local _game_session_params = player_state.state:constructor(C.RefId, C.TTE, C.Value, C.Bitset) -- weapon_id, weapon_tte, hp, is_active
         _game_session_params(Id.PlayerStats.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
     end
 end

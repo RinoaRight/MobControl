@@ -444,6 +444,13 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 end
             end
         end
+
+        -- delete bullet entity when ttl is up 
+        for bulletGuid, startPos, ownerId, ttl in worldState:select(W.Position, W.PLayerId, W.WeaponId, W.TTL) do
+            if roflake.time() > ttl then
+                -- WorldService.RemoveEntity(bulletGuid)
+            end
+        end
     end
 end
 
@@ -452,9 +459,9 @@ function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
         -- weapon cooldown
         local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
         if Id.flag_test(flags, Id.PlayerF.READY) then
-            local shot_ttl = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
-            shot_ttl -= dt
-            player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, math.max(shot_ttl, 0))
+            local shot_tte = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTE) :: num
+            shot_tte -= dt
+            player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, math.max(shot_tte, 0))
         end
     end
 end

@@ -55,7 +55,7 @@ m.CLONES_IN_A_ROW = 5
 m.INTERCLONES_DISTANCE = 5
 m.CLONES_FOLDER_NAME = "Clones"
 m.PLAYER_HITBOX_NAME = "Hitbox"
-m.BULLET_NAME = "Bullet"
+-- m.BULLET_NAME = "Bullet"
 m.PLAYER_ALIGN_CONSTR_NAME = "PlayerAlignConstraint"
 m.CLONE_ATTACHMENT_NAME = "CloneGuideAtt"
 m.RUN_ANIMATION_NAME = "RunAnim"
@@ -143,7 +143,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     -- client-only
     ClientRefId     = iota'', -- number
     ClientFlags     = iota'', -- flag
-    ClientTTL       = iota'', -- sec (*1)
+    ClientTTE       = iota'', -- sec (*1)
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).
 --     NOTE: W.TTL is a wall time

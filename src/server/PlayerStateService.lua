@@ -247,11 +247,11 @@ end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
     self.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, weapon_id)
-    local ttl = 0
+    local tte = 0
     if weapon_id ~= Id.Weapon._NONE then
-        ttl = S.Weapon[weapon_id].cooldown
+        tte = S.Weapon[weapon_id].cooldown
     end
-    self.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, ttl)
+    self.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, tte)
 end
 
 function PlayerState.DeductHp(self: PlayerState, howMuch: num)

@@ -104,8 +104,15 @@ end
 local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PLayerId, W.Bitset)
 function m.AddEnemyToState(id: id, pos)
     local hp = S.Enemy[id].health
-    local guid = _enemy(_roflake.uida, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
+    local guid = _roflake.uida
+    _enemy(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
     return guid
+end
+
+local _bullet = m.world:constructor(W.Position, W.PLayerId, W.WeaponId, W.TTL) -- starting pos, owner's id, weapon_id
+function m.AddBulletToState(guid, weaponId, startingPos, playerId)
+    local ttl = _roflake.time() + S.Weapon[weaponId].cooldown
+    _bullet(guid, startingPos, playerId, weaponId, ttl)
 end
 
 local _gameSession = m.world:constructor(W.Value) -- enemy wave count
