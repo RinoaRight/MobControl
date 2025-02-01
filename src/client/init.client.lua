@@ -561,7 +561,6 @@ local function fireBullet(player)
     local tte
     if weapon_id and weapon_id ~= Id.Weapon._NONE then
         tte = S.Weapon[weapon_id].cooldown
-        print("LLLLLLLLLL", Id.name(weapon_id), tte)
     end
     PLAYER_STATE:set(player.UserId, C.ClientTTE, tte)
 end
@@ -720,7 +719,6 @@ RunService.Heartbeat:Connect(function(dt)
             end
             local shot_tte = PLAYER_STATE:get(LOCAL_PLAYER.UserId, C.ClientTTE) :: num
             if shot_tte then
-                print("LLLLLLLLL heartbit, local player tte = ", shot_tte)
                 shot_tte -= dt
                 if shot_tte <= 0 then
                     if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
@@ -802,53 +800,40 @@ WORLD:set_on_attach(W.PLayerId, function(guid: guid, newplayerId: num)
     end
 end)
 
--- TODO: refactor every on attach-on detach into a corresponding event! Currently the logic is wrong.
--- (enemy death doesn't find a corresponding intance; every change of weapon is considered to be 
--- "player left the server, delete his entity from player state")
-
 -- subscribe boosters to collisions
 local _booster = PLAYER_STATE:constructor(C.ClientFlags)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     log:debug("~~~>", guid)
     -- check if it was a booster that has been added
-    if Id.kind(newValue) == Id.Kind.Boost then
+    if Id.kind(newValue) == Id.Kind.Boost and WORLD:get(guid, W.BoostContentId) then
         _booster(guid, false)
         Signal.Broadcast(Id.C2C.NEW_BOOSTER_ADDED, WORLD, PLAYER_STATE, guid)
     end
 
     -- check if it was an enemy that has been added
-    if Id.kind(newValue) == Id.Kind.Enemy then
+    if Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PLayerId) and WORLD:get(guid, W.Bitset) then
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
-    end
-end)
-
--- kill enemy client instance
-WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
-    if Id.kind(oldValue) == Id.Kind.Enemy then
-        Signal.Broadcast(Id.C2C.ENEMY_REMOVED, guid)
     end
 end)
 
 -- set newly connected players to the player state
 WORLD:set_on_attach(W.WeaponId, function(guid: guid, newValue: num)
     log:debug("~~~>", guid)
-    if type(guid) == "number" and Id.kind(newValue) == Id.Kind.Weapon then
+    -- check if it is the player entity that has been added
+    if type(guid) == "number" and WORLD:get(guid, W.HP) and WORLD:get(guid, W.WeaponId) and not WORLD:get(guid, W.BoostContentId) then
         -- new player connected to the server
-        print("LLLLLLLLL on attach of weapon", guid)
         setPlayerToClientState(guid, newValue)
     end
 end)
 
-WORLD:set_on_detach(W.WeaponId, function(guid: guid, oldValue: num)
-    print("LLLLLLLLL on detach of weapon", guid)
-    if Id.kind(oldValue) == Id.Kind.Weapon then
-        -- player has left the server, delete them from playerState
-        if PLAYER_STATE:has(guid) then
-            PLAYER_STATE:delete(guid)
-        else
-            log:error("failed to delete player entity from player state")
-            return
-        end
+local _ = Players.PlayerRemoving:Connect(function(player)
+    -- player has left the server, delete them from playerState
+    local guid = player.UserId
+    if PLAYER_STATE:has(guid) then
+        PLAYER_STATE:delete(guid)
+    else
+        log:error("failed to delete player entity from player state")
+        return
     end
 end)
 

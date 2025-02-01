@@ -59,15 +59,15 @@ function m.ChangeWeapon(player_state, player_id, weapon_id)
     if weapon_id == Id.Weapon._NONE then
         m.world:set(player_id, W.WeaponId, Id.Weapon._NONE)
         m.world:set(player_id, W.ServerInstance, nil)
-    else
+    elseif m.world:get(player_id, W.WeaponId) ~= weapon_id then
         -- spawn instance and parent it to the player
         local char = player_state.character
         local weapon_instance = Misc.EquipWeaponModel(char, weapon_id)
 
         m.world:set(player_id, W.WeaponId, weapon_id)
         m.world:set(player_id, W.ServerInstance, weapon_instance)
+        Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
     end
-    Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end
 
 local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId) -- player hp, weapon instance, weapon id
@@ -111,7 +111,12 @@ end
 
 local _bullet = m.world:constructor(W.Position, W.PLayerId, W.WeaponId, W.TTL) -- starting pos, owner's id, weapon_id
 function m.AddBulletToState(guid, weaponId, startingPos, playerId)
-    local ttl = _roflake.time() + S.Weapon[weaponId].cooldown
+    local range = SharedConfig.BULLET_BASE_DISTANCE
+    if S.Weapon[weaponId].range then
+        range = S.Weapon[weaponId].range
+    end
+    local speed = assert(S.Weapon[weaponId].baseSpeed)
+    local ttl = _roflake.time() + range / speed
     _bullet(guid, startingPos, playerId, weaponId, ttl)
 end
 

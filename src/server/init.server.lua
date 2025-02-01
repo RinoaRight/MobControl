@@ -198,97 +198,43 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, ...)
 
     -- TODO: check the legitimacy of the shot
     local currentTTE = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTE)
-    if currentTTE and currentTTE > 0 then
-        log:error("The shot happened faster than it had to be", C.TTE)
-        return
+    local tolerance = 0.1
+    -- TODO: FIXIT (Error during disposing of number attemot to call a nil value)
+    local playerIdString = tostring(player_state.player_id)
+    if workerMaid[playerIdString] == current_weapon_id then
+        if currentTTE and currentTTE > tolerance then
+            log:error("The shot happened faster than it had to be", currentTTE)
+            return
+        end
     end
 
     local cooldown = S.Weapon[current_weapon_id].cooldown
     local playerRoot = player_state.root
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, cooldown)
+
     local bulletStartPos = playerRoot.Position + playerRoot.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
+
     for i = 1, #bullet_guids do
         WorldService.AddBulletToState(bullet_guids[i], current_weapon_id, bulletStartPos, player_state.player_id)
     end
-
-    -- TODO: setall currentclones' bullets to state (all info the same as the player, but the starting_pos is different)
-
-    -- check for collisions with enemies and boosters
-    -- local humanoidRootPart = player_state.root :: BasePart
-    -- local pos = humanoidRootPart.Position + humanoidRootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
-    -- local targetToHit, _distance = Misc.IsBulletCollidableToHit(pos)
-    -- if targetToHit then
-    --     local targetName = targetToHit.Name
-    --     local isTargetKillable
-    --     local targetThickness
-
-    --     if WorldService.world:has(targetName) then
-    --         local targetRefId = WorldService.world:get(targetToHit.Name, W.RefId)
-    --         -- the hit is legit
-    --         if Id.kind(targetRefId) == Id.Kind.Boost then
-    --             isTargetKillable = true
-    --             targetThickness = SharedConfig.BOOSTER_DEPTH
-
-    --             local dmg = S.Weapon[current_weapon_id].damage
-    --             local booster_hp = WorldService.world:get(targetToHit.Name, W.HP)
-    --             local new_hp = booster_hp - dmg
-    --             local boosterGui = targetToHit:FindFirstChildWhichIsA("SurfaceGui")
-    --             boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
-    --             if new_hp <= 0 then
-    --                 -- give boost to the player who killed the booster
-    --                 local boostRefId = WorldService.world:get(targetToHit.Name, W.RefId)
-    --                 local boostContentId = WorldService.world:get(targetToHit.Name, W.BoostContentId)
-    --                 local value = WorldService.world:get(targetToHit.Name, W.Value)
-    --                 WorldService.world:delete(targetToHit.Name)
-    --                 if player_state.state:has(targetToHit.Name) then
-    --                     player_state.state:delete(targetToHit.Name)
-    --                 end
-
-    --                 GameModule.HandleBoosterDeath(player_state, targetToHit.Name, boostRefId, value, boostContentId)
-    --             else
-    --                 WorldService.world:set(targetToHit.Name, W.HP, booster_hp - dmg)
-    --             end
-    --         elseif Id.kind(targetRefId) == Id.Kind.Enemy then
-    --             isTargetKillable = true
-    --             targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
-
-    --             local weaponId = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
-    --             local dmg = 0
-    --             if S.Weapon[weaponId] and S.Weapon[weaponId].damage then
-    --                 dmg = S.Weapon[weaponId].damage
-    --             end
-    --             local enemyHP = WorldService.world:get(targetName, W.HP)
-
-    --             local newHP = enemyHP - dmg
-
-    --             if enemyHP - dmg <= 0 then
-    --                 GameModule.DestroyEnemy(targetName)
-    --             else
-    --                 WorldService.world:set(targetName, W.HP, newHP)
-    --             end
-    --         else
-    --             log:error("The target id is not of ENEMY or BOOST kind")
-    --             return
-    --         end
-
-    -- end
-    -- end
+    workerMaid[playerIdString] = current_weapon_id
 end
 
 on[Id.C2S.ENEMY_HIT] = function(playerState, enemyGuid, bulletGuid, ...)
     -- TODO: clones' bullets
-    if WorldService.world:has(enemyGuid) then
+    if WorldService.world:has(enemyGuid) and WorldService.world:has(bulletGuid) then
         local enemyPos = WorldService.world:get(enemyGuid, W.Position)
         local bulletStartPos = WorldService.world:get(bulletGuid, W.Position)
         local distance = (bulletStartPos - enemyPos).Magnitude
         local bulletWeaponId = WorldService.world:get(bulletGuid, W.WeaponId)
-        
+
         -- check for the range hacks
         local range = SharedConfig.BULLET_BASE_DISTANCE
         if S.Weapon[bulletWeaponId].range then
             range = S.Weapon[bulletWeaponId].range
         end
-        if range < distance then
+        local tolerance = 20
+        if range + tolerance < distance then
             log:error("Weapon's range is smaller than the distance of the bullet")
             return
         end

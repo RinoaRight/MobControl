@@ -87,7 +87,7 @@ m.World = World
 -----------------------------
 -- stylua: ignore
 World.CId = En.with_id("World.CId") {
-    RefId          = iota(1),  -- id
+    RefId          = iota(1),  -- id (of self)
     Value          = iota'',   -- number
     HP             = iota'',   -- number
     BoostContentId = iota'',   -- id
@@ -95,7 +95,7 @@ World.CId = En.with_id("World.CId") {
     ServerInstance = iota'',   -- Instance
     PLayerId       = iota'',   -- number
     WeaponId       = iota'',   -- id
-    TTL            = iota'',   -- sec (*1)
+    TTL            = iota'',   -- epoch
     Bitset         = iota'',   -- flag
     -- non-replicated
     ClientInstance = iota'',   -- Instance, not replicated
@@ -113,7 +113,9 @@ do
         :build_with_replica()
 
     World.main_config = main_config
-    World.replica_config = repl:build()
+    World.replica_config = repl
+        :set_destructor(W.ClientInstance, disposer.dispose)
+        :build()
     print("---- World ----")
     warn("W", state.Util.format_config(World.main_config))
     warn("W", state.Util.format_config(World.replica_config))
@@ -132,8 +134,8 @@ m.PlayerState = PlayerState
 PlayerState.CId = En.with_id("PlayerState.Cid") {
     RefId           = iota(0, 1, 31),
     -- timers
-    TTL             = iota'', -- sec (*1)
-    TTE             = iota'', -- epoch
+    TTL             = iota'', -- epoch
+    TTE             = iota'', -- sec (*1)
     -- values
     Value           = iota'', -- number
     Total           = iota'', -- number

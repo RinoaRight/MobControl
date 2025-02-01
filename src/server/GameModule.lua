@@ -446,9 +446,9 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         -- delete bullet entity when ttl is up 
-        for bulletGuid, startPos, ownerId, ttl in worldState:select(W.Position, W.PLayerId, W.WeaponId, W.TTL) do
+        for bulletGuid, startPos, ownerId, wepaonId, ttl in worldState:select(W.Position, W.PLayerId, W.WeaponId, W.TTL) do
             if roflake.time() > ttl then
-                -- WorldService.RemoveEntity(bulletGuid)
+                WorldService.RemoveEntity(bulletGuid)
             end
         end
     end
