@@ -250,7 +250,7 @@ function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
     local tte = 0
     if weapon_id ~= Id.Weapon._NONE then
         tte = S.Weapon[weapon_id].cooldown
-    elseif self.state:get(Id.PlayerStats.GAME_SESSION, C.RefId) ~= weapon_id then
+    elseif not self.state:get(Id.PlayerStats.GAME_SESSION, C.TTE) then
         self.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, tte)
     end
 end

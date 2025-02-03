@@ -150,82 +150,57 @@ on[Id.C2S._NONE] = function(player_state, ...)
     log:debug(Id.C2S._NONE, player_state.player_id, ...)
 end
 
-on[Id.C2S.BOOSTER_HIT] = function(player_state, ...)
-    -- check if a booster is about to be hit
-    local humanoidRootPart = player_state.root :: BasePart
-    if humanoidRootPart then
-        -- TODO: refactor. Now we are checking humanoid rootPart. but for fan-like bullets that doesnt work.
-        local pos = humanoidRootPart.Position + humanoidRootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
-        local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId) or Id.Weapon.BASIC
-        local targetToHit, _distance = Misc.IsBulletCollidableToHit(pos)
-        -- if targetToHit and targetToHit.Name == booster_guid and WorldService.world:has(booster_guid) then
-        if targetToHit and WorldService.world:has(targetToHit.Name) then
-            local targetRefId = WorldService.world:get(targetToHit.Name, W.RefId)
-            if Id.kind(targetRefId) ~= Id.Kind.Boost then
-                log:error("No booster has been hit by this bullet")
-                return
-            end
-            -- the hit is legit
-            local dmg = S.Weapon[current_weapon_id].damage
-            local booster_hp = WorldService.world:get(targetToHit.Name, W.HP)
-            local new_hp = booster_hp - dmg
-            local boosterGui = targetToHit:FindFirstChildWhichIsA("SurfaceGui")
-            boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
-            if new_hp <= 0 then
-                -- give boost to the player who killed the booster
-                local boostRefId = WorldService.world:get(targetToHit.Name, W.RefId)
-                local boostContentId = WorldService.world:get(targetToHit.Name, W.BoostContentId)
-                local value = WorldService.world:get(targetToHit.Name, W.Value)
-                WorldService.world:delete(targetToHit.Name)
-                if player_state.state:has(targetToHit.Name) then
-                    player_state.state:delete(targetToHit.Name)
-                end
-
-                GameModule.HandleBoosterDeath(player_state, targetToHit.Name, boostRefId, value, boostContentId)
-            else
-                WorldService.world:set(targetToHit.Name, W.HP, booster_hp - dmg)
-            end
-        end
-    end
-end
-
+local preiousWeaponsInfo = {}
 on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, ...)
-    -- reset the weapon's cooldown
     local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
     if not current_weapon_id or current_weapon_id == Id.Weapon._NONE then
         return
     end
 
-    -- TODO: check the legitimacy of the shot
+    -- check the legitimacy of the shot
     local currentTTE = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTE)
     local tolerance = 0.1
-    -- TODO: FIXIT (Error during disposing of number attemot to call a nil value)
-    local playerIdString = tostring(player_state.player_id)
-    if workerMaid[playerIdString] == current_weapon_id then
+    local playerId = tostring(player_state.player_id)
+    if preiousWeaponsInfo[playerId] and preiousWeaponsInfo[playerId] == current_weapon_id then
         if currentTTE and currentTTE > tolerance then
-            log:error("The shot happened faster than it had to be", currentTTE)
+            log:error("The shot happened faster than the weapon's cooldown lets it", currentTTE)
             return
         end
     end
 
+    -- reset  weapon's cooldown
     local cooldown = S.Weapon[current_weapon_id].cooldown
-    local playerRoot = player_state.root
     player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, cooldown)
 
+    local playerRoot = player_state.root
     local bulletStartPos = playerRoot.Position + playerRoot.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
 
     for i = 1, #bullet_guids do
         WorldService.AddBulletToState(bullet_guids[i], current_weapon_id, bulletStartPos, player_state.player_id)
     end
-    workerMaid[playerIdString] = current_weapon_id
+
+    preiousWeaponsInfo[playerId] = current_weapon_id
 end
 
-on[Id.C2S.ENEMY_HIT] = function(playerState, enemyGuid, bulletGuid, ...)
-    -- TODO: clones' bullets
-    if WorldService.world:has(enemyGuid) and WorldService.world:has(bulletGuid) then
-        local enemyPos = WorldService.world:get(enemyGuid, W.Position)
+on[Id.C2S.TARGET_HIT] = function(playerState, targetGuid, bulletGuid, ...)
+    if WorldService.world:has(targetGuid) and WorldService.world:has(bulletGuid) then
+        local targetRefId = WorldService.world:get(targetGuid, W.RefId)
+        local targetPos
+        local serverInstance
+
+        if Id.kind(targetRefId) == Id.Kind.Enemy then
+            targetPos = WorldService.world:get(targetGuid, W.Position)
+        elseif Id.kind(targetRefId) == Id.Kind.Boost then
+            serverInstance = WorldService.world:get(targetGuid, W.ServerInstance)
+            targetPos = serverInstance.Position
+        end
+
+        if not targetPos then
+            return
+        end
+
         local bulletStartPos = WorldService.world:get(bulletGuid, W.Position)
-        local distance = (bulletStartPos - enemyPos).Magnitude
+        local distance = (bulletStartPos - targetPos).Magnitude
         local bulletWeaponId = WorldService.world:get(bulletGuid, W.WeaponId)
 
         -- check for the range hacks
@@ -239,17 +214,42 @@ on[Id.C2S.ENEMY_HIT] = function(playerState, enemyGuid, bulletGuid, ...)
             return
         end
 
-        local enemyHP = WorldService.world:get(enemyGuid, W.HP)
-        local dmg = 0
-        if S.Weapon[bulletWeaponId] and S.Weapon[bulletWeaponId].damage then
-            dmg = S.Weapon[bulletWeaponId].damage
-        end
-        local newHP = enemyHP - dmg
+        if Id.kind(targetRefId) == Id.Kind.Enemy then
+            local enemyHP = WorldService.world:get(targetGuid, W.HP)
+            local dmg = 0
+            if S.Weapon[bulletWeaponId] and S.Weapon[bulletWeaponId].damage then
+                dmg = S.Weapon[bulletWeaponId].damage
+            end
+            local newHP = enemyHP - dmg
 
-        if enemyHP - dmg <= 0 then
-            GameModule.DestroyEnemy(enemyGuid)
+            if enemyHP - dmg <= 0 then
+                GameModule.DestroyEnemy(targetGuid)
+            else
+                WorldService.world:set(targetGuid, W.HP, newHP)
+            end
+        elseif Id.kind(targetRefId) == Id.Kind.Boost then
+            local dmg = S.Weapon[bulletWeaponId].damage
+            local booster_hp = WorldService.world:get(targetGuid, W.HP)
+            local new_hp = booster_hp - dmg
+            local boosterGui = serverInstance:FindFirstChildWhichIsA("SurfaceGui")
+            if boosterGui then
+                boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
+            end
+            if new_hp <= 0 then
+                -- give boost to the player who killed the booster
+                local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
+                local value = WorldService.world:get(targetGuid, W.Value)
+                WorldService.world:delete(targetGuid)
+                if playerState.state:has(targetGuid) then
+                    playerState.state:delete(targetGuid)
+                end
+
+                GameModule.HandleBoosterDeath(playerState, targetGuid, targetRefId, value, boostContentId)
+            else
+                WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
+            end
         else
-            WorldService.world:set(enemyGuid, W.HP, newHP)
+            return
         end
 
         -- delete bullet entity

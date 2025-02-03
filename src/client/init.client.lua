@@ -288,7 +288,7 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
         end
     end
 
-    -- SFX and initial bullet TTL
+    -- SFX and initial bullet TTE
     if player_id == LOCAL_PLAYER.UserId then
         if weapon_id ~= Id.Weapon._NONE then
             S.Sound[Id.Sound.RELOAD]:Play()
@@ -303,7 +303,9 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
             return
         end
         PLAYER_STATE:set(player_id, C.ClientRefId, weapon_id)
-        PLAYER_STATE:set(player_id, C.ClientTTE, tte)
+        if not PLAYER_STATE:get(player_id, C.ClientTTE) then
+            PLAYER_STATE:set(player_id, C.ClientTTE, tte)
+        end
     end
 end
 
@@ -565,7 +567,6 @@ local function fireBullet(player)
     PLAYER_STATE:set(player.UserId, C.ClientTTE, tte)
 end
 
--- TODO: move the whole bullets logic to server and make the shooting automatic
 RunService.Heartbeat:Connect(function(dt)
     local players = game:GetService("Players"):GetPlayers()
     if #players < 1 then
@@ -683,10 +684,8 @@ RunService.Heartbeat:Connect(function(dt)
             activeBulletsDataTable[i] = NIL_TABLE
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
             if owner == LOCAL_PLAYER then
-                if Id.kind(targetRefId) == Id.Kind.Boost then
-                    fire_server(Id.C2S.BOOSTER_HIT)
-                elseif Id.kind(targetRefId) == Id.Kind.Enemy then
-                    fire_server(Id.C2S.ENEMY_HIT, target.Name, bullet.Name)
+                if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy then
+                    fire_server(Id.C2S.TARGET_HIT, target.Name, bullet.Name)
                 end
             end
         elseif now >= ttl then
@@ -831,9 +830,6 @@ local _ = Players.PlayerRemoving:Connect(function(player)
     local guid = player.UserId
     if PLAYER_STATE:has(guid) then
         PLAYER_STATE:delete(guid)
-    else
-        log:error("failed to delete player entity from player state")
-        return
     end
 end)
 
