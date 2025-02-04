@@ -68,16 +68,6 @@ end
 
 local m = {}
 
--- m.OnEnemyRemoved = function(enemyGuid: string)
---     workerMaid[enemyGuid] = nil
---     -- local instance = ENEMIES_FOLDER:FindFirstChild(enemyGuid)
---     -- if instance then
---     --     instance:Destroy()
---     -- else
---     --     log:error("No instance found for this enemy uid")
---     -- end
--- end
-
 workerMaid.subToAdd = Signal.Connect(Id.C2C.NEW_ENEMY_ADDED, onEnemyAdded)
 
 return m

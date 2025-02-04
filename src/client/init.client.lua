@@ -804,7 +804,7 @@ local _booster = PLAYER_STATE:constructor(C.ClientFlags)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     log:debug("~~~>", guid)
     -- check if it was a booster that has been added
-    if Id.kind(newValue) == Id.Kind.Boost and WORLD:get(guid, W.BoostContentId) then
+    if Id.kind(newValue) == Id.Kind.Boost then
         _booster(guid, false)
         Signal.Broadcast(Id.C2C.NEW_BOOSTER_ADDED, WORLD, PLAYER_STATE, guid)
     end

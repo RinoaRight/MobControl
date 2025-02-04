@@ -125,7 +125,6 @@ end
 local function create_state(player_state: PlayerState)
     log:debug("~~ Making initial state for player:", player_state.player_id)
     update_ids(player_state.state)
-    -- TODO: give some goodies to player
 end
 
 local function fill_state(player_state: PlayerState)

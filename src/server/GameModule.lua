@@ -313,6 +313,9 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             local enemyId = worldState:get(enemyGuid, W.RefId)
             local speed = log:assert(S.Enemy[enemyId].speed, "S.Enemy has no speed for: '%*'", enemyId)
             local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + dt * speed)
+            local distToTarget
+            local playerId
+            local playerState
 
             if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
                 local players = game.Players:GetPlayers()
@@ -323,27 +326,27 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         table.insert(playersInSession, player)
                     else
                         -- player is not in session, remove this enemy's lock on him if any
-                        local playerId = player.UserId :: int
+                        playerId = player.UserId :: int
                         if worldState:get(enemyGuid, W.PLayerId) == playerId then
                             worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
                         end
                     end
                 end
                 if #playersInSession > 0 then
-                    local player, playerRoot, distToTarget
+                    local player, playerRoot
                     if (not worldState:get(enemyGuid, W.PLayerId)) or worldState:get(enemyGuid, W.PLayerId) == SharedConfig.DEFAULT_PLAYER_ID then
                         -- select a player that is close enough to the enemy
                         player, playerRoot, distToTarget = selectPlayer(playersInSession, currentPos)
                         if player then
                             -- a player that is close enough is selected, set lock to target
-                            local playerId = player.UserId :: int
+                            playerId = player.UserId :: int
                             worldState:set(enemyGuid, W.PLayerId, playerId)
                         end
                     else
                         -- enemy is already locked on target, assign player, playerRoot and distTotarget
-                        local playerId = worldState:get(enemyGuid, W.PLayerId)
+                        playerId = worldState:get(enemyGuid, W.PLayerId)
                         player = game.Players:GetPlayerByUserId(playerId)
-                        local playerState = get_state(worldState:get(enemyGuid, W.PLayerId))
+                        playerState = get_state(worldState:get(enemyGuid, W.PLayerId))
                         if playerState then
                             playerRoot = playerState.root :: BasePart
                             if not playerRoot then
@@ -360,35 +363,30 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                     if player and playerRoot and distToTarget then
                         local time_to_target = distToTarget / speed
-                        local playerId = player.UserId :: int
-                        local playerState = get_state(playerId)
+                        playerId = player.UserId :: int
+                        playerState = get_state(playerId)
 
-                        if currentPos.Z - 5 > playerRoot.Position.Z then
-                            -- enemy got behind the player, cancel seeking
+                        if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
                             worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                        elseif distToTarget < 10 then
-                            -- enemy is close to player, harm them, then die
-                            local enemyDamage = S.Enemy[enemyId].damage
-                            if playerState then
-                                local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
-                                local newHP = playerHP - enemyDamage
-                                if newHP <= 0 then
-                                    Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
-                                else
-                                    playerState:DeductHp(enemyDamage)
-                                    playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
-                                end
-                                -- TODO: effects
-                                m.DestroyEnemy(enemyGuid)
-                            end
+                            worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                        -- elseif distToTarget < 20 then
+                        elseif currentPos.Z > playerRoot.Position.Z - 20 then
+                            -- enemy is pretty close to player, cancel seeking
+                            worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
+                            worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                            -- local playerPos = playerRoot.Position
+                            -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                            -- newPos = currentPos:Lerp(target, dt * speed / distToTarget)
                         else
                             ---[[ old code
                             -- predict player's position, binomial distribution add some randomness
                             local playerPos = playerRoot.Position
-                            local target = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z)
-                                + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                            -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                            newPos = currentPos:Lerp(target, dt * speed / distToTarget) -- Move towards the predicted position slightly ahead of the player
+                            local targetPos = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z - 20)
+                            -- local target = targetPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                            local dist = (currentPos - targetPos).Magnitude
+                            local t = dist / speed
+                            local target = targetPos + (rand.binomial() * t) * playerRoot.AssemblyLinearVelocity
+                            newPos = currentPos:Lerp(target, dt * speed / dist) -- Move towards the predicted position slightly ahead of the player
                             --]]
 
                             --[[ My crap
@@ -433,8 +431,28 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     end
                 end
             end
+
+            if distToTarget and playerState then
+                -- enemy is critically close to player, harm them, then die
+                if distToTarget < 5 then
+                    local enemyDamage = S.Enemy[enemyId].damage
+                    local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+                    local newHP = playerHP - enemyDamage
+                    if newHP <= 0 then
+                        Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
+                    else
+                        playerState:DeductHp(enemyDamage)
+                        playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
+                    end
+                    -- TODO: effects
+                    m.DestroyEnemy(enemyGuid)
+                end
+            end
+
             if worldState:has(enemyGuid) then
+                -- update enemy's position
                 worldState:set(enemyGuid, W.Position, newPos)
+
                 if DRIVING_BOX_INSTANCE.Position.Z <= currentPos.Z then
                     -- destroy enemy if it collided with the driving box's rear
                     m.DestroyEnemy(enemyGuid)
@@ -445,7 +463,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             end
         end
 
-        -- delete bullet entity when ttl is up 
+        -- delete bullet entity when ttl is up
         for bulletGuid, startPos, ownerId, wepaonId, ttl in worldState:select(W.Position, W.PLayerId, W.WeaponId, W.TTL) do
             if roflake.time() > ttl then
                 WorldService.RemoveEntity(bulletGuid)
