@@ -143,7 +143,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     Instance        = iota'', -- Instance(client)
     WorldGui        = iota'', -- any
     -- client-only
-    ClientRefId     = iota'', -- number
+    ClientWeaponId  = iota'', -- number
     ClientFlags     = iota'', -- flag
     ClientTTE       = iota'', -- sec (*1)
 }

@@ -45,7 +45,7 @@ local function playFlickerAnim(textBox, mult, hp, isToDestroy)
         local tweenIn =
             TweenService:Create(textBox, TweenInfo.new(0.1), { Size = UDim2.fromScale(originalSize.X.Scale * mult, originalSize.Y.Scale * mult) })
         local tweenOut = TweenService:Create(textBox, TweenInfo.new(0.1), { Size = originalSize })
-        local formattedHp = NumFormat.format_number(hp)
+        local formattedHp = NumFormat.format_number(hp, nil, nil, true)
 
         textBox.Text = formattedHp
         tweenIn:Play()

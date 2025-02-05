@@ -107,7 +107,7 @@ local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 local playRunAnimTrack
 local startRunAnim
 
-local _player = PLAYER_STATE:constructor(C.ClientRefId, C.ClientTTE)
+local _player = PLAYER_STATE:constructor(C.ClientWeaponId, C.ClientTTE)
 local function setPlayerToClientState(player_id, weapon_id)
     -- if PLAYER_STATE:has(player_id) or player_id == LOCAL_PLAYER.UserId then
     local tte = 0
@@ -115,7 +115,8 @@ local function setPlayerToClientState(player_id, weapon_id)
         tte = S.Weapon[weapon_id].cooldown
     end
     if PLAYER_STATE:has(player_id) then
-        PLAYER_STATE:set(player_id, weapon_id, tte)
+        PLAYER_STATE:set(player_id, C.ClientWeaponId, weapon_id)
+        PLAYER_STATE:set(player_id, C.ClientTTE, tte)
     else
         _player(player_id, weapon_id, tte)
     end
@@ -166,8 +167,8 @@ on[Id.S2C.UPDATE_WORLD] = function(state: state.Replica, update_log)
     WORLD:update(update_log)
 end
 
-on[Id.S2C.PLAYER_DAMAGED] = function(state: state.Replica, new_hp: int)
-    Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, new_hp)
+on[Id.S2C.PLAYER_DAMAGED] = function(state: state.Replica, deducted_hp: int)
+    Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, deducted_hp)
     S.Sound[Id.Sound.SCREAM]:Play()
 end
 
@@ -196,7 +197,7 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
     if player == LOCAL_PLAYER then
         weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
     else
-        weapon_id = PLAYER_STATE:get(player.UserId, C.ClientRefId)
+        weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
     end
 
     if player_id == LOCAL_PLAYER.UserId then
@@ -302,7 +303,7 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
             log:error("No entity for this player_id in player's state", player_id)
             return
         end
-        PLAYER_STATE:set(player_id, C.ClientRefId, weapon_id)
+        PLAYER_STATE:set(player_id, C.ClientWeaponId, weapon_id)
         if not PLAYER_STATE:get(player_id, C.ClientTTE) then
             PLAYER_STATE:set(player_id, C.ClientTTE, tte)
         end
@@ -508,7 +509,7 @@ local function fireBullet(player)
     if player == LOCAL_PLAYER then
         weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
     else
-        weapon_id = PLAYER_STATE:get(player.UserId, C.ClientRefId)
+        weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
     end
     if not weapon_id or weapon_id == Id.Weapon._NONE then
         return
@@ -556,7 +557,7 @@ local function fireBullet(player)
         -- TODO: change sound for each type of weapon
         S.Sound[Id.Sound.FIRE_PISTOL]:Play()
     else
-        weapon_id = PLAYER_STATE:get(player.UserId, C.ClientRefId)
+        weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
         -- TODO: change sound for each type of weapon
         Misc.SoundLocalizedAudio(S.Sound[Id.Sound.FIRE_PISTOL_LOCALIZED], pos, 0)
     end
@@ -741,7 +742,7 @@ RunService.Heartbeat:Connect(function(dt)
         end
         local playerId = player.UserId
         if PLAYER_STATE:has(playerId) then
-            local weapon_id = PLAYER_STATE:get(playerId, C.ClientRefId)
+            local weapon_id = PLAYER_STATE:get(playerId, C.ClientWeaponId)
             if weapon_id and weapon_id ~= Id.Weapon._NONE then
                 -- player is inside the game session, fire bullets
                 local shot_tte = PLAYER_STATE:get(playerId, C.ClientTTE)
@@ -789,7 +790,7 @@ WORLD:set_on_attach(W.PLayerId, function(guid: guid, newplayerId: num)
         local clientInstance = workspace:FindFirstChild(guid, true)
         if not clientInstance then
             local newInstance = Clones.CreateClone(newplayerId, guid)
-            local weaponId = PLAYER_STATE:get(newplayerId, C.ClientRefId)
+            local weaponId = PLAYER_STATE:get(newplayerId, C.ClientWeaponId)
             handleGunHoldingAnimation(newInstance, weaponId)
             if not newInstance then
                 log:error("failed to create clone for player " .. newplayerId)

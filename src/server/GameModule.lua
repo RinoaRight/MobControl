@@ -253,16 +253,29 @@ end
 
 local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (Player?, BasePart?, num?)
     local totalPlayers = #playersInSession
-    local ind = math.random(1, totalPlayers)
-    local player = playersInSession[ind] :: Player
-    local char = player.Character :: Model
-    local playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
-    local toTarget = enemyPos - playerRoot.Position
-    local distToTarget = toTarget.Magnitude
+    local ind = 0
+    local distToTarget = 150
+    local player, playerRoot
+    while distToTarget >= 150 do
+        ind += 1
+        if ind > totalPlayers then
+            -- no player is close enough
+            return nil, nil, nil
+        end
+        player = playersInSession[ind] :: Player
+        local char = player.Character :: Model
+        playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
+        local toTarget = enemyPos - playerRoot.Position
+        distToTarget = toTarget.Magnitude
+    end
+
     local closenessByX = math.abs(enemyPos.X - playerRoot.Position.X)
-    if distToTarget >= 150 or closenessByX > SharedConfig.ENEMY_SIGHT_RADIUS then
+    if closenessByX > SharedConfig.ENEMY_SIGHT_RADIUS then
+        -- 
         return nil, nil, nil
     end
+
+    -- player selected
     return player, playerRoot, distToTarget
 end
 
@@ -442,7 +455,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
                     else
                         playerState:DeductHp(enemyDamage)
-                        playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
+                        playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, -enemyDamage)
                     end
                     -- TODO: effects
                     m.DestroyEnemy(enemyGuid)

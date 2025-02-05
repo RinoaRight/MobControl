@@ -84,7 +84,7 @@ local function onBoosterAdded(worldState, playerState: state.Replica, boosterGui
             local boosterHP = worldState:get(boosterGuid, W.HP)
             local remainingHP = playerHP - boosterHP
             if remainingHP > 0 then
-                Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, remainingHP)
+                Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, -boosterHP)
                 -- TODO: pain animation
             end
         end

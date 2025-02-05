@@ -147,11 +147,11 @@ local MAX_NUM = 9.999999e38 -- 1000u
 local _tiers = { "K", "M", "B", "T", "Q", "I", "X", "P", "O", "N", "D", "U" }
 local _tiers_lower = { " k", " m", " b", " t", " q", " i", " x", " p", " o", " n", " d", " u" }
 ---@param num number
-local function format_number(num, cents: any?, lower_tier: any?)
+local function format_number(num, cents: any?, lower_tier: any?, isWithNegative: bool?)
     if type(num) ~= "number" then
         error("", 2)
     end
-    if num <= 0 then
+    if num <= 0 and not isWithNegative then
         return "0"
     end
     cents = cents and not is_integer(num)

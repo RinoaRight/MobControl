@@ -714,8 +714,8 @@ Id.S2C = enum.with_id "Id.S2C" {
     UPDATE_STATE   = iota'',
     INIT_WORLD     = iota'',
     UPDATE_WORLD   = iota'',
-    PLAYER_DAMAGED = iota'',
-    PLAYER_DIED    = iota'', -- player hp
+    PLAYER_DAMAGED = iota'', -- int (player damage)
+    PLAYER_DIED    = iota'', 
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)
