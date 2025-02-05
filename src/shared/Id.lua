@@ -684,8 +684,7 @@ export type S2S = typeof(Id.S2S)
 Id.C2C = enum.with_id "Id.C2C" {
     _NONE              = iota(Id.Kind.C2C, 0),
     NEW_BOOSTER_ADDED  = iota'',               -- world_state, player_state, booster_guid
-    -- NEW_ENEMY_ADDED    = iota'',               -- world_state, player_state, enemy_guid
-    -- ENEMY_REMOVED      = iota'',               -- enemy_guid
+    NEW_ENEMY_ADDED    = iota'',               -- world_state, player_state, enemy_guid
 }
 KIND_TO_ENUM[Id.Kind.C2C] = Id.C2C
 export type C2C = typeof(Id.C2C)
@@ -696,9 +695,10 @@ export type C2C = typeof(Id.C2C)
 -----------------------------
 Id.C2S = enum.with_id "Id.C2S" {
     _NONE                     = iota(Id.Kind.C2S, 0),
-    BOOSTER_HIT               = iota'', 
-    BULLET_SHOT               = iota'', 
-    ENEMY_HIT                 = iota'', 
+    -- BOOSTER_HIT               = iota'', 
+    BULLET_SHOT               = iota'', -- {bullet_guids}
+    -- ENEMY_HIT                 = iota'', -- enemy_guid, bullet_guid
+    TARGET_HIT                = iota'', -- enemy_guid, bullet_guid
     PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
     PLAYER_READY_TO_START     = iota'',               
 }
@@ -714,8 +714,8 @@ Id.S2C = enum.with_id "Id.S2C" {
     UPDATE_STATE   = iota'',
     INIT_WORLD     = iota'',
     UPDATE_WORLD   = iota'',
-    PLAYER_DAMAGED = iota'',
-    PLAYER_DIED    = iota'', -- player hp
+    PLAYER_DAMAGED = iota'', -- int (player damage)
+    PLAYER_DIED    = iota'', 
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)

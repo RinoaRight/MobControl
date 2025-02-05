@@ -125,7 +125,6 @@ end
 local function create_state(player_state: PlayerState)
     log:debug("~~ Making initial state for player:", player_state.player_id)
     update_ids(player_state.state)
-    -- TODO: give some goodies to player
 end
 
 local function fill_state(player_state: PlayerState)
@@ -247,11 +246,12 @@ end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
     self.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, weapon_id)
-    local ttl = 0
+    local tte = 0
     if weapon_id ~= Id.Weapon._NONE then
-        ttl = S.Weapon[weapon_id].cooldown
+        tte = S.Weapon[weapon_id].cooldown
+    elseif not self.state:get(Id.PlayerStats.GAME_SESSION, C.TTE) then
+        self.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, tte)
     end
-    self.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, ttl)
 end
 
 function PlayerState.DeductHp(self: PlayerState, howMuch: num)

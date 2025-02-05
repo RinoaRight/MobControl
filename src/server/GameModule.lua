@@ -158,13 +158,13 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     local unitPos = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
     groundUnit.CFrame = unitPos
 
-    local enemyFolder = groundUnit:FindFirstChild("Enemies")
-    if not enemyFolder then
-        enemyFolder = Instance.new("Folder")
-        assert(enemyFolder)
-        enemyFolder.Parent = groundUnit
-        enemyFolder.Name = "Enemies"
-    end
+    -- local enemyFolder = groundUnit:FindFirstChild("Enemies")
+    -- if not enemyFolder then
+    --     enemyFolder = Instance.new("Folder")
+    --     assert(enemyFolder)
+    --     enemyFolder.Parent = groundUnit
+    --     enemyFolder.Name = "Enemies"
+    -- end
 
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     trigger.CFrame = CFrame.new(9, 20.5, unitPos.Z - 245)
@@ -178,19 +178,19 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     end
 end
 
-local function subscribeEnemyToTouch(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
-    workerMaid[enemyGiud] = enemyInstance.Touched:Connect(function(triggerer)
-        if triggerer == DRIVING_BOX_FRONT then
-            local flags = worldState:get(enemyGiud, W.Bitset)
-            if flags and not Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
-                worldState:set(enemyGiud, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true))
-            end
-        elseif triggerer == DRIVING_BOX_INSTANCE then
-            m.DestroyEnemy(enemyGiud)
-        end
-        -- NOTE: bullet collision are handled on the client
-    end)
-end
+-- local function subscribeEnemyToTouch(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
+--     workerMaid[enemyGiud] = enemyInstance.Touched:Connect(function(triggerer)
+--         if triggerer == DRIVING_BOX_FRONT then
+--             local flags = worldState:get(enemyGiud, W.Bitset)
+--             if flags and not Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
+--                 worldState:set(enemyGiud, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true))
+--             end
+--         elseif triggerer == DRIVING_BOX_INSTANCE then
+--             m.DestroyEnemy(enemyGiud)
+--         end
+--         -- NOTE: bullet collision are handled on the client
+--     end)
+-- end
 
 local function subscribeTrigger(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, index, groundUnit)
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
@@ -218,13 +218,13 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
                     ids = Enemies.ENEMIES_DATA_TABLE[newWave].ids
                 end
             end
-            local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
-            for _, enemyGuid in ipairs(enemies) do
-                assert(type(enemyGuid) == "string") -- sanity check
-                local enemyId = worldState:get(enemyGuid, W.RefId)
-                local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
-                subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
-            end
+            local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
+            -- for _, enemyGuid in ipairs(enemies) do
+            --     assert(type(enemyGuid) == "string") -- sanity check
+            --     local enemyId = worldState:get(enemyGuid, W.RefId)
+            --     local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
+            --     subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
+            -- end
 
             TaskPool.spawn(function()
                 task.wait(SharedConfig.ENEMY_WAVE_DELAY)
@@ -239,30 +239,43 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
                         ids = Enemies.ENEMIES_DATA_TABLE[newWave].ids
                     end
                 end
-                local enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
-                for _, enemyGuid in ipairs(enemies) do
-                    assert(type(enemyGuid) == "string") -- sanity check
-                    local enemyId = worldState:get(enemyGuid, W.RefId)
-                    local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
-                    subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
-                end
+                local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
+                -- for _, enemyGuid in ipairs(enemies) do
+                --     assert(type(enemyGuid) == "string") -- sanity check
+                --     local enemyId = worldState:get(enemyGuid, W.RefId)
+                --     local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
+                --     subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
+                -- end
             end)
         end
     end)
 end
 
-local function selectPlayer(playersInSession: { Player }, enemyInstance: BasePart): (Player?, BasePart?, num?)
+local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (Player?, BasePart?, num?)
     local totalPlayers = #playersInSession
-    local ind = math.random(1, totalPlayers)
-    local player = playersInSession[ind] :: Player
-    local char = player.Character :: Model
-    local playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
-    local toTarget = enemyInstance.Position - playerRoot.Position
-    local distToTarget = toTarget.Magnitude
-    local closenessByX = math.abs(enemyInstance.Position.X - playerRoot.Position.X)
-    if distToTarget >= 150 or closenessByX > SharedConfig.ENEMY_SIGHT_RADIUS then
+    local ind = 0
+    local distToTarget = 150
+    local player, playerRoot
+    while distToTarget >= 150 do
+        ind += 1
+        if ind > totalPlayers then
+            -- no player is close enough
+            return nil, nil, nil
+        end
+        player = playersInSession[ind] :: Player
+        local char = player.Character :: Model
+        playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
+        local toTarget = enemyPos - playerRoot.Position
+        distToTarget = toTarget.Magnitude
+    end
+
+    local closenessByX = math.abs(enemyPos.X - playerRoot.Position.X)
+    if closenessByX > SharedConfig.ENEMY_SIGHT_RADIUS then
+        -- 
         return nil, nil, nil
     end
+
+    -- player selected
     return player, playerRoot, distToTarget
 end
 
@@ -298,116 +311,98 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
         oldPos = DRIVING_BOX_INSTANCE.Position
 
-        -- move enemies
-        local enemies = {}
-        local enemyTargets = {}
-        local currentGroundUnits = GROUND_UNIT_FOLDER:GetChildren()
-        for _, unit in ipairs(currentGroundUnits) do
-            local enemyFolder = unit:FindFirstChild("Enemies")
-            if enemyFolder then
-                local enemyInstances = enemyFolder:GetChildren()
-                if #enemyInstances > 0 then
-                    for _, enemyInstance in ipairs(enemyInstances) do
-                        local currentPos: Vector3 = enemyInstance.Position
-                        table.insert(enemies, enemyInstance)
-                        -- local lookAt = DRIVING_BOX_INSTANCE.Position
-                        local lookAt = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + 5)
-                        local flags = worldState:get(enemyInstance.Name, W.Bitset)
-                        -- local playerTargetedId = worldState:get(enemyInstance.Name, W.PLayerId)
+        -- TODO: calculate _proximity to DRIVER to destroy enemy (instead of current collisions)
 
-                        local enemyId = worldState:get(enemyInstance.Name, W.RefId)
-                        local speed = log:assert(S.Enemy[enemyId].speed, "S.Enemy has no speed for: '%*'", enemyId)
-                        local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + dt * speed)
+        -- calculate new enemies' positions
+        for enemyGuid, refId, _hp, currentPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PLayerId, W.Bitset) do
+            if Id.kind(refId) ~= Id.Kind.Enemy then
+                continue
+            end
 
-                        if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
-                            local players = game.Players:GetPlayers()
-                            local playersInSession = {}
-                            for _, player in ipairs(players) do
-                                local weaponId = worldState:get(player.UserId, W.WeaponId)
-                                if weaponId ~= Id.Weapon._NONE then
-                                    table.insert(playersInSession, player)
-                                else
-                                    -- player is not in session, remove this enemy's lock on him if any
-                                    local playerId = player.UserId :: int
-                                    if worldState:get(enemyInstance.Name, W.PLayerId) == playerId then
-                                        worldState:set(enemyInstance.Name, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
-                                    end
-                                end
+            -- sanity check
+            assert(typeof(enemyGuid) == "string")
+            -- local lookAt = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + 5)
+            local flags = worldState:get(enemyGuid, W.Bitset)
+            local enemyId = worldState:get(enemyGuid, W.RefId)
+            local speed = log:assert(S.Enemy[enemyId].speed, "S.Enemy has no speed for: '%*'", enemyId)
+            local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + dt * speed)
+            local distToTarget
+            local playerId
+            local playerState
+
+            if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
+                local players = game.Players:GetPlayers()
+                local playersInSession = {}
+                for _, player in ipairs(players) do
+                    local weaponId = worldState:get(player.UserId, W.WeaponId)
+                    if weaponId ~= Id.Weapon._NONE then
+                        table.insert(playersInSession, player)
+                    else
+                        -- player is not in session, remove this enemy's lock on him if any
+                        playerId = player.UserId :: int
+                        if worldState:get(enemyGuid, W.PLayerId) == playerId then
+                            worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                        end
+                    end
+                end
+                if #playersInSession > 0 then
+                    local player, playerRoot
+                    if (not worldState:get(enemyGuid, W.PLayerId)) or worldState:get(enemyGuid, W.PLayerId) == SharedConfig.DEFAULT_PLAYER_ID then
+                        -- select a player that is close enough to the enemy
+                        player, playerRoot, distToTarget = selectPlayer(playersInSession, currentPos)
+                        if player then
+                            -- a player that is close enough is selected, set lock to target
+                            playerId = player.UserId :: int
+                            worldState:set(enemyGuid, W.PLayerId, playerId)
+                        end
+                    else
+                        -- enemy is already locked on target, assign player, playerRoot and distTotarget
+                        playerId = worldState:get(enemyGuid, W.PLayerId)
+                        player = game.Players:GetPlayerByUserId(playerId)
+                        playerState = get_state(worldState:get(enemyGuid, W.PLayerId))
+                        if playerState then
+                            playerRoot = playerState.root :: BasePart
+                            if not playerRoot then
+                                log:error("No player root found for player: '%*'", worldState:get(enemyGuid, W.PLayerId))
+                                return
                             end
-                            if #playersInSession > 0 then
-                                local player, playerRoot, distToTarget
-                                if
-                                    (not worldState:get(enemyInstance.Name, W.PLayerId))
-                                    or worldState:get(enemyInstance.Name, W.PLayerId) == SharedConfig.DEFAULT_PLAYER_ID
-                                then
-                                    -- select a player that is close enough to the enemy
-                                    player, playerRoot, distToTarget = selectPlayer(playersInSession, enemyInstance)
-                                    if player then
-                                        -- a player that is close enough is selected, set lock to target
-                                        local playerId = player.UserId :: int
-                                        worldState:set(enemyInstance.Name, W.PLayerId, playerId)
-                                    end
-                                else
-                                    -- enemy is already locked on target, assign player, playerRoot and distTotarget
-                                    local playerId = worldState:get(enemyInstance.Name, W.PLayerId)
-                                    player = game.Players:GetPlayerByUserId(playerId)
-                                    local playerState = get_state(worldState:get(enemyInstance.Name, W.PLayerId))
-                                    if playerState then
-                                        playerRoot = playerState.root :: BasePart
-                                        if not playerRoot then
-                                            log:error("No player root found for player: '%*'", worldState:get(enemyInstance.Name, W.PLayerId))
-                                            return
-                                        end
-                                        local toTarget = enemyInstance.Position - playerRoot.Position
-                                        distToTarget = toTarget.Magnitude
-                                    else
-                                        log:error("No player state found for player: '%*'", worldState:get(enemyInstance.Name, W.PLayerId))
-                                        return
-                                    end
-                                end
+                            local toTarget = currentPos - playerRoot.Position
+                            distToTarget = toTarget.Magnitude
+                        else
+                            log:error("No player state found for player: '%*'", worldState:get(enemyGuid, W.PLayerId))
+                            return
+                        end
+                    end
 
-                                if player and playerRoot and distToTarget then
-                                    local time_to_target = distToTarget / speed
-                                    local playerId = player.UserId :: int
-                                    local playerState = get_state(playerId)
+                    if player and playerRoot and distToTarget then
+                        local time_to_target = distToTarget / speed
+                        playerId = player.UserId :: int
+                        playerState = get_state(playerId)
 
-                                    if currentPos.Z - 5 > playerRoot.Position.Z then
-                                        -- enemy got behind the player, cancel seeking
-                                        worldState:set(enemyInstance.Name, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                                        -- if currentPos.Z > playerRoot.Position.Z - 40 then
-                                        --     local pos = Vector3.new(playerRoot.Position.X, currentPos.Y, currentPos.Z + dt * speed)
-                                        -- TODO: lerp to the new position so that the locked enemy X == players X
+                        if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
+                            worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
+                            worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                        -- elseif distToTarget < 20 then
+                        elseif currentPos.Z > playerRoot.Position.Z - 20 then
+                            -- enemy is pretty close to player, cancel seeking
+                            worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
+                            worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                            -- local playerPos = playerRoot.Position
+                            -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                            -- newPos = currentPos:Lerp(target, dt * speed / distToTarget)
+                        else
+                            ---[[ old code
+                            -- predict player's position, binomial distribution add some randomness
+                            local playerPos = playerRoot.Position
+                            local targetPos = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z - 20)
+                            -- local target = targetPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                            local dist = (currentPos - targetPos).Magnitude
+                            local t = dist / speed
+                            local target = targetPos + (rand.binomial() * t) * playerRoot.AssemblyLinearVelocity
+                            newPos = currentPos:Lerp(target, dt * speed / dist) -- Move towards the predicted position slightly ahead of the player
+                            --]]
 
-                                        -- local target = playerRoot.Position + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                                        -- lookAt = playerRoot.Position
-                                        -- newPos = currentPos:Lerp(target, dt * speed / distToTarget) -- Move towards the predicted position of the player
-                                    elseif distToTarget < 10 then
-                                        -- enemy is close to player, harm them, then die
-                                        local enemyDamage = S.Enemy[enemyId].damage
-                                        if playerState then
-                                            local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
-                                            local newHP = playerHP - enemyDamage
-                                            if newHP <= 0 then
-                                                Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
-                                            else
-                                                playerState:DeductHp(enemyDamage)
-                                                playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, newHP)
-                                            end
-                                            -- TODO: effects
-                                            m.DestroyEnemy(enemyInstance.Name)
-                                        end
-                                    else
-                                        ---[[ old code
-                                        -- predict player's position, binomial distribution add some randomness
-                                        local playerPos = playerRoot.Position
-                                        local target = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z)
-                                            + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                                        -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                                        lookAt = playerRoot.Position
-                                        newPos = currentPos:Lerp(target, dt * speed / distToTarget) -- Move towards the predicted position slightly ahead of the player
-                                        --]]
-
-                                        --[[ My crap
+                            --[[ My crap
                                         -- TODO: tune this, this is the speed at which the enemy will rotate to face the player
                                         local K = 0.05 -- in radians/sec
                                         -- predict player's position, binomial distribution add some randomness
@@ -426,7 +421,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                         newPos = currentPos + lookAt * dt * speed
                                         --]]
 
-                                        --[[ Cloude version
+                            --[[ Cloude version
                                         -- TODO: tune this, this is the speed at which the enemy will rotate to face the player
                                         local K = 0.05 --2.5 -- radians/sec
                                         local playerPos = playerRoot.Position
@@ -442,25 +437,50 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                         lookAt = currentPos + rotation.LookVector
                                         newPos = currentPos:Lerp(currentPos - rotation.LookVector * speed, dt)
                                         --]]
-                                    end
-                                else
-                                    -- no player is close enough, remove lock to target if any
-                                    worldState:set(enemyInstance.Name, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
-                                end
-                            end
                         end
-                        if worldState:has(enemyInstance.Name) then
-                            worldState:set(enemyInstance.Name, W.Position, newPos)
-                        end
-                        lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
-                        local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
-                        table.insert(enemyTargets, newCframe)
+                    else
+                        -- no player is close enough, remove lock to target if any
+                        worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
                     end
                 end
             end
+
+            if distToTarget and playerState then
+                -- enemy is critically close to player, harm them, then die
+                if distToTarget < 5 then
+                    local enemyDamage = S.Enemy[enemyId].damage
+                    local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+                    local newHP = playerHP - enemyDamage
+                    if newHP <= 0 then
+                        Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
+                    else
+                        playerState:DeductHp(enemyDamage)
+                        playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, -enemyDamage)
+                    end
+                    -- TODO: effects
+                    m.DestroyEnemy(enemyGuid)
+                end
+            end
+
+            if worldState:has(enemyGuid) then
+                -- update enemy's position
+                worldState:set(enemyGuid, W.Position, newPos)
+
+                if DRIVING_BOX_INSTANCE.Position.Z <= currentPos.Z then
+                    -- destroy enemy if it collided with the driving box's rear
+                    m.DestroyEnemy(enemyGuid)
+                elseif DRIVING_BOX_FRONT.Position.Z <= currentPos.Z then
+                    -- activate seek mode on collision with the driver box's front
+                    worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true))
+                end
+            end
         end
-        if #enemies > 0 then
-            workspace:BulkMoveTo(enemies, enemyTargets, Enum.BulkMoveMode.FireCFrameChanged)
+
+        -- delete bullet entity when ttl is up
+        for bulletGuid, startPos, ownerId, wepaonId, ttl in worldState:select(W.Position, W.PLayerId, W.WeaponId, W.TTL) do
+            if roflake.time() > ttl then
+                WorldService.RemoveEntity(bulletGuid)
+            end
         end
     end
 end
@@ -470,9 +490,9 @@ function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
         -- weapon cooldown
         local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
         if Id.flag_test(flags, Id.PlayerF.READY) then
-            local shot_ttl = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTL) :: num
-            shot_ttl -= dt
-            player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTL, math.max(shot_ttl, 0))
+            local shot_tte = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTE) :: num
+            shot_tte -= dt
+            player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, math.max(shot_tte, 0))
         end
     end
 end

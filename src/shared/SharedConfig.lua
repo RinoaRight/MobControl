@@ -55,7 +55,7 @@ m.CLONES_IN_A_ROW = 5
 m.INTERCLONES_DISTANCE = 5
 m.CLONES_FOLDER_NAME = "Clones"
 m.PLAYER_HITBOX_NAME = "Hitbox"
-m.BULLET_NAME = "Bullet"
+-- m.BULLET_NAME = "Bullet"
 m.PLAYER_ALIGN_CONSTR_NAME = "PlayerAlignConstraint"
 m.CLONE_ATTACHMENT_NAME = "CloneGuideAtt"
 m.RUN_ANIMATION_NAME = "RunAnim"
@@ -64,7 +64,7 @@ m.BULLET_COLLIDABLE_COLLISION_GROUP_NAME = "BulletCollidable"
 m.DEFAULT_WEAPON_ID = Id.Weapon.BASIC
 m.DISTANCE_FROM_MID_TO_BOOSTER = 50
 m.DEFAULT_PLAYER_ID = -100
-m.ENEMY_SIGHT_RADIUS = 20
+m.ENEMY_SIGHT_RADIUS = 100
 -- TODO: real values
 m.STARTING_CLONE_AMOUNT = 0
 -- m.ENEMY_LIFE_TIME              = 20 --sec
@@ -87,7 +87,7 @@ m.World = World
 -----------------------------
 -- stylua: ignore
 World.CId = En.with_id("World.CId") {
-    RefId          = iota(1),  -- id
+    RefId          = iota(1),  -- id (of self)
     Value          = iota'',   -- number
     HP             = iota'',   -- number
     BoostContentId = iota'',   -- id
@@ -95,10 +95,10 @@ World.CId = En.with_id("World.CId") {
     ServerInstance = iota'',   -- Instance
     PLayerId       = iota'',   -- number
     WeaponId       = iota'',   -- id
-    TTL            = iota'',   -- sec (*1)
+    TTL            = iota'',   -- epoch
     Bitset         = iota'',   -- flag
     -- non-replicated
-    -- ClientInstance = iota'',   -- Instance, not replicated
+    ClientInstance = iota'',   -- Instance, not replicated
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId
@@ -108,12 +108,14 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(W)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PLayerId, W.WeaponId, W.TTL)
+        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PLayerId, W.WeaponId, W.TTL, W.Bitset)
         :set_destructor(W.ServerInstance, disposer.dispose)
         :build_with_replica()
 
     World.main_config = main_config
-    World.replica_config = repl:build()
+    World.replica_config = repl
+        :set_destructor(W.ClientInstance, disposer.dispose)
+        :build()
     print("---- World ----")
     warn("W", state.Util.format_config(World.main_config))
     warn("W", state.Util.format_config(World.replica_config))
@@ -132,8 +134,8 @@ m.PlayerState = PlayerState
 PlayerState.CId = En.with_id("PlayerState.Cid") {
     RefId           = iota(0, 1, 31),
     -- timers
-    TTL             = iota'', -- sec (*1)
-    TTE             = iota'', -- epoch
+    TTL             = iota'', -- epoch
+    TTE             = iota'', -- sec (*1)
     -- values
     Value           = iota'', -- number
     Total           = iota'', -- number
@@ -141,9 +143,9 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     Instance        = iota'', -- Instance(client)
     WorldGui        = iota'', -- any
     -- client-only
-    ClientRefId     = iota'', -- number
+    ClientWeaponId  = iota'', -- number
     ClientFlags     = iota'', -- flag
-    ClientTTL       = iota'', -- sec (*1)
+    ClientTTE       = iota'', -- sec (*1)
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).
 --     NOTE: W.TTL is a wall time
