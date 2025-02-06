@@ -182,80 +182,90 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, ...)
     preiousWeaponsInfo[playerId] = current_weapon_id
 end
 
-on[Id.C2S.TARGET_HIT] = function(playerState, targetGuid, bulletGuid, ...)
-    if WorldService.world:has(targetGuid) and WorldService.world:has(bulletGuid) then
-        local targetRefId = WorldService.world:get(targetGuid, W.RefId)
-        local targetPos
-        local serverInstance
-
-        if Id.kind(targetRefId) == Id.Kind.Enemy then
-            targetPos = WorldService.world:get(targetGuid, W.Position)
-        elseif Id.kind(targetRefId) == Id.Kind.Boost then
-            serverInstance = WorldService.world:get(targetGuid, W.ServerInstance)
-            targetPos = serverInstance.Position
-        end
-
-        if not targetPos then
-            return
-        end
-
-        local bulletStartPos = WorldService.world:get(bulletGuid, W.Position)
-        local distance = (bulletStartPos - targetPos).Magnitude
-        local bulletWeaponId = WorldService.world:get(bulletGuid, W.WeaponId)
-
-        -- check for the range hacks
-        local range = SharedConfig.BULLET_BASE_DISTANCE
-        if S.Weapon[bulletWeaponId].range then
-            range = S.Weapon[bulletWeaponId].range
-        end
-        local tolerance = 20
-        if range + tolerance < distance then
-            log:error("Weapon's range is smaller than the distance of the bullet")
-            return
-        end
-
-        if Id.kind(targetRefId) == Id.Kind.Enemy then
-            -- TODO: if the weapon is rocket, check for the additional enemies in the vicinity
-            local enemyHP = WorldService.world:get(targetGuid, W.HP)
-            local dmg = 0
-            if S.Weapon[bulletWeaponId] and S.Weapon[bulletWeaponId].damage then
-                dmg = S.Weapon[bulletWeaponId].damage
-            end
-            local newHP = enemyHP - dmg
-
-            if enemyHP - dmg <= 0 then
-                GameModule.DestroyEnemy(targetGuid)
-            else
-                WorldService.world:set(targetGuid, W.HP, newHP)
-            end
-        elseif Id.kind(targetRefId) == Id.Kind.Boost then
-            local dmg = S.Weapon[bulletWeaponId].damage
-            local booster_hp = WorldService.world:get(targetGuid, W.HP)
-            local new_hp = booster_hp - dmg
-            local boosterGui = serverInstance:FindFirstChildWhichIsA("SurfaceGui")
-            if boosterGui then
-                boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
-            end
-            if new_hp <= 0 then
-                -- give boost to the player who killed the booster
-                local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
-                local value = WorldService.world:get(targetGuid, W.Value)
-                WorldService.world:delete(targetGuid)
-                if playerState.state:has(targetGuid) then
-                    playerState.state:delete(targetGuid)
-                end
-
-                GameModule.HandleBoosterDeath(playerState, targetGuid, targetRefId, value, boostContentId)
-            else
-                WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
-            end
-        else
-            return
-        end
-
-        -- delete bullet entity
-        WorldService.RemoveEntity(bulletGuid)
+on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
+    if not WorldService.world:has(bulletGuid) then
+        return
     end
+    local bulletStartPos = WorldService.world:get(bulletGuid, W.Position)
+    local bulletWeaponId = WorldService.world:get(bulletGuid, W.WeaponId)
+
+    if bulletWeaponId ~= Id.Weapon.ROCKET and #targetGuids > 1 then
+        -- only rocket missile can hit multiple targets
+        return
+    end
+
+    for _, targetGuid in ipairs(targetGuids) do
+        if WorldService.world:has(targetGuid) then
+            local targetRefId = WorldService.world:get(targetGuid, W.RefId)
+            local targetPos
+            local serverInstance
+
+            if Id.kind(targetRefId) == Id.Kind.Enemy then
+                targetPos = WorldService.world:get(targetGuid, W.Position)
+            elseif Id.kind(targetRefId) == Id.Kind.Boost then
+                serverInstance = WorldService.world:get(targetGuid, W.ServerInstance)
+                targetPos = serverInstance.Position
+            end
+
+            if not targetPos then
+                return
+            end
+
+            local distance = (bulletStartPos - targetPos).Magnitude
+
+            -- check for the range hacks
+            local range = SharedConfig.BULLET_BASE_DISTANCE
+            if S.Weapon[bulletWeaponId].range then
+                range = S.Weapon[bulletWeaponId].range
+            end
+            local tolerance = 20
+            if range + tolerance < distance then
+                log:error("Weapon's range is smaller than the distance of the bullet")
+                return
+            end
+
+            if Id.kind(targetRefId) == Id.Kind.Enemy then
+                local enemyHP = WorldService.world:get(targetGuid, W.HP)
+                local dmg = 0
+                if S.Weapon[bulletWeaponId] and S.Weapon[bulletWeaponId].damage then
+                    dmg = S.Weapon[bulletWeaponId].damage
+                end
+                local newHP = enemyHP - dmg
+
+                if enemyHP - dmg <= 0 then
+                    GameModule.DestroyEnemy(targetGuid)
+                else
+                    WorldService.world:set(targetGuid, W.HP, newHP)
+                end
+            elseif Id.kind(targetRefId) == Id.Kind.Boost then
+                local dmg = S.Weapon[bulletWeaponId].damage
+                local booster_hp = WorldService.world:get(targetGuid, W.HP)
+                local new_hp = booster_hp - dmg
+                local boosterGui = serverInstance:FindFirstChildWhichIsA("SurfaceGui")
+                if boosterGui then
+                    boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
+                end
+                if new_hp <= 0 then
+                    -- give boost to the player who killed the booster
+                    local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
+                    local value = WorldService.world:get(targetGuid, W.Value)
+                    WorldService.world:delete(targetGuid)
+                    if playerState.state:has(targetGuid) then
+                        playerState.state:delete(targetGuid)
+                    end
+
+                    GameModule.HandleBoosterDeath(playerState, targetGuid, targetRefId, value, boostContentId)
+                else
+                    WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
+                end
+            else
+                return
+            end
+        end
+    end
+
+    -- delete bullet entity
+    WorldService.RemoveEntity(bulletGuid)
 end
 
 on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, triggerer_id: num | str, ...)

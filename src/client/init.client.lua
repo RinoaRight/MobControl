@@ -560,6 +560,29 @@ local function fireBullet(player)
     PLAYER_STATE:set(player.UserId, C.ClientTTE, tte)
 end
 
+local function getCollisionSpecifics(bullet: BasePart, bullet_range, bullet_size)
+    local target, _dist = Misc.IsBulletCollidableToHit(bullet.CFrame, bullet_range, bullet_size)
+    local targetThickness
+    local targetRefId
+    local isTargetKillable
+    if target and WORLD:has(target.Name) then
+        targetRefId = WORLD:get(target.Name, W.RefId)
+        if not targetRefId then
+            log:error("no refId or instance for the bullet target", targetRefId, target.ClassName)
+            return nil, false, 0, 0
+        end
+        if Id.kind(targetRefId) == Id.Kind.Boost then
+            targetThickness = SharedConfig.BOOSTER_DEPTH
+            isTargetKillable = true
+        elseif Id.kind(targetRefId) == Id.Kind.Enemy then
+            -- targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
+            targetThickness = target.Size.Z
+            isTargetKillable = true
+        end
+    end
+    return target, isTargetKillable, targetThickness, targetRefId
+end
+
 RunService.Heartbeat:Connect(function(dt)
     local players = game:GetService("Players"):GetPlayers()
     if #players < 1 then
@@ -652,45 +675,70 @@ RunService.Heartbeat:Connect(function(dt)
         local start_pos = bulletData.start_pos
         local bullet_range = bulletData.range
         local bullet_size = bulletData.size
-        local target, _dist = Misc.IsBulletCollidableToHit(bullet.CFrame, bullet_range, bullet_size)
 
-        local targetCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * speed * dt)) * rot
-        local targetThickness
-        local targetRefId
-        local isTargetKillable
-        if target and WORLD:has(target.Name) then
-            targetRefId = WORLD:get(target.Name, W.RefId)
-            -- local instance = WORLD:get(target.Name, W.ServerInstance)
-            if not targetRefId then
-                log:error("no refId or instance for the bullet target", targetRefId, target.ClassName)
-                return
-            end
-            if Id.kind(targetRefId) == Id.Kind.Boost then
-                targetThickness = SharedConfig.BOOSTER_DEPTH
-                isTargetKillable = true
-            elseif Id.kind(targetRefId) == Id.Kind.Enemy then
-                -- targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
-                targetThickness = target.Size.Z
-                isTargetKillable = true
-            end
-        end
+        local newBulletCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * speed * dt)) * rot
+
+        -- local target, _dist = Misc.IsBulletCollidableToHit(bullet.CFrame, bullet_range, bullet_size)
+
+        -- local targetThickness
+        -- local targetRefId
+        -- local isTargetKillable
+        -- if target and WORLD:has(target.Name) then
+        --     targetRefId = WORLD:get(target.Name, W.RefId)
+        --     -- local instance = WORLD:get(target.Name, W.ServerInstance)
+        --     if not targetRefId then
+        --         log:error("no refId or instance for the bullet target", targetRefId, target.ClassName)
+        --         return
+        --     end
+        --     if Id.kind(targetRefId) == Id.Kind.Boost then
+        --         targetThickness = SharedConfig.BOOSTER_DEPTH
+        --         isTargetKillable = true
+        --     elseif Id.kind(targetRefId) == Id.Kind.Enemy then
+        --         -- targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
+        --         targetThickness = target.Size.Z
+        --         isTargetKillable = true
+        --     end
+        -- end
+
+        local target, isTargetKillable, targetThickness, targetRefId = getCollisionSpecifics(bullet, bullet_range, bullet_size)
 
         if target and isTargetKillable and (target.Position.Z + targetThickness + 1 >= bullet.Position.Z) then
-            -- bullet collided with the target, delete it and signal to server
-            activeBulletsDataTable[i] = NIL_TABLE
-            bullet.Parent = INACTIVE_BULLETS_REPOSITORY
+            -- bullet collided with a bullet-killable target
             if owner == LOCAL_PLAYER then
                 if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy then
-                    fire_server(Id.C2S.TARGET_HIT, target.Name, bullet.Name)
+                    local targetGuids = { target.Name }
+                    if weapon_id == Id.Weapon.ROCKET then
+                        -- check if there other targets hit by the explosion
+                        -- TODO: animate the explosion
+                        local explosionSize = assert(S.Weapon[weapon_id].explosionSize)
+                        local otherTargets = Misc.GetBulletCollidablesInRadius(target.CFrame, explosionSize)
+                        if otherTargets and #otherTargets > 0 then
+                            for _, otherTarget in ipairs(otherTargets) do
+                                local extraTarget, isTargetKillable, _targetThickness, targetRefId =
+                                    getCollisionSpecifics(bullet, bullet_range, bullet_size)
+                                if
+                                    extraTarget
+                                    and isTargetKillable
+                                    and (Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy)
+                                then
+                                    table.insert(targetGuids, extraTarget.Name)
+                                end
+                            end
+                        end
+                    end
+                    fire_server(Id.C2S.TARGET_HIT, targetGuids, bullet.Name)
                 end
             end
+            -- remove bullet instance
+            activeBulletsDataTable[i] = NIL_TABLE
+            bullet.Parent = INACTIVE_BULLETS_REPOSITORY
         elseif now >= ttl then
             -- bullet timed-out, delete it. NOTE: server takes care of the corresponding uid independently
             activeBulletsDataTable[i] = NIL_TABLE
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
         else
             table.insert(activeBullets, bullet)
-            table.insert(bulletsTargets, targetCframe)
+            table.insert(bulletsTargets, newBulletCframe)
         end
     end
     -- remove all NIL_TABLEs from the table

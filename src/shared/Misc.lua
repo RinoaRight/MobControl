@@ -30,9 +30,6 @@ local rand = require(shared.rand)
 local m = {}
 m.__index = m
 
-local blockcastParams = RaycastParams.new()
--- blockcastParams.CollisionGroup = "BulletCollidable"
--- blockcastParams.FilterType = Enum.blockcastFilterType.Include
 local blacklist = {} :: { Instance }
 
 m.AddInstanceToRaycastFilter = function(instance)
@@ -77,6 +74,7 @@ m.FlickerPlayerHPGui = function(originalTextBox: TextLabel, mult: num, hp: num)
 end
 
 m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
+    local blockcastParams = RaycastParams.new()
     blockcastParams.FilterDescendantsInstances = blacklist
     local rayDirection = Vector3.new(0, 0, -bulletRange)
     local blockcastResult = workspace:Blockcast(bulletCFrame, bulletSize, rayDirection, blockcastParams)
@@ -101,6 +99,15 @@ m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bul
         end
     end
     return target, distance
+end
+
+local partsInRadiusParams = OverlapParams.new()
+partsInRadiusParams.FilterDescendantsInstances = blacklist
+partsInRadiusParams.CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME
+partsInRadiusParams.FilterType = Enum.RaycastFilterType.Include
+m.GetBulletCollidablesInRadius = function(cFrame, size) 
+    local instances = workspace:GetPartBoundsInBox(cFrame, size, partsInRadiusParams)
+    return instances
 end
 
 m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)

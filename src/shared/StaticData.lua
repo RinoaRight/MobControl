@@ -44,7 +44,7 @@ m.Weapon = {
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
         instance = ReplicatedStorage.Weapons.PistolModel,
         name = "Pistol",
-    }, 
+    },
     [Id.Weapon.SMG] = {
         baseSpeed = 50,
         range = 200, -- units
@@ -54,7 +54,7 @@ m.Weapon = {
         -- TODO: change model
         instance = ReplicatedStorage.Weapons.PistolModel,
         name = "SMG",
-    }, 
+    },
     [Id.Weapon.SHOTGUN] = {
         baseSpeed = 50,
         range = 150, -- units
@@ -64,17 +64,18 @@ m.Weapon = {
         -- TODO: change model
         instance = ReplicatedStorage.Weapons.PistolModel,
         name = "Shotgun",
-    }, 
+    },
     [Id.Weapon.ROCKET] = {
         baseSpeed = 50,
         range = 200, -- units
         damage = 20,
         cooldown = 1.2,
         bulletSize = Vector3.new(3, 3, 3),
+        explosionSize = Vector3.new(12, 12, 12),
         -- TODO: change model
         instance = ReplicatedStorage.Weapons.PistolModel,
         name = "Rocket",
-    }, 
+    },
 }
 
 -- stylua: ignore

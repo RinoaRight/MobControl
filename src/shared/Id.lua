@@ -699,7 +699,7 @@ Id.C2S = enum.with_id "Id.C2S" {
     -- BOOSTER_HIT               = iota'', 
     BULLET_SHOT               = iota'', -- {bullet_guids}
     -- ENEMY_HIT                 = iota'', -- enemy_guid, bullet_guid
-    TARGET_HIT                = iota'', -- enemy_guid, bullet_guid
+    TARGET_HIT                = iota'', -- {enemy_guids}, bullet_guid
     PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
     PLAYER_READY_TO_START     = iota'',               
 }
