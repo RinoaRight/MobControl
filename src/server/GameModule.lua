@@ -136,6 +136,8 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
         col = Color3.fromRGB(169, 132, 255)
         if boostContentId == Id.Weapon.SHOTGUN then
             col = Color3.fromRGB(177, 94, 11)
+        elseif boostContentId == Id.Weapon.ROCKET then
+            col = Color3.fromRGB(199, 22, 111)
         end
     end
     -- set GUI
@@ -219,12 +221,6 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
                 end
             end
             local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
-            -- for _, enemyGuid in ipairs(enemies) do
-            --     assert(type(enemyGuid) == "string") -- sanity check
-            --     local enemyId = worldState:get(enemyGuid, W.RefId)
-            --     local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
-            --     subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
-            -- end
 
             TaskPool.spawn(function()
                 task.wait(SharedConfig.ENEMY_WAVE_DELAY)
@@ -240,12 +236,6 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
                     end
                 end
                 local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
-                -- for _, enemyGuid in ipairs(enemies) do
-                --     assert(type(enemyGuid) == "string") -- sanity check
-                --     local enemyId = worldState:get(enemyGuid, W.RefId)
-                --     local enemyInstance = worldState:get(enemyGuid, W.ServerInstance)
-                --     subscribeEnemyToTouch(worldState, get_state, enemyGuid, enemyId, enemyInstance)
-                -- end
             end)
         end
     end)
@@ -375,7 +365,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     end
 
                     if player and playerRoot and distToTarget then
-                        local time_to_target = distToTarget / speed
+                        -- local time_to_target = distToTarget / speed
                         playerId = player.UserId :: int
                         playerState = get_state(playerId)
 

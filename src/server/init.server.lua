@@ -215,6 +215,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuid, bulletGuid, ...)
         end
 
         if Id.kind(targetRefId) == Id.Kind.Enemy then
+            -- TODO: if the weapon is rocket, check for the additional enemies in the vicinity
             local enemyHP = WorldService.world:get(targetGuid, W.HP)
             local dmg = 0
             if S.Weapon[bulletWeaponId] and S.Weapon[bulletWeaponId].damage then

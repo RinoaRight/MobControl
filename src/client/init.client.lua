@@ -72,7 +72,7 @@ local ENV_WORLD_READY = "WORLD_READY"
 local ENEMIES_FOLDER = assert(workspace:WaitForChild("Enemies"))
 
 local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
-Misc.AddPlayerCharToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
+Misc.AddInstanceToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
 local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
 local activeBulletsDataTable = {} :: { table }
 local NIL_TABLE = table.freeze { "NIL" }
@@ -335,7 +335,7 @@ local DRIVING_BOX_INSTANCE = workspace:FindFirstChild("DrivingBox")
 repeat
     wait()
 until DRIVING_BOX_INSTANCE
-Misc.AddPlayerCharToRaycastFilter(DRIVING_BOX_INSTANCE)
+Misc.AddInstanceToRaycastFilter(DRIVING_BOX_INSTANCE)
 local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local DRIVING_BOX_ATT = workspace:WaitForChild("DrivingBox", 10):FindFirstChild("Attachment")
@@ -432,11 +432,11 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     bullet.CanCollide = false
     bullet.Anchored = true
     bullet:SetAttribute(SharedConfig.BULLET_ATTRIBUTE_NAME, player.UserId)
-    local s = 1
+    local bulletSize = Vector3.new(1, 1, 1)
     if S.Weapon[weapon_id].bulletSize then
-        s = S.Weapon[weapon_id].bulletSize
+        bulletSize = S.Weapon[weapon_id].bulletSize
     end
-    bullet.Size = Vector3.new(s, s, s)
+    bullet.Size = bulletSize
 
     -- set bullet's position
     local pos = rootPart.Position + rootPart.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
@@ -449,16 +449,6 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
         range = S.Weapon[weapon_id].range
     end
     local bulletTTL = roflake.time() + range / speed
-    -- local targetToHit, dist = Misc.IsBulletCollidableToHit(pos)
-
-    -- if targetToHit then
-    --     if WORLD:has(targetToHit.Name) then
-    --         local refId = WORLD:get(targetToHit.Name, W.RefId)
-    --         local instance = WORLD:get(targetToHit.Name, W.ServerInstance)
-    --         targetThickness = instance.Size.Z
-    --     end
-    --     timeToArrive = roflake.time() + ((math.max(dist - targetThickness/2, 0)) / speed)
-    -- end
 
     bullet.Position = pos
 
@@ -470,6 +460,8 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
         owner = player,
         weapon_id = weapon_id,
         rotation = CFrame.Angles(0, 0, 0),
+        range = range,
+        size = bulletSize,
     })
 
     local indexInTable = #activeBulletsDataTable
@@ -658,7 +650,9 @@ RunService.Heartbeat:Connect(function(dt)
         local weapon_id = bulletData.weapon_id
         local speed = bulletData.speed
         local start_pos = bulletData.start_pos
-        local target, _dist = Misc.IsBulletCollidableToHit(bullet.Position)
+        local bullet_range = bulletData.range
+        local bullet_size = bulletData.size
+        local target, _dist = Misc.IsBulletCollidableToHit(bullet.CFrame, bullet_range, bullet_size)
 
         local targetCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * speed * dt)) * rot
         local targetThickness
@@ -675,7 +669,8 @@ RunService.Heartbeat:Connect(function(dt)
                 targetThickness = SharedConfig.BOOSTER_DEPTH
                 isTargetKillable = true
             elseif Id.kind(targetRefId) == Id.Kind.Enemy then
-                targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
+                -- targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
+                targetThickness = target.Size.Z
                 isTargetKillable = true
             end
         end

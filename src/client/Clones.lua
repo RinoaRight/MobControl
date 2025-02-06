@@ -90,7 +90,7 @@ function m.CreateClone(playerId: int, cloneGuid: num | str)
         local vacantRow = math.floor((existingClonesNum - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
         local alreadyInCol = existingClonesNum % SharedConfig.CLONES_IN_A_ROW
         cloneRootPart.CFrame = CFrame.new(Misc.GetClonePos(humanoidRootPart.Position, alreadyInCol, vacantRow))
-        Misc.AddPlayerCharToRaycastFilter(cloneInstance)
+        Misc.AddInstanceToRaycastFilter(cloneInstance)
     end)
 
     return cloneInstance

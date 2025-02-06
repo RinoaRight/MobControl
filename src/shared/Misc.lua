@@ -30,12 +30,12 @@ local rand = require(shared.rand)
 local m = {}
 m.__index = m
 
-local raycastParams = RaycastParams.new()
--- raycastParams.CollisionGroup = "BulletCollidable"
--- raycastParams.FilterType = Enum.RaycastFilterType.Include
+local blockcastParams = RaycastParams.new()
+-- blockcastParams.CollisionGroup = "BulletCollidable"
+-- blockcastParams.FilterType = Enum.blockcastFilterType.Include
 local blacklist = {} :: { Instance }
 
-m.AddPlayerCharToRaycastFilter = function(instance)
+m.AddInstanceToRaycastFilter = function(instance)
     table.insert(blacklist, instance)
 end
 
@@ -76,10 +76,10 @@ m.FlickerPlayerHPGui = function(originalTextBox: TextLabel, mult: num, hp: num)
     playFlickerAnim(currentTextBox, mult, hp, isToDestroy)
 end
 
-m.IsBulletCollidableToHit = function(pos: Vector3)
-    raycastParams.FilterDescendantsInstances = blacklist
-    local rayDirection = Vector3.new(0, 0, -SharedConfig.BULLET_BASE_DISTANCE)
-    local raycastResult = workspace:Raycast(pos, rayDirection, raycastParams)
+m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
+    blockcastParams.FilterDescendantsInstances = blacklist
+    local rayDirection = Vector3.new(0, 0, -bulletRange)
+    local blockcastResult = workspace:Blockcast(bulletCFrame, bulletSize, rayDirection, blockcastParams)
     -- if "debug" then
     --     local ray = Instance.new("Part")
     --     ray.CanCollide = false
@@ -91,13 +91,13 @@ m.IsBulletCollidableToHit = function(pos: Vector3)
     -- end
     local target = nil
     local distance
-    local raycastInstance
-    if raycastResult then
-        raycastInstance = raycastResult.Instance
-        -- if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
-        if raycastInstance.CollisionGroup == SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME then
-            target = raycastInstance
-            distance = (raycastResult.Position - pos).Magnitude
+    local blockcastInstance
+    if blockcastResult then
+        blockcastInstance = blockcastResult.Instance
+        -- if blockcastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+        if blockcastInstance.CollisionGroup == SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME then
+            target = blockcastInstance
+            distance = (blockcastResult.Position - bulletCFrame.Position).Magnitude
         end
     end
     return target, distance
