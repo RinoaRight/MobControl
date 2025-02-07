@@ -24,6 +24,7 @@ local SoundService = game:GetService("SoundService")
 local SOUNDS_ROOT = assert(SoundService:WaitForChild("SFX"))
 local LOCALIZED_SOUNDS_ROOT = assert(ReplicatedStorage:WaitForChild("Sounds"))
 local ENEMIES_TEMPLATE_FOLDER = ReplicatedStorage:WaitForChild("Enemies")
+local VFX_ROOT = ReplicatedStorage:WaitForChild("VFX")
 -----------------------------
 -- Module
 -----------------------------
@@ -70,8 +71,8 @@ m.Weapon = {
         range = 200, -- units
         damage = 20,
         cooldown = 1.2,
-        bulletSize = Vector3.new(3, 3, 3),
-        explosionSize = Vector3.new(12, 12, 12),
+        bulletSize = Vector3.new(4, 4, 6),
+        explosionSize = Vector3.new(30, 30, 30),
         -- TODO: change model
         instance = ReplicatedStorage.Weapons.PistolModel,
         name = "Rocket",
@@ -96,6 +97,10 @@ m.Sound = {
     [Id.Sound.RELOAD] = assert(SOUNDS_ROOT:WaitForChild("Reload")),
     [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
     [Id.Sound.SCREAM_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Scream")),
+}
+
+m.VFX = {
+    [Id.VFX.EXPLOSION] = assert(VFX_ROOT:WaitForChild("Explosion")),
 }
 
 return m

@@ -140,17 +140,6 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         local enemyPos = grid[idx]
         local yOffset = ENEMY_CELL_SIZE.Y / 2
         enemyPos = Vector3.new(enemyPos.X, enemyPos.Y + yOffset, enemyPos.Z)
-        -- if __DEV__ then
-        --     warn("enemy pos", enemyPos)
-        --     local part = Instance.new("Part")
-        --     part.Name = "EnemyPos"..tostring(enemyPos)
-        --     part.Size = Vector3.new(1, 1, 1)
-        --     part.CanCollide = false
-        --     part.Anchored = true
-        --     part.CFrame = CFrame.new(enemyPos)
-        --     part.Parent = workspace
-        --     part.BrickColor = BrickColor.new("Really red")
-        -- end
 
         -- define enemy id
         local enemyId = Id.Enemy.BASIC
@@ -159,23 +148,7 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
             enemyId = ids[ind]
         end
 
-        -- local enemyInstance
-        -- if S.Enemy[enemyId].meshTemplate then
-        --     enemyInstance = S.Enemy[enemyId].meshTemplate:Clone()
-        -- else
-        --     enemyInstance = Instance.new("Part")
-        --     enemyInstance.Size = Vector3.new(2, 6, 2)
-        -- end
-        -- enemyInstance.CanCollide = false
-        -- enemyInstance.Anchored = true
-        -- enemyInstance.CollisionGroup = "BulletCollidable"
-
-        -- local enemyFolder = assert(groundUnit:FindFirstChild("Enemies"))
-        -- enemyInstance.Parent = enemyFolder
-        -- enemyInstance.CFrame = CFrame.new(enemyPos)
         local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyPos)
-        -- assert(typeof(enemyGuid) == "string")
-        -- enemyInstance.Name = enemyGuid
         table.insert(enemiesGuids, enemyGuid)
     end
     return enemiesGuids

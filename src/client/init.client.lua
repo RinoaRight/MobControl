@@ -635,7 +635,7 @@ RunService.Heartbeat:Connect(function(dt)
     -- move enemies
     local enemies = {}
     local enemyTargets = {}
-    for enemyGuid, refId, _hp, newPos, _playerId, _bitset in WORLD:select(W.RefId, W.HP, W.Position, W.PLayerId, W.Bitset) do
+    for enemyGuid, refId, _hp, newPos, _playerId, _bitset in WORLD:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
         if Id.kind(refId) == Id.Kind.Enemy then
             -- EnemiesClient.MoveEnemyInstances(WORLD, pos)
             local enemyInstance = ENEMIES_FOLDER:FindFirstChild(enemyGuid)
@@ -644,7 +644,7 @@ RunService.Heartbeat:Connect(function(dt)
             local lookAt = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + 5)
 
             -- enemy is already locked on target, define lookAt
-            local playerId = WORLD:get(enemyInstance.Name, W.PLayerId)
+            local playerId = WORLD:get(enemyInstance.Name, W.PlayerId)
             local player = game.Players:GetPlayerByUserId(playerId)
             if player then
                 local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
@@ -678,28 +678,6 @@ RunService.Heartbeat:Connect(function(dt)
 
         local newBulletCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * speed * dt)) * rot
 
-        -- local target, _dist = Misc.IsBulletCollidableToHit(bullet.CFrame, bullet_range, bullet_size)
-
-        -- local targetThickness
-        -- local targetRefId
-        -- local isTargetKillable
-        -- if target and WORLD:has(target.Name) then
-        --     targetRefId = WORLD:get(target.Name, W.RefId)
-        --     -- local instance = WORLD:get(target.Name, W.ServerInstance)
-        --     if not targetRefId then
-        --         log:error("no refId or instance for the bullet target", targetRefId, target.ClassName)
-        --         return
-        --     end
-        --     if Id.kind(targetRefId) == Id.Kind.Boost then
-        --         targetThickness = SharedConfig.BOOSTER_DEPTH
-        --         isTargetKillable = true
-        --     elseif Id.kind(targetRefId) == Id.Kind.Enemy then
-        --         -- targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
-        --         targetThickness = target.Size.Z
-        --         isTargetKillable = true
-        --     end
-        -- end
-
         local target, isTargetKillable, targetThickness, targetRefId = getCollisionSpecifics(bullet, bullet_range, bullet_size)
 
         if target and isTargetKillable and (target.Position.Z + targetThickness + 1 >= bullet.Position.Z) then
@@ -708,9 +686,56 @@ RunService.Heartbeat:Connect(function(dt)
                 if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy then
                     local targetGuids = { target.Name }
                     if weapon_id == Id.Weapon.ROCKET then
-                        -- check if there other targets hit by the explosion
-                        -- TODO: animate the explosion
+                        -- animate the explosion
                         local explosionSize = assert(S.Weapon[weapon_id].explosionSize)
+                        if S.VFX[Id.VFX.EXPLOSION] then
+                            local explosionInstance = S.VFX[Id.VFX.EXPLOSION]:Clone()
+                            explosionInstance.Position = target.Position
+                            explosionInstance.BlastRadius = explosionSize.X / 2
+                            explosionInstance.Parent = workspace
+                            -- set up a table to track the models hit
+                            local modelsHit = {}
+                            explosionInstance.Hit:Connect(function(part, distance)
+                                -- check if the local player is hit (NOTE: no friendly fire allowed)
+                                local parentModel = part.Parent
+                                if parentModel then
+                                    -- check to see if this model has already been hit
+                                    if modelsHit[parentModel] then
+                                        return
+                                    end
+                                    -- log this model as hit
+                                    modelsHit[parentModel] = true
+
+                                    -- look for a humanoid
+                                    local humanoid = parentModel:FindFirstChild("Humanoid")
+                                    if humanoid then
+                                        local isClone, playerId = Misc.CloneOrLocalPlayer(WORLD, parentModel)
+                                        if playerId and playerId == LOCAL_PLAYER.UserId then
+                                            local victimId
+                                            if isClone then
+                                                -- player's clone was hit
+                                                Misc.DestroyClientClone(parentModel)
+                                                victimId = parentModel.Name
+                                            else
+                                                -- player themselves collided with the booster
+                                                S.Sound[Id.Sound.SCREAM]:Play()
+                                                victimId = LOCAL_PLAYER.UserId
+                                            end
+                                            -- TODO: test it out
+                                            fire_server(Id.C2S.PLAYER_HIT_BY_OWN_ROCKET, victimId)
+                                        end
+                                    end
+                                end
+                            end)
+                            -- terminate subscription on the end of explosion
+                            explosionInstance.AncestryChanged:Connect(function()
+                                if not explosionInstance.Parent then
+                                    explosionInstance:Destroy()
+                                end
+                            end)
+                        end
+
+                        -- check if there other targets hit by the explosion
                         local otherTargets = Misc.GetBulletCollidablesInRadius(target.CFrame, explosionSize)
                         if otherTargets and #otherTargets > 0 then
                             for _, otherTarget in ipairs(otherTargets) do
@@ -827,7 +852,7 @@ infrequentLoop:start(function(dt)
 end, 1, "test")
 
 -- create clones if any new clones appeared
-WORLD:set_on_attach(W.PLayerId, function(guid: guid, newplayerId: num)
+WORLD:set_on_attach(W.PlayerId, function(guid: guid, newplayerId: num)
     local id = WORLD:get(guid, W.RefId)
     if id and Id.kind(id) == Id.Kind.Clone then
         local clientInstance = workspace:FindFirstChild(guid, true)
@@ -854,7 +879,7 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     end
 
     -- check if it was an enemy that has been added
-    if Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PLayerId) and WORLD:get(guid, W.Bitset) then
+    if Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
     end
 end)

@@ -26,6 +26,9 @@ local TweenService = game:GetService("TweenService")
 local NumFormat = require(shared.num_format)
 local Queue = require(shared.queue)
 local rand = require(shared.rand)
+local LOCAL_PLAYER = game.Players.LocalPlayer
+local PlayerService = game:GetService("Players")
+local W = SharedConfig.World.CId
 
 local m = {}
 m.__index = m
@@ -105,9 +108,20 @@ local partsInRadiusParams = OverlapParams.new()
 partsInRadiusParams.FilterDescendantsInstances = blacklist
 partsInRadiusParams.CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME
 partsInRadiusParams.FilterType = Enum.RaycastFilterType.Include
-m.GetBulletCollidablesInRadius = function(cFrame, size) 
+m.GetBulletCollidablesInRadius = function(cFrame, size)
     local instances = workspace:GetPartBoundsInBox(cFrame, size, partsInRadiusParams)
     return instances
+end
+
+m.CloneOrLocalPlayer = function(world_state, character)
+    local isClone, playerId
+    if character.Parent.Name == SharedConfig.CLONES_FOLDER_NAME then
+        isClone = true
+        playerId = world_state:get(character.Name, W.PlayerId)
+    elseif PlayerService:GetPlayerFromCharacter(character) then
+        playerId = PlayerService:GetPlayerFromCharacter(character).UserId
+    end
+    return isClone, playerId
 end
 
 m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
@@ -167,6 +181,12 @@ m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num)
             audioEmitter:Destroy()
         end)
     end)
+end
+
+m.DestroyClientClone = function(character)
+    local root = character:FindFirstChild("HumanoidRootPart")
+    m.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED], root.Position, 0)
+    character:Destroy()
 end
 
 m.EquipWeaponModel = function(char, weapon_id: int)

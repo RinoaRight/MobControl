@@ -304,7 +304,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         -- TODO: calculate _proximity to DRIVER to destroy enemy (instead of current collisions)
 
         -- calculate new enemies' positions
-        for enemyGuid, refId, _hp, currentPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PLayerId, W.Bitset) do
+        for enemyGuid, refId, _hp, currentPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
             if Id.kind(refId) ~= Id.Kind.Enemy then
                 continue
             end
@@ -330,36 +330,36 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     else
                         -- player is not in session, remove this enemy's lock on him if any
                         playerId = player.UserId :: int
-                        if worldState:get(enemyGuid, W.PLayerId) == playerId then
-                            worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                        if worldState:get(enemyGuid, W.PlayerId) == playerId then
+                            worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                         end
                     end
                 end
                 if #playersInSession > 0 then
                     local player, playerRoot
-                    if (not worldState:get(enemyGuid, W.PLayerId)) or worldState:get(enemyGuid, W.PLayerId) == SharedConfig.DEFAULT_PLAYER_ID then
+                    if (not worldState:get(enemyGuid, W.PlayerId)) or worldState:get(enemyGuid, W.PlayerId) == SharedConfig.DEFAULT_PLAYER_ID then
                         -- select a player that is close enough to the enemy
                         player, playerRoot, distToTarget = selectPlayer(playersInSession, currentPos)
                         if player then
                             -- a player that is close enough is selected, set lock to target
                             playerId = player.UserId :: int
-                            worldState:set(enemyGuid, W.PLayerId, playerId)
+                            worldState:set(enemyGuid, W.PlayerId, playerId)
                         end
                     else
                         -- enemy is already locked on target, assign player, playerRoot and distTotarget
-                        playerId = worldState:get(enemyGuid, W.PLayerId)
+                        playerId = worldState:get(enemyGuid, W.PlayerId)
                         player = game.Players:GetPlayerByUserId(playerId)
-                        playerState = get_state(worldState:get(enemyGuid, W.PLayerId))
+                        playerState = get_state(worldState:get(enemyGuid, W.PlayerId))
                         if playerState then
                             playerRoot = playerState.root :: BasePart
                             if not playerRoot then
-                                log:error("No player root found for player: '%*'", worldState:get(enemyGuid, W.PLayerId))
+                                log:error("No player root found for player: '%*'", worldState:get(enemyGuid, W.PlayerId))
                                 return
                             end
                             local toTarget = currentPos - playerRoot.Position
                             distToTarget = toTarget.Magnitude
                         else
-                            log:error("No player state found for player: '%*'", worldState:get(enemyGuid, W.PLayerId))
+                            log:error("No player state found for player: '%*'", worldState:get(enemyGuid, W.PlayerId))
                             return
                         end
                     end
@@ -371,12 +371,12 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                         if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
                             worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                            worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                            worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                         -- elseif distToTarget < 20 then
                         elseif currentPos.Z > playerRoot.Position.Z - 20 then
                             -- enemy is pretty close to player, cancel seeking
                             worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                            worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                            worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                             -- local playerPos = playerRoot.Position
                             -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
                             -- newPos = currentPos:Lerp(target, dt * speed / distToTarget)
@@ -430,7 +430,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         end
                     else
                         -- no player is close enough, remove lock to target if any
-                        worldState:set(enemyGuid, W.PLayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                        worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                     end
                 end
             end
@@ -467,7 +467,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         -- delete bullet entity when ttl is up
-        for bulletGuid, startPos, ownerId, wepaonId, ttl in worldState:select(W.Position, W.PLayerId, W.WeaponId, W.TTL) do
+        for bulletGuid, startPos, ownerId, wepaonId, ttl in worldState:select(W.Position, W.PlayerId, W.WeaponId, W.TTL) do
             if roflake.time() > ttl then
                 WorldService.RemoveEntity(bulletGuid)
             end

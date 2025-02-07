@@ -72,6 +72,7 @@ local Kind = table.freeze {
     WorldStats      = enum.iota'',
     TimedEvent      = enum.iota'',
     Sound           = enum.iota'',
+    VFX             = enum.iota'',
     STMState        = enum.iota'',
     -- protocol:
     S2S             = enum.iota(110, 1, idk.MAX_KIND),
@@ -589,7 +590,7 @@ export type Animation = typeof(Id.Animation)
 
 -- stylua: ignore
 -----------------------------
--- Animation
+-- Sound
 -----------------------------
 Id.Sound = enum.with_id "Id.Sound" {
     _NONE                 = iota(Id.Kind.Sound, 0),
@@ -601,6 +602,17 @@ Id.Sound = enum.with_id "Id.Sound" {
 }
 KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound
 export type Sound = typeof(Id.Sound)
+
+-- stylua: ignore
+-----------------------------
+-- VFX
+-----------------------------
+Id.VFX = enum.with_id "Id.VFX" {
+    _NONE                 = iota(Id.Kind.VFX, 0),
+    EXPLOSION             = iota'',
+}
+KIND_TO_ENUM[Id.Kind.VFX] = Id.VFX
+export type VFX = typeof(Id.VFX)
 
 -- stylua: ignore
 -----------------------------
@@ -701,6 +713,7 @@ Id.C2S = enum.with_id "Id.C2S" {
     -- ENEMY_HIT                 = iota'', -- enemy_guid, bullet_guid
     TARGET_HIT                = iota'', -- {enemy_guids}, bullet_guid
     PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
+    PLAYER_HIT_BY_OWN_ROCKET  = iota'', -- triggerer_guid (or player_id)
     PLAYER_READY_TO_START     = iota'',               
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S

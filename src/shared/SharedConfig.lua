@@ -93,7 +93,7 @@ World.CId = En.with_id("World.CId") {
     BoostContentId = iota'',   -- id
     Position       = iota'',   -- vector3
     ServerInstance = iota'',   -- Instance
-    PLayerId       = iota'',   -- number
+    PlayerId       = iota'',   -- number
     WeaponId       = iota'',   -- id
     TTL            = iota'',   -- epoch
     Bitset         = iota'',   -- flag
@@ -108,7 +108,7 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(W)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PLayerId, W.WeaponId, W.TTL, W.Bitset)
+        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PlayerId, W.WeaponId, W.TTL, W.Bitset)
         :set_destructor(W.ServerInstance, disposer.dispose)
         :build_with_replica()
 

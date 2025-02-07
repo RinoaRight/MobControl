@@ -97,11 +97,11 @@ end
 function m.AddClone(id: id, player_id: int)
     local guid = m.nullary_transient(_roflake.uida)
     m.world:set(guid, W.RefId, id)
-    m.world:set(guid, W.PLayerId, player_id)
+    m.world:set(guid, W.PlayerId, player_id)
     return guid
 end
 
-local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PLayerId, W.Bitset)
+local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset)
 function m.AddEnemyToState(id: id, pos)
     local hp = S.Enemy[id].health
     local guid = _roflake.uida
@@ -109,7 +109,7 @@ function m.AddEnemyToState(id: id, pos)
     return guid
 end
 
-local _bullet = m.world:constructor(W.Position, W.PLayerId, W.WeaponId, W.TTL) -- starting pos, owner's id, weapon_id
+local _bullet = m.world:constructor(W.Position, W.PlayerId, W.WeaponId, W.TTL) -- starting pos, owner's id, weapon_id
 function m.AddBulletToState(guid, weaponId, startingPos, playerId)
     local range = SharedConfig.BULLET_BASE_DISTANCE
     if S.Weapon[weaponId].range then
