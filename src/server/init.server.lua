@@ -100,6 +100,11 @@ local function cleanUpWorldState(player_state, this_player_id: int)
 end
 
 local function onPlayerDead(player_state: PSS.PlayerState)
+    -- check if the player is not already dead
+    if player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId) == Id.Weapon._NONE then
+        return
+    end
+    
     player_state:NotifyClient(Id.S2C.PLAYER_DIED)
     local lobby_spawn = assert(workspace:FindFirstChild("Lobby"):FindFirstChild("SpawnLocation"))
     player_state.root.CFrame = lobby_spawn.CFrame
@@ -188,6 +193,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
     end
     local bulletStartPos = WorldService.world:get(bulletGuid, W.Position)
     local bulletWeaponId = WorldService.world:get(bulletGuid, W.WeaponId)
+    local bulletWeaponDataEntry = S.Weapon[bulletWeaponId]
 
     if bulletWeaponId ~= Id.Weapon.ROCKET and #targetGuids > 1 then
         -- only rocket missile can hit multiple targets
@@ -212,23 +218,27 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
             end
 
             local distance = (bulletStartPos - targetPos).Magnitude
+            if bulletWeaponId == Id.Weapon.ROCKET then
+                distance -= bulletWeaponDataEntry.explosionSize.Z
+            end
 
             -- check for the range hacks
             local range = SharedConfig.BULLET_BASE_DISTANCE
-            if S.Weapon[bulletWeaponId].range then
-                range = S.Weapon[bulletWeaponId].range
+            if bulletWeaponDataEntry.range then
+                range = bulletWeaponDataEntry.range
             end
             local tolerance = 20
             if range + tolerance < distance then
-                log:error("Weapon's range is smaller than the distance of the bullet")
+            -- if math.abs(range - distance) > tolerance then
+                log:error("Weapon's range is smaller than the distance of the bullet", range, distance, targetPos, debug.traceback)
                 return
             end
 
             if Id.kind(targetRefId) == Id.Kind.Enemy then
                 local enemyHP = WorldService.world:get(targetGuid, W.HP)
                 local dmg = 0
-                if S.Weapon[bulletWeaponId] and S.Weapon[bulletWeaponId].damage then
-                    dmg = S.Weapon[bulletWeaponId].damage
+                if bulletWeaponDataEntry and bulletWeaponDataEntry.damage then
+                    dmg = bulletWeaponDataEntry.damage
                 end
                 local newHP = enemyHP - dmg
 

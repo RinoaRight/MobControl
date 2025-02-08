@@ -174,12 +174,16 @@ end
 
 on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
     LOCAL_HUMANOID.JumpPower = 50
-    LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME):Destroy()
+    local attachement = LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
+    if attachement then
+        attachement:Destroy()
+    end
     for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
         if v.Name == SharedConfig.RUN_ANIMATION_NAME then
             v:Stop()
         end
     end
+    handleGunHoldingAnimation(LOCAL_CHARACTER, Id.Weapon._NONE)
     -- kill his clones
     local clonesFolder = LOCAL_CHARACTER:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
     if clonesFolder then
@@ -560,8 +564,12 @@ local function fireBullet(player)
     PLAYER_STATE:set(player.UserId, C.ClientTTE, tte)
 end
 
-local function getCollisionSpecifics(bullet: BasePart, bullet_range, bullet_size)
-    local target, _dist = Misc.IsBulletCollidableToHit(bullet.CFrame, bullet_range, bullet_size)
+local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_size)
+    local bulletCFrame = bullet.CFrame
+    local bulletPos = bullet.Position
+    local targetPos = Vector3.new(bulletPos.X, bulletPos.Y, bulletPos.Z - bullet_size.Z)
+    local targetCFrame = CFrame.new(targetPos)
+    local target, _dist = Misc.IsBulletCollidableToHit(targetCFrame, raycast_length, bullet_size)
     local targetThickness
     local targetRefId
     local isTargetKillable
@@ -678,9 +686,26 @@ RunService.Heartbeat:Connect(function(dt)
 
         local newBulletCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * speed * dt)) * rot
 
-        local target, isTargetKillable, targetThickness, targetRefId = getCollisionSpecifics(bullet, bullet_range, bullet_size)
+        -- check for collisions
+        local raycast_length = bullet_size.Z / 2 + (speed * dt)
+        -- local target, isTargetKillable, targetThickness, targetRefId = getCollisionSpecifics(bullet, bullet_range, bullet_size)
+        local target, isTargetKillable, targetThickness, targetRefId = getCollisionSpecifics(bullet, raycast_length, bullet_size)
 
-        if target and isTargetKillable and (target.Position.Z + targetThickness + 1 >= bullet.Position.Z) then
+        local hit_z
+        if target and isTargetKillable then
+            local target_pos
+            if Id.kind(targetRefId) == Id.Kind.Enemy then
+                target_pos = WORLD:get(target.Name, W.Position)
+            elseif Id.kind(targetRefId) == Id.Kind.Boost then
+                target_pos = target.Position
+            end
+            hit_z = target_pos.Z + targetThickness + 1
+            if weapon_id == Id.Weapon.ROCKET then
+                hit_z += S.Weapon[weapon_id].explosionSize.Z
+            end
+        end
+
+        if target and isTargetKillable and hit_z and hit_z >= bullet.Position.Z then
             -- bullet collided with a bullet-killable target
             if owner == LOCAL_PLAYER then
                 if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy then
@@ -740,7 +765,8 @@ RunService.Heartbeat:Connect(function(dt)
                         if otherTargets and #otherTargets > 0 then
                             for _, otherTarget in ipairs(otherTargets) do
                                 local extraTarget, isTargetKillable, _targetThickness, targetRefId =
-                                    getCollisionSpecifics(bullet, bullet_range, bullet_size)
+                                    -- getCollisionSpecifics(bullet, bullet_range, bullet_size)
+                                    getCollisionSpecifics(bullet, raycast_length, bullet_size)
                                 if
                                     extraTarget
                                     and isTargetKillable
@@ -903,3 +929,4 @@ local _ = Players.PlayerRemoving:Connect(function(player)
 end)
 
 PLAYER_STATE:set_on_modify(C.TTE, function(guid: guid, newValue: num, oldValue: num) end)
+-- TODO: spawn bullet ahead of the player (consider its size)
