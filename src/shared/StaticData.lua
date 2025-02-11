@@ -24,6 +24,7 @@ local SoundService = game:GetService("SoundService")
 local SOUNDS_ROOT = assert(SoundService:WaitForChild("SFX"))
 local LOCALIZED_SOUNDS_ROOT = assert(ReplicatedStorage:WaitForChild("Sounds"))
 local ENEMIES_TEMPLATE_FOLDER = ReplicatedStorage:WaitForChild("Enemies")
+local WEAPONS_ROOT = ReplicatedStorage:WaitForChild("Weapons")
 local VFX_ROOT = ReplicatedStorage:WaitForChild("VFX")
 -----------------------------
 -- Module
@@ -43,7 +44,7 @@ m.Weapon = {
         damage = 10,
         cooldown = 0.5, --sec
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
-        instance = ReplicatedStorage.Weapons.PistolModel,
+        instance = WEAPONS_ROOT.PistolModel,
         name = "Pistol",
     },
     [Id.Weapon.SMG] = {
@@ -53,7 +54,7 @@ m.Weapon = {
         cooldown = 0.2,
         bulletSize = Vector3.new(1, 1, 1),
         -- TODO: change model
-        instance = ReplicatedStorage.Weapons.PistolModel,
+        instance = WEAPONS_ROOT.PistolModel,
         name = "SMG",
     },
     [Id.Weapon.SHOTGUN] = {
@@ -63,7 +64,7 @@ m.Weapon = {
         cooldown = 0.7,
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
         -- TODO: change model
-        instance = ReplicatedStorage.Weapons.PistolModel,
+        instance = WEAPONS_ROOT.PistolModel,
         name = "Shotgun",
     },
     [Id.Weapon.ROCKET] = {
@@ -74,7 +75,7 @@ m.Weapon = {
         bulletSize = Vector3.new(4, 4, 6),
         explosionSize = Vector3.new(30, 30, 30),
         -- TODO: change model
-        instance = ReplicatedStorage.Weapons.PistolModel,
+        instance = WEAPONS_ROOT.PistolModel,
         name = "Rocket",
     },
 }
@@ -100,6 +101,7 @@ m.Sound = {
 }
 
 m.VFX = {
+    -- TODO: FIXIT. Explosion doesn't appear in Replicate dStorage of a player outside the editor
     [Id.VFX.EXPLOSION] = assert(VFX_ROOT:WaitForChild("Explosion")),
 }
 

@@ -878,35 +878,52 @@ infrequentLoop:start(function(dt)
 end, 1, "test")
 
 -- create clones if any new clones appeared
-WORLD:set_on_attach(W.PlayerId, function(guid: guid, newplayerId: num)
-    local id = WORLD:get(guid, W.RefId)
-    if id and Id.kind(id) == Id.Kind.Clone then
-        local clientInstance = workspace:FindFirstChild(guid, true)
-        if not clientInstance then
-            local newInstance = Clones.CreateClone(newplayerId, guid)
-            local weaponId = PLAYER_STATE:get(newplayerId, C.ClientWeaponId)
-            handleGunHoldingAnimation(newInstance, weaponId)
-            if not newInstance then
-                log:error("failed to create clone for player " .. newplayerId)
-                return
-            end
-        end
-    end
-end)
+-- WORLD:set_on_attach(W.PlayerId, function(guid: guid, newplayerId: num)
+--     local id = WORLD:get(guid, W.RefId)
+--     if id and Id.kind(id) == Id.Kind.Clone then
+--         local clientInstance = workspace:FindFirstChild(guid, true)
+--         if not clientInstance then
+--             local newInstance = Clones.CreateClone(newplayerId, guid)
+--             local weaponId = PLAYER_STATE:get(newplayerId, C.ClientWeaponId)
+--             handleGunHoldingAnimation(newInstance, weaponId)
+--             if not newInstance then
+--                 log:error("failed to create clone for player " .. newplayerId)
+--                 return
+--             end
+--         end
+--     end
+-- end)
 
--- subscribe boosters to collisions
 local _booster = PLAYER_STATE:constructor(C.ClientFlags)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     log:debug("~~~>", guid)
     -- check if it was a booster that has been added
     if Id.kind(newValue) == Id.Kind.Boost then
+        -- subscribe boosters to collisions
         _booster(guid, false)
         Signal.Broadcast(Id.C2C.NEW_BOOSTER_ADDED, WORLD, PLAYER_STATE, guid)
-    end
-
-    -- check if it was an enemy that has been added
-    if Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
+    elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
+        -- check if it was an enemy that has been added
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
+    elseif Id.kind(newValue) == Id.Kind.Clone and WORLD:get(guid, W.PlayerId) then
+        -- create clones if any new clones appeared
+        local playerId = WORLD:get(guid, W.PlayerId)
+        local player = Players:GetPlayerByUserId(playerId)
+        local cloneFolder = player.Character:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
+        local clientInstance
+        if cloneFolder then
+            clientInstance = cloneFolder:FindFirstChild(guid, true)
+        end
+        -- local clientInstance = workspace:FindFirstChild(guid, true)
+        if not clientInstance then
+            local newInstance = Clones.CreateClone(playerId, guid)
+            local weaponId = PLAYER_STATE:get(playerId, C.ClientWeaponId)
+            handleGunHoldingAnimation(newInstance, weaponId)
+            if not newInstance then
+                log:error("failed to create clone for player " .. playerId)
+                return
+            end
+        end
     end
 end)
 
@@ -917,6 +934,22 @@ WORLD:set_on_attach(W.WeaponId, function(guid: guid, newValue: num)
     if type(guid) == "number" and WORLD:get(guid, W.HP) and WORLD:get(guid, W.WeaponId) and not WORLD:get(guid, W.BoostContentId) then
         -- new player connected to the server
         setPlayerToClientState(guid, newValue)
+    end
+end)
+
+-- remove clone
+WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
+    if Id.kind(oldValue) == Id.Kind.Clone then
+        local playerId = WORLD:get(guid, W.PlayerId)
+        local player = Players:GetPlayerByUserId()
+        local cloneFolder = player.Character:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
+        if not cloneFolder then
+            return
+        end
+        local clientInstance = cloneFolder:FindFirstChild(guid, true)
+        if clientInstance then
+            clientInstance:Destroy()
+        end
     end
 end)
 
