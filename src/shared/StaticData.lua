@@ -59,7 +59,7 @@ m.Weapon = {
     },
     [Id.Weapon.SHOTGUN] = {
         baseSpeed = 50,
-        range = 150, -- units
+        range = 100, -- units
         damage = 5,
         cooldown = 0.7,
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
@@ -73,7 +73,7 @@ m.Weapon = {
         damage = 50,
         cooldown = 1.2,
         bulletSize = Vector3.new(4, 4, 6),
-        explosionSize = Vector3.new(30, 30, 30),
+        explosionSize = Vector3.new(10, 10, 10),
         -- TODO: change model
         instance = WEAPONS_ROOT.PistolModel,
         name = "Rocket",
@@ -85,6 +85,7 @@ m.Boost = {
     -- TODO: real values
     [Id.Boost.ADD_CLONE]         = {valueRange = {2,2}, hpRange = {50, 100}},
     [Id.Boost.CHANGE_WEAPON]     = {valueRange = {0, 0}, hpRange = {50, 100}, contentsRange = {Id.Weapon.SMG, Id.Weapon.ROCKET}},
+    [Id.Boost.FIRST_AID_KIT]     = {valueRange = {20, 50}, hpRange = {50, 100}},
     -- [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}},
 }
 
@@ -102,7 +103,7 @@ m.Sound = {
 
 m.VFX = {
     -- TODO: FIXIT. Explosion doesn't appear in Replicate dStorage of a player outside the editor
-    [Id.VFX.EXPLOSION] = assert(VFX_ROOT:WaitForChild("Explosion")),
+    -- [Id.VFX.EXPLOSION] = assert(VFX_ROOT:WaitForChild("Explosion")),
 }
 
 return m

@@ -111,7 +111,7 @@ end
 
 local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerState?)
     -- TODO: actual range of selection of every type
-    local refID = math.random(Id.Boost.ADD_CLONE, Id.Boost.CHANGE_WEAPON)
+    local refID = math.random(Id.Boost.ADD_CLONE, Id.Boost.FIRST_AID_KIT)
     local valueRange = S.Boost[refID].valueRange
     local value = math.random(valueRange[1], valueRange[#valueRange])
     local hpRange = S.Boost[refID].hpRange
@@ -127,7 +127,7 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
     local txt = ""
     local col = instance.Color
     if refID == Id.Boost.ADD_CLONE then
-        txt = string.format("+ %d clones", value)
+        txt = string.format("+%d clones", value)
         col = Color3.fromRGB(0, 255, 0)
     elseif refID == Id.Boost.CHANGE_WEAPON then
         local contents = assert(S.Boost[refID].contentsRange)
@@ -137,8 +137,13 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
         if boostContentId == Id.Weapon.SHOTGUN then
             col = Color3.fromRGB(177, 94, 11)
         elseif boostContentId == Id.Weapon.ROCKET then
-            col = Color3.fromRGB(199, 22, 111)
+            col = Color3.fromRGB(149, 16, 142)
         end
+    elseif refID == Id.Boost.FIRST_AID_KIT then
+        value = math.round(value/10) * 10 -- round the value
+        -- txt = string.format("+%d hp", value)
+        txt = "+health"
+        col = Color3.fromRGB(255, 26, 79)
     end
     -- set GUI
     instance.Color = col
@@ -261,7 +266,7 @@ local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (P
 
     local closenessByX = math.abs(enemyPos.X - playerRoot.Position.X)
     if closenessByX > SharedConfig.ENEMY_SIGHT_RADIUS then
-        -- 
+        --
         return nil, nil, nil
     end
 
@@ -439,14 +444,14 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 -- enemy is critically close to player, harm them, then die
                 if distToTarget < 5 then
                     local enemyDamage = S.Enemy[enemyId].damage
-                    local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
-                    local newHP = playerHP - enemyDamage
-                    if newHP <= 0 then
-                        Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
-                    else
+                    -- local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+                    -- local newHP = playerHP - enemyDamage
+                    -- if newHP <= 0 then
+                    --     -- Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
+                    -- else
                         playerState:DeductHp(enemyDamage)
-                        playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, -enemyDamage)
-                    end
+                        -- playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, -enemyDamage)
+                    -- end
                     -- TODO: effects
                     m.DestroyEnemy(enemyGuid)
                 end
@@ -508,7 +513,10 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
         end
     elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
         Signal.Fire(Id.S2S.CHANGE_WEAPON, playerState.player_id, boost_content_id)
-        -- TODO:
+    elseif boost_ref_id == Id.Boost.FIRST_AID_KIT then
+        local old_hp, new_hp = playerState:AddHp(value)
+        local hp_added = new_hp - old_hp
+        playerState:NotifyClient(Id.S2C.BOOSTER_DESTROYED, boost_ref_id, hp_added, boost_content_id)
     end
 end
 

@@ -45,9 +45,18 @@ local function playFlickerAnim(textBox, mult, hp, isToDestroy)
         local tweenIn =
             TweenService:Create(textBox, TweenInfo.new(0.1), { Size = UDim2.fromScale(originalSize.X.Scale * mult, originalSize.Y.Scale * mult) })
         local tweenOut = TweenService:Create(textBox, TweenInfo.new(0.1), { Size = originalSize })
+        local isPlus = hp >= 0
+        local col = Color3.fromHex("55ff00")
+        if not isPlus then
+            col = Color3.fromHex("ff5500")
+        end
         local formattedHp = NumFormat.format_number(hp, nil, nil, true)
+        if isPlus then
+            formattedHp = "+" .. formattedHp
+        end
 
         textBox.Text = formattedHp
+        textBox.TextColor3 = col
         tweenIn:Play()
         task.wait(0.4)
         tweenOut:Play()
@@ -106,15 +115,20 @@ end
 
 local partsInRadiusParams = OverlapParams.new()
 partsInRadiusParams.FilterDescendantsInstances = blacklist
-partsInRadiusParams.CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME
-partsInRadiusParams.FilterType = Enum.RaycastFilterType.Include
 m.GetBulletCollidablesInRadius = function(cFrame, size)
     local instances = workspace:GetPartBoundsInBox(cFrame, size, partsInRadiusParams)
-    return instances
+    local bulletCollidables = {}
+    for _, instance in ipairs(instances) do
+        if instance.CollisionGroup == SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME then
+            table.insert(bulletCollidables, instance)
+        end
+    end
+    return bulletCollidables
 end
 
-m.CloneOrLocalPlayer = function(world_state, character)
+m.CloneOrLocalPlayer = function(world_state, character: Model)
     local isClone, playerId
+    assert(character.Parent)
     if character.Parent.Name == SharedConfig.CLONES_FOLDER_NAME then
         isClone = true
         playerId = world_state:get(character.Name, W.PlayerId)
@@ -183,8 +197,8 @@ m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num)
     end)
 end
 
-m.DestroyClientClone = function(character)
-    local root = character:FindFirstChild("HumanoidRootPart")
+m.DestroyClientClone = function(character: Model)
+    local root = character:FindFirstChild("HumanoidRootPart") :: BasePart
     m.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED], root.Position, 0)
     character:Destroy()
 end

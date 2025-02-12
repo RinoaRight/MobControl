@@ -387,6 +387,7 @@ Id.Boost = enum.with_id "Id.Boost" {
     ADD_CLONE           = iota'',
     -- BULLET_SPEED_MULT   = iota'',
     CHANGE_WEAPON       = iota'',
+    FIRST_AID_KIT       = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Boost] = Id.Boost
 export type Boost = typeof(Id.Boost)
@@ -724,12 +725,13 @@ export type C2S = typeof(Id.C2S)
 -- S2C
 -----------------------------
 Id.S2C = enum.with_id "Id.S2C" {
-    _NONE          = iota(Id.Kind.S2C, 0),
-    UPDATE_STATE   = iota'',
-    INIT_WORLD     = iota'',
-    UPDATE_WORLD   = iota'',
-    PLAYER_DAMAGED = iota'', -- int (player damage)
-    PLAYER_DIED    = iota'', 
+    _NONE             = iota(Id.Kind.S2C, 0),
+    UPDATE_STATE      = iota'',
+    BOOSTER_DESTROYED = iota'', -- boost_ref_id, value, boost_content_id
+    INIT_WORLD        = iota'',
+    UPDATE_WORLD      = iota'',
+    PLAYER_DAMAGED    = iota'', -- int (player damage)
+    PLAYER_DIED       = iota'', 
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)

@@ -100,6 +100,7 @@ local function cleanUpWorldState(player_state, this_player_id: int)
 end
 
 local function onPlayerDead(player_state: PSS.PlayerState)
+    print("Player dead")
     -- check if the player is not already dead
     if player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId) == Id.Weapon._NONE then
         return
@@ -288,11 +289,11 @@ on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str,
     local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
 
     if isPlayer then
-        if player_hp - booster_hp <= 0 then
-            onPlayerDead(player_state)
-        else
+        -- if player_hp - booster_hp <= 0 then
+        --     onPlayerDead(player_state)
+        -- else
             player_state:DeductHp(booster_hp)
-        end
+        -- end
     else
         -- delete clone
         WorldService.world:delete(triggerer_id)
@@ -300,18 +301,19 @@ on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str,
 end
 
 on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num | str, ...)
+    print("Player hit by his own rocket")
     if not triggerer_id then
         log:error("Collision triggerer id is not defined")
     end
     local isPlayer = type(triggerer_id) == "number"
-    local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+    -- local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
     local damage = S.Weapon[Id.Weapon.ROCKET].damage
     if isPlayer then
-        if player_hp - damage <= 0 then
+        -- if player_hp - damage <= 0 then
             onPlayerDead(player_state)
-        else
+        -- else
             player_state:DeductHp(damage)
-        end
+        -- end
     else
         -- delete clone
         WorldService.world:delete(triggerer_id)
@@ -319,6 +321,7 @@ on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num |
 end
 
 on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
+    print("player is ready to start")
     local total_players = Players:GetPlayers()
     local players_already_in_session = 1 -- including this player
     for _, player in ipairs(total_players) do
