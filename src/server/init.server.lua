@@ -105,7 +105,7 @@ local function onPlayerDead(player_state: PSS.PlayerState)
     if player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId) == Id.Weapon._NONE then
         return
     end
-    
+
     player_state:NotifyClient(Id.S2C.PLAYER_DIED)
     local lobby_spawn = assert(workspace:FindFirstChild("Lobby"):FindFirstChild("SpawnLocation"))
     player_state.root.CFrame = lobby_spawn.CFrame
@@ -230,7 +230,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
             end
             local tolerance = 20
             if range + tolerance < distance then
-            -- if math.abs(range - distance) > tolerance then
+                -- if math.abs(range - distance) > tolerance then
                 log:error("Weapon's range is smaller than the distance of the bullet", range, distance, targetPos, debug.traceback)
                 return
             end
@@ -292,7 +292,7 @@ on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str,
         -- if player_hp - booster_hp <= 0 then
         --     onPlayerDead(player_state)
         -- else
-            player_state:DeductHp(booster_hp)
+        player_state:DeductHp(booster_hp)
         -- end
     else
         -- delete clone
@@ -301,7 +301,6 @@ on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str,
 end
 
 on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num | str, ...)
-    print("Player hit by his own rocket")
     if not triggerer_id then
         log:error("Collision triggerer id is not defined")
     end
@@ -309,11 +308,7 @@ on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num |
     -- local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
     local damage = S.Weapon[Id.Weapon.ROCKET].damage
     if isPlayer then
-        -- if player_hp - damage <= 0 then
-            onPlayerDead(player_state)
-        -- else
-            player_state:DeductHp(damage)
-        -- end
+        player_state:DeductHp(damage)
     else
         -- delete clone
         WorldService.world:delete(triggerer_id)
@@ -321,16 +316,17 @@ on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num |
 end
 
 on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
-    print("player is ready to start")
     local total_players = Players:GetPlayers()
     local players_already_in_session = 1 -- including this player
-    for _, player in ipairs(total_players) do
-        local playerState = get_state(player)
-        if playerState then
-            local f = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-            local isReady = Id.flag_test(f, Id.PlayerF.READY)
-            if isReady then
-                players_already_in_session += 1
+    if #total_players > 1 then
+        for _, player in ipairs(total_players) do
+            local thisPlayerState = get_state(player)
+            if thisPlayerState then
+                local f = thisPlayerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+                local isReady = Id.flag_test(f, Id.PlayerF.READY)
+                if isReady then
+                    players_already_in_session += 1
+                end
             end
         end
     end

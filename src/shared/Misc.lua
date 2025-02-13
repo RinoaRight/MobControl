@@ -39,18 +39,18 @@ m.AddInstanceToRaycastFilter = function(instance)
     table.insert(blacklist, instance)
 end
 
-local function playFlickerAnim(textBox, mult, hp, isToDestroy)
+local function playFlickerAnim(textBox, mult, value, isToDestroy)
     Taskpool.spawn(function()
         local originalSize = textBox.Size :: UDim2
         local tweenIn =
             TweenService:Create(textBox, TweenInfo.new(0.1), { Size = UDim2.fromScale(originalSize.X.Scale * mult, originalSize.Y.Scale * mult) })
         local tweenOut = TweenService:Create(textBox, TweenInfo.new(0.1), { Size = originalSize })
-        local isPlus = hp >= 0
+        local isPlus = value >= 0
         local col = Color3.fromHex("55ff00")
         if not isPlus then
             col = Color3.fromHex("ff5500")
         end
-        local formattedHp = NumFormat.format_number(hp, nil, nil, true)
+        local formattedHp = NumFormat.format_number(value, nil, nil, true)
         if isPlus then
             formattedHp = "+" .. formattedHp
         end

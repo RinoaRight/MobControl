@@ -77,13 +77,13 @@ local function onBoosterAdded(worldState, playerState: state.Replica, boosterGui
                 playerState:set(boosterGuid, C.ClientFlags, true)
                 triggererId = LOCAL_PLAYER.UserId
                 S.Sound[Id.Sound.SCREAM]:Play()
-                local playerHP = playerState:get(Id.PlayerStats.GAME_SESSION, C.Value)
-                local boosterHP = worldState:get(boosterGuid, W.HP)
-                local remainingHP = playerHP - boosterHP
-                if remainingHP > 0 then
-                    Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, -boosterHP)
-                    -- TODO: pain animation
-                end
+                -- local playerHP = playerState:get(Id.PlayerStats.GAME_SESSION, C.Value)
+                -- local boosterHP = worldState:get(boosterGuid, W.HP)
+                -- local remainingHP = playerHP - boosterHP
+                -- if remainingHP > 0 then
+                --     Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, -boosterHP)
+                --     -- TODO: pain animation
+                -- end
                 -- TODO: maybe destroy clones as well? (and on server side from the world state)
             end
             Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, boosterGuid, triggererId)

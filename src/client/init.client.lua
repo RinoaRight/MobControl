@@ -204,14 +204,14 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
     local weapon_id = SharedConfig.DEFAULT_WEAPON_ID
     local player = game.Players:GetPlayerByUserId(player_id)
 
-    -- if player == LOCAL_PLAYER then
-    --     weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId) 
-    -- else
-    --     weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
-    -- end
-    -- if not weapon_id then
-    --     weapon_id = SharedConfig.DEFAULT_WEAPON_ID
-    -- end
+    if player == LOCAL_PLAYER then
+        weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+    else
+        weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
+    end
+    if not weapon_id then
+        weapon_id = SharedConfig.DEFAULT_WEAPON_ID
+    end
 
     if player_id == LOCAL_PLAYER.UserId then
         local hp = SharedConfig.PLAYER_BASE_HP
@@ -729,7 +729,7 @@ RunService.Heartbeat:Connect(function(dt)
                         local explosionInstance = Instance.new("Explosion")
                         -- local explosionInstance = S.VFX[Id.VFX.EXPLOSION]:Clone()
                         explosionInstance.Position = target.Position
-                        explosionInstance.BlastRadius = explosionSize.X / 2
+                        explosionInstance.BlastRadius = explosionSize.X * 3 --explosionSize.X / 2
                         explosionInstance.BlastPressure = 0
                         explosionInstance.ExplosionType = Enum.ExplosionType.NoCraters
                         explosionInstance.DestroyJointRadiusPercent = 0
@@ -764,7 +764,6 @@ RunService.Heartbeat:Connect(function(dt)
                                             S.Sound[Id.Sound.SCREAM]:Play()
                                             victimId = LOCAL_PLAYER.UserId
                                         end
-                                        -- TODO: FIXIT. This doesn't work
                                         fire_server(Id.C2S.PLAYER_HIT_BY_OWN_ROCKET, victimId)
                                     end
                                 end
