@@ -482,7 +482,7 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     return pos, indexInTable, guid
 end
 
-local function spawnShotgunBullets(player, playerRootPart, weapon_id)
+local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
     -- generate multiple bullets and set different rotation for each of them to the data table of active bullets
     local pos
     local guids = {}
@@ -523,8 +523,8 @@ local function fireBullet(player)
     -- player's fire
     local pos
     local bulletGuids = {}
-    if weapon_id == Id.Weapon.SHOTGUN then
-        local startingPos, newGuids = spawnShotgunBullets(player, playerRootPart, weapon_id)
+    if weapon_id == Id.Weapon.SPRAYGUN then
+        local startingPos, newGuids = spawnSpraygunBullets(player, playerRootPart, weapon_id)
         pos = startingPos
         table.move(newGuids, 1, #newGuids, #bulletGuids + 1, bulletGuids)
     else
@@ -538,8 +538,8 @@ local function fireBullet(player)
     if clones_folder then
         for _, clone in ipairs(clones_folder:GetChildren()) do
             local rootPart = clone.HumanoidRootPart
-            if weapon_id == Id.Weapon.SHOTGUN then
-                local startingPos, newGuids = spawnShotgunBullets(player, rootPart, weapon_id)
+            if weapon_id == Id.Weapon.SPRAYGUN then
+                local startingPos, newGuids = spawnSpraygunBullets(player, rootPart, weapon_id)
                 pos = startingPos
                 table.move(newGuids, 1, #newGuids, #bulletGuids + 1, bulletGuids)
             else
@@ -739,7 +739,6 @@ RunService.Heartbeat:Connect(function(dt)
                         explosionInstance.Hit:Connect(function(part, distance)
                             -- check if the local player is hit (NOTE: no friendly fire allowed)
                             local parentModel = part.Parent
-                            assert(parentModel)
                             if parentModel then
                                 -- check to see if this model has already been hit
                                 if modelsHit[parentModel] then
@@ -760,10 +759,11 @@ RunService.Heartbeat:Connect(function(dt)
                                             Misc.DestroyClientClone(parentModel)
                                             victimId = parentModel.Name
                                         else
-                                            -- player themselves collided with the booster
+                                            -- player themselves got hit by explosion
                                             S.Sound[Id.Sound.SCREAM]:Play()
                                             victimId = LOCAL_PLAYER.UserId
                                         end
+                                        -- TODO: some effect that will show that it was an explosion that hit the player
                                         fire_server(Id.C2S.PLAYER_HIT_BY_OWN_ROCKET, victimId)
                                     end
                                 end

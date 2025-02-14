@@ -57,7 +57,7 @@ m.Weapon = {
         instance = WEAPONS_ROOT.PistolModel,
         name = "SMG",
     },
-    [Id.Weapon.SHOTGUN] = {
+    [Id.Weapon.SPRAYGUN] = {
         baseSpeed = 50,
         range = 100, -- units
         damage = 5,
@@ -65,7 +65,7 @@ m.Weapon = {
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
         -- TODO: change model
         instance = WEAPONS_ROOT.PistolModel,
-        name = "Shotgun",
+        name = "Spraygun",
     },
     [Id.Weapon.ROCKET] = {
         baseSpeed = 50,
@@ -91,6 +91,7 @@ m.Boost = {
 
 m.Enemy = {
     [Id.Enemy.BASIC] = { damage = 10, health = 10, speed = 30.0, meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_1") }, -- hp, hp, studs/sec, assetId
+    [Id.Enemy.CRAZY] = { damage = 15, health = 15, speed = 40.0, meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_3") }, -- hp, hp, studs/sec, assetId
 }
 
 m.Sound = {

@@ -563,6 +563,7 @@ export type Weapon = typeof(Id.Weapon)
 Id.Enemy = enum.with_id "Id.Enemy" {
     _NONE   = iota(Id.Kind.Enemy, 0),
     BASIC   = iota'',
+    CRAZY   = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Enemy] = Id.Enemy
 export type Enemy = typeof(Id.Enemy)

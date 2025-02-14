@@ -286,14 +286,9 @@ on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str,
     local isPlayer = type(triggerer_id) == "number"
 
     local booster_hp = WorldService.world:get(booster_guid, W.HP)
-    local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
 
     if isPlayer then
-        -- if player_hp - booster_hp <= 0 then
-        --     onPlayerDead(player_state)
-        -- else
         player_state:DeductHp(booster_hp)
-        -- end
     else
         -- delete clone
         WorldService.world:delete(triggerer_id)

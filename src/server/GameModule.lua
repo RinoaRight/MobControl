@@ -134,13 +134,13 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
         boostContentId = math.random(contents[1], contents[#contents])
         txt = string.format("%s", S.Weapon[boostContentId :: id].name)
         col = Color3.fromRGB(169, 132, 255)
-        if boostContentId == Id.Weapon.SHOTGUN then
+        if boostContentId == Id.Weapon.SPRAYGUN then
             col = Color3.fromRGB(177, 94, 11)
         elseif boostContentId == Id.Weapon.ROCKET then
             col = Color3.fromRGB(149, 16, 142)
         end
     elseif refID == Id.Boost.FIRST_AID_KIT then
-        value = math.round(value/10) * 10 -- round the value
+        value = math.round(value / 10) * 10 -- round the value
         -- txt = string.format("+%d hp", value)
         txt = "+health"
         col = Color3.fromRGB(255, 26, 79)
@@ -214,33 +214,13 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
 
-            local newWave = WorldService.UpdateWaveCount()
-            local howMany = 20
-            local ids = { Id.Enemy.BASIC }
-            if Enemies.ENEMIES_DATA_TABLE[newWave] then
-                if Enemies.ENEMIES_DATA_TABLE[newWave].count then
-                    howMany = Enemies.ENEMIES_DATA_TABLE[newWave].count
-                end
-                if Enemies.ENEMIES_DATA_TABLE[newWave].ids then
-                    ids = Enemies.ENEMIES_DATA_TABLE[newWave].ids
-                end
-            end
-            local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
+            local newWaveNumber = WorldService.UpdateWaveCount()
+            local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, newWaveNumber)
 
             TaskPool.spawn(function()
                 task.wait(SharedConfig.ENEMY_WAVE_DELAY)
-                local newWave = WorldService.UpdateWaveCount()
-                local howMany = 20
-                local ids = { Id.Enemy.BASIC }
-                if Enemies.ENEMIES_DATA_TABLE[newWave] then
-                    if Enemies.ENEMIES_DATA_TABLE[newWave].count then
-                        howMany = Enemies.ENEMIES_DATA_TABLE[newWave].count
-                    end
-                    if Enemies.ENEMIES_DATA_TABLE[newWave].ids then
-                        ids = Enemies.ENEMIES_DATA_TABLE[newWave].ids
-                    end
-                end
-                local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, howMany, ids)
+                local newWaveNumber = WorldService.UpdateWaveCount()
+                local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, false, newWaveNumber)
             end)
         end
     end)
@@ -444,14 +424,9 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 -- enemy is critically close to player, harm them, then die
                 if distToTarget < 5 then
                     local enemyDamage = S.Enemy[enemyId].damage
-                    -- local playerHP = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
-                    -- local newHP = playerHP - enemyDamage
-                    -- if newHP <= 0 then
-                    --     -- Signal.Fire(Id.S2S.PLAYER_DIED, playerId)
-                    -- else
-                        playerState:DeductHp(enemyDamage)
-                        -- playerState:NotifyClient(Id.S2C.PLAYER_DAMAGED, -enemyDamage)
-                    -- end
+
+                    playerState:DeductHp(enemyDamage)
+
                     -- TODO: effects
                     m.DestroyEnemy(enemyGuid)
                 end
