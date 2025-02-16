@@ -88,7 +88,13 @@ function m.RemoveEntity(uid: uid)
 end
 
 local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance)
+local _booster_wave_count = m.world:constructor(W.RefId, W.Total)
 function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, boostContentId: id | bool)
+    local wavesTotal = m.world:get(Id.WorldStats.BOOST_WAVE_COUNT, W.Total)
+    if not wavesTotal then
+        -- initiate it for the first ground unit
+        local _  = _booster_wave_count(Id.WorldStats.BOOST_WAVE_COUNT, W.Total, 1)
+    end
     local guid = _booster(_roflake.uida, boostRefid, value, hp, boostContentId, serverInstance) :: str
     serverInstance.Name = guid
     return guid

@@ -139,6 +139,13 @@ function m.weighted_choice<K>(gacha: { [K]: num }): K
     error("can't be here")
 end
 
+-- do
+--     local gacha = { A = 1, B = 1, C = 0.5 }
+--     for i = 1, 20 do
+--         print(i, m.weighted_choice(gacha))
+--     end
+-- end
+
 ---@summary cumulative binomial probability of single success
 ---@param n number # number of trials
 ---@param p number # probability of success in trial

@@ -220,4 +220,49 @@ m.EquipWeaponModel = function(char, weapon_id: int)
     return weapon_instance
 end
 
+m.IsPlayerHitByExplosion = function(worldState, explosionInstance: Explosion)
+    local victimId
+
+    -- set up a table to track the models hit
+    local modelsHit = {}
+    explosionInstance.Hit:Connect(function(part, distance)
+        -- check if the local player is hit (NOTE: no friendly fire allowed)
+        local parentModel = part.Parent
+        if parentModel then
+            -- check to see if this model has already been hit
+            if modelsHit[parentModel] then
+                return
+            end
+            -- log this model as hit
+            modelsHit[parentModel] = true
+
+            -- look for a humanoid
+            local humanoid = parentModel:FindFirstChild("Humanoid")
+            if humanoid then
+                assert(parentModel:IsA("Model"))
+                local isClone, playerId = m.CloneOrLocalPlayer(worldState, parentModel)
+                if playerId and playerId == LOCAL_PLAYER.UserId then
+                    if isClone then
+                        -- player's clone was hit
+                        m.DestroyClientClone(parentModel)
+                        victimId = parentModel.Name
+                    else
+                        -- player themselves got hit by explosion
+                        S.Sound[Id.Sound.SCREAM]:Play()
+                        victimId = LOCAL_PLAYER.UserId
+                    end
+                end
+            end
+        end
+    end)
+    -- terminate subscription on the end of explosion
+    explosionInstance.AncestryChanged:Connect(function()
+        if not explosionInstance.Parent then
+            explosionInstance:Destroy()
+        end
+    end)
+
+    return victimId
+end
+
 return m

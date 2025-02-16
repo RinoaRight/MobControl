@@ -156,8 +156,8 @@ on[Id.C2S._NONE] = function(player_state, ...)
     log:debug(Id.C2S._NONE, player_state.player_id, ...)
 end
 
-local preiousWeaponsInfo = {}
-on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, ...)
+-- local preiousWeaponsInfo = {}
+on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_weapon_id,...)
     local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
     if not current_weapon_id or current_weapon_id == Id.Weapon._NONE then
         return
@@ -166,8 +166,9 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, ...)
     -- check the legitimacy of the shot
     local currentTTE = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTE)
     local tolerance = 0.1
-    local playerId = tostring(player_state.player_id)
-    if preiousWeaponsInfo[playerId] and preiousWeaponsInfo[playerId] == current_weapon_id then
+    -- local playerId = tostring(player_state.player_id)
+    -- if preiousWeaponsInfo[playerId] and (preiousWeaponsInfo[playerId] == current_weapon_id) then
+    if current_weapon_id == bullet_weapon_id then
         if currentTTE and currentTTE > tolerance then
             log:error("The shot happened faster than the weapon's cooldown lets it", currentTTE)
             return
@@ -185,7 +186,7 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, ...)
         WorldService.AddBulletToState(bullet_guids[i], current_weapon_id, bulletStartPos, player_state.player_id)
     end
 
-    preiousWeaponsInfo[playerId] = current_weapon_id
+    -- preiousWeaponsInfo[playerId] = current_weapon_id
 end
 
 on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
@@ -301,7 +302,7 @@ on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num |
     end
     local isPlayer = type(triggerer_id) == "number"
     -- local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
-    local damage = S.Weapon[Id.Weapon.ROCKET].damage
+    local damage = S.Weapon[Id.Weapon.ROCKET].damage * SharedConfig.ROCKET_SELF_HARM_MULT
     if isPlayer then
         player_state:DeductHp(damage)
     else
@@ -405,6 +406,9 @@ local function init_player(player_state: PlayerState)
     return function()
         local _game_session_params = player_state.state:constructor(C.RefId, C.TTE, C.Value, C.Bitset) -- weapon_id, weapon_tte, hp, is_active
         _game_session_params(Id.PlayerStats.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
+        local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+        player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true))
+        player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.OTHER_CLONES_ON, true))
     end
 end
 

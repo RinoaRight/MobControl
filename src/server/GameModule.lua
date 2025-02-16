@@ -43,6 +43,7 @@ local Enemies = require(server.Enemies)
 local PlayerService = game:GetService("Players")
 local SharedUtil = require(shared.util)
 local rand = require(shared.rand)
+local BoosterServer = require(server.BoosterServer)
 
 local CLONES = {}
 
@@ -109,15 +110,14 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     groundUnit:Destroy()
 end
 
-local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerState?)
-    -- TODO: actual range of selection of every type
-    local refID = math.random(Id.Boost.ADD_CLONE, Id.Boost.FIRST_AID_KIT)
+local function setBooster(worldState: state.Main, instance: BasePart, get_state: (int) -> PSS.PlayerState?)
+    local refID, boostContentId = BoosterServer.SetBoosterValue(worldState)
     local valueRange = S.Boost[refID].valueRange
     local value = math.random(valueRange[1], valueRange[#valueRange])
     local hpRange = S.Boost[refID].hpRange
-    local hp = math.random(hpRange[1], hpRange[#hpRange])
+    local hp_mult = BoosterServer.GetCurrentBoosterHpMult(worldState)
+    local hp = math.floor(math.random(hpRange[1], hpRange[#hpRange]) * hp_mult)
 
-    local boostContentId = false :: id | bool
     local contentsBillboardInstance = BOOSTER_CONTENTS_BILLBOARD_TEMPLATE:Clone()
     local boosterPos = instance.Position
     local billboardPos = contentsBillboardInstance.Position
@@ -130,8 +130,6 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
         txt = string.format("+%d clones", value)
         col = Color3.fromRGB(0, 255, 0)
     elseif refID == Id.Boost.CHANGE_WEAPON then
-        local contents = assert(S.Boost[refID].contentsRange)
-        boostContentId = math.random(contents[1], contents[#contents])
         txt = string.format("%s", S.Weapon[boostContentId :: id].name)
         col = Color3.fromRGB(169, 132, 255)
         if boostContentId == Id.Weapon.SPRAYGUN then
@@ -141,7 +139,6 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
         end
     elseif refID == Id.Boost.FIRST_AID_KIT then
         value = math.round(value / 10) * 10 -- round the value
-        -- txt = string.format("+%d hp", value)
         txt = "+health"
         col = Color3.fromRGB(255, 26, 79)
     end
@@ -161,17 +158,12 @@ local function setBooster(instance: BasePart, get_state: (int) -> PSS.PlayerStat
 end
 
 local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)
+    local wavesTotal = worldState:get(Id.WorldStats.BOOST_WAVE_COUNT, W.Total)
+    worldState:set(Id.WorldStats.BOOST_WAVE_COUNT, W.Total, wavesTotal + 1)
+
     GROUND_UNITS[index].unit = groundUnit
     local unitPos = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
     groundUnit.CFrame = unitPos
-
-    -- local enemyFolder = groundUnit:FindFirstChild("Enemies")
-    -- if not enemyFolder then
-    --     enemyFolder = Instance.new("Folder")
-    --     assert(enemyFolder)
-    --     enemyFolder.Parent = groundUnit
-    --     enemyFolder.Name = "Enemies"
-    -- end
 
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     trigger.CFrame = CFrame.new(9, 20.5, unitPos.Z - 245)
@@ -181,23 +173,9 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
         local booster = BOOSTER_TEMPLATE:Clone()
         booster.CFrame = CFrame.new(BOOSTER_OFFSET_X - BOOSTER_GAP * (i - 1), BOOSTER_OFFSET_Y, unitPos.Z + BOOSTER_OFFSET_Z)
         booster.Parent = groundUnit
-        setBooster(booster, m.get_state)
+        setBooster(worldState, booster, m.get_state)
     end
 end
-
--- local function subscribeEnemyToTouch(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, enemyGiud: str, enemyId, enemyInstance)
---     workerMaid[enemyGiud] = enemyInstance.Touched:Connect(function(triggerer)
---         if triggerer == DRIVING_BOX_FRONT then
---             local flags = worldState:get(enemyGiud, W.Bitset)
---             if flags and not Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
---                 worldState:set(enemyGiud, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true))
---             end
---         elseif triggerer == DRIVING_BOX_INSTANCE then
---             m.DestroyEnemy(enemyGiud)
---         end
---         -- NOTE: bullet collision are handled on the client
---     end)
--- end
 
 local function subscribeTrigger(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, index, groundUnit)
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
@@ -267,7 +245,7 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     local boosters = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit:GetChildren()
     for i, booster in ipairs(boosters) do
         if booster:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
-            setBooster(booster, get_state)
+            setBooster(worldState, booster, get_state)
         end
     end
 

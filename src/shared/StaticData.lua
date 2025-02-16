@@ -95,6 +95,7 @@ m.Enemy = {
 }
 
 m.Sound = {
+    [Id.Sound.CLICK] = assert(SOUNDS_ROOT:WaitForChild("Click")),
     [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
     [Id.Sound.RELOAD] = assert(SOUNDS_ROOT:WaitForChild("Reload")),

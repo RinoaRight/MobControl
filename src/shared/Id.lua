@@ -484,8 +484,10 @@ export type PassF = typeof(Id.PassF)
 -- PlayerF
 -----------------------------
 Id.PlayerF = enum.with_id "Id.PlayerF" {
-    NONE   = flag(Id.Kind.PlayerF),
-    READY  = flag'',
+    NONE               = flag(Id.Kind.PlayerF),
+    OTHER_BULLETS_ON   = flag'',
+    OTHER_CLONES_ON    = flag'',
+    READY              = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
@@ -546,12 +548,12 @@ export type Clone = typeof(Id.Clone)
 -- Weapon
 -----------------------------
 Id.Weapon = enum.with_id "Id.Weapon" {
-    _NONE   = iota(Id.Kind.Weapon, 0),
-    DEFAULT = iota'',
-    BASIC   = iota'',
-    SMG     = iota'',
-    SHOTGUN = iota'',
-    ROCKET  = iota'',
+    _NONE    = iota(Id.Kind.Weapon, 0),
+    DEFAULT  = iota'',
+    BASIC    = iota'',
+    SMG      = iota'',
+    SPRAYGUN = iota'',
+    ROCKET   = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Weapon] = Id.Weapon
 export type Weapon = typeof(Id.Weapon)
@@ -596,6 +598,7 @@ export type Animation = typeof(Id.Animation)
 -----------------------------
 Id.Sound = enum.with_id "Id.Sound" {
     _NONE                 = iota(Id.Kind.Sound, 0),
+    CLICK                 = iota'',
     FIRE_PISTOL           = iota'',
     FIRE_PISTOL_LOCALIZED = iota'',
     RELOAD                = iota'',
@@ -632,8 +635,9 @@ export type PlayerStats = typeof(Id.PlayerStats)
 -- World stats
 -----------------------------
 Id.WorldStats = enum.with_id "Id.WorldStats" {
-    _NONE         = iota(Id.Kind.WorldStats, 0),
-    GAME_SESSION  = iota'',
+    _NONE            = iota(Id.Kind.WorldStats, 0),
+    GAME_SESSION     = iota'',
+    BOOST_WAVE_COUNT = iota'',
 }
 KIND_TO_ENUM[Id.Kind.WorldStats] = Id.WorldStats
 export type WorldStats = typeof(Id.WorldStats)
@@ -710,10 +714,9 @@ export type C2C = typeof(Id.C2C)
 -----------------------------
 Id.C2S = enum.with_id "Id.C2S" {
     _NONE                     = iota(Id.Kind.C2S, 0),
-    -- BOOSTER_HIT               = iota'', 
-    BULLET_SHOT               = iota'', -- {bullet_guids}
-    -- ENEMY_HIT                 = iota'', -- enemy_guid, bullet_guid
+    BULLET_SHOT               = iota'', -- {bullet_guids}, bullet_weapon_id
     TARGET_HIT                = iota'', -- {enemy_guids}, bullet_guid
+    TOGGLE_PLAYER_FLAG        = iota'', -- bool, flag_id
     PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
     PLAYER_HIT_BY_OWN_ROCKET  = iota'', -- triggerer_guid (or player_id)
     PLAYER_READY_TO_START     = iota'',               

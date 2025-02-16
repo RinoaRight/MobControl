@@ -41,6 +41,7 @@ local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
+local SFX = require(script.Parent.SFX)
 
 local function onBoosterAdded(worldState, playerState: state.Replica, boosterGuid)
     local instance = workspace:FindFirstChild(boosterGuid, true)
@@ -76,15 +77,11 @@ local function onBoosterAdded(worldState, playerState: state.Replica, boosterGui
                 -- player themselves collided with the booster for the first time, set the flag for the check above
                 playerState:set(boosterGuid, C.ClientFlags, true)
                 triggererId = LOCAL_PLAYER.UserId
-                S.Sound[Id.Sound.SCREAM]:Play()
-                -- local playerHP = playerState:get(Id.PlayerStats.GAME_SESSION, C.Value)
-                -- local boosterHP = worldState:get(boosterGuid, W.HP)
-                -- local remainingHP = playerHP - boosterHP
-                -- if remainingHP > 0 then
-                --     Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, -boosterHP)
-                --     -- TODO: pain animation
+                -- NOTE: legacy. Audio is played in on_Player_damaged
+                -- local audio = S.Sound[Id.Sound.SCREAM]
+                -- if audio then
+                --     SFX.PLAY_SOUND(audio)
                 -- end
-                -- TODO: maybe destroy clones as well? (and on server side from the world state)
             end
             Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, boosterGuid, triggererId)
         end

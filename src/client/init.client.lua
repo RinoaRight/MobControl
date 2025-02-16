@@ -64,6 +64,7 @@ local Booster = require(script.Boosters)
 local EnemiesClient = require(script.EnemiesClient)
 local NumFormat = require(shared.num_format)
 local TaskPool = require(shared.TaskPool)
+local SFX = require(script.SFX)
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
@@ -169,7 +170,10 @@ end
 
 on[Id.S2C.PLAYER_DAMAGED] = function(state: state.Replica, deducted_hp: int)
     Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, deducted_hp)
-    S.Sound[Id.Sound.SCREAM]:Play()
+    local audio = S.Sound[Id.Sound.SCREAM]
+    if audio then
+        SFX.PLAY_SOUND(audio)
+    end
 end
 
 on[Id.S2C.BOOSTER_DESTROYED] = function(state: state.Replica, boost_ref_id: id, value: num, boost_content_id: id)
@@ -305,7 +309,10 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
     -- SFX and initial bullet TTE
     if player_id == LOCAL_PLAYER.UserId then
         if weapon_id ~= Id.Weapon._NONE then
-            S.Sound[Id.Sound.RELOAD]:Play()
+            local audio = S.Sound[Id.Sound.RELOAD]
+            if audio then
+                SFX.PLAY_SOUND(audio)
+            end
         end
     else
         local tte = S.Weapon[Id.Weapon.BASIC].cooldown
@@ -558,9 +565,12 @@ local function fireBullet(player)
     if player == LOCAL_PLAYER then
         weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
         -- reset tte server-side
-        fire_server(Id.C2S.BULLET_SHOT, bulletGuids)
+        fire_server(Id.C2S.BULLET_SHOT, bulletGuids, weapon_id)
         -- TODO: change sound for each type of weapon
-        S.Sound[Id.Sound.FIRE_PISTOL]:Play()
+        local audio = S.Sound[Id.Sound.FIRE_PISTOL]
+        if audio then
+            SFX.PLAY_SOUND(audio)
+        end
     else
         weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
         -- TODO: change sound for each type of weapon
@@ -697,10 +707,6 @@ RunService.Heartbeat:Connect(function(dt)
 
         -- check for collisions
         local raycast_length = bullet_size.Z / 2 + (speed * dt)
-        -- local s = bullet_size
-        -- if weapon_id == Id.Weapon.ROCKET then
-        --     s = assert(S.Weapon[weapon_id].explosionSize)
-        -- end
         local target, isTargetKillable, targetThickness, targetRefId = getCollisionSpecifics(bullet, raycast_length, bullet_size)
 
         local hit_z
@@ -734,47 +740,11 @@ RunService.Heartbeat:Connect(function(dt)
                         explosionInstance.ExplosionType = Enum.ExplosionType.NoCraters
                         explosionInstance.DestroyJointRadiusPercent = 0
                         explosionInstance.Parent = workspace
-                        -- set up a table to track the models hit
-                        local modelsHit = {}
-                        explosionInstance.Hit:Connect(function(part, distance)
-                            -- check if the local player is hit (NOTE: no friendly fire allowed)
-                            local parentModel = part.Parent
-                            if parentModel then
-                                -- check to see if this model has already been hit
-                                if modelsHit[parentModel] then
-                                    return
-                                end
-                                -- log this model as hit
-                                modelsHit[parentModel] = true
 
-                                -- look for a humanoid
-                                local humanoid = parentModel:FindFirstChild("Humanoid")
-                                if humanoid then
-                                    assert(parentModel:IsA("Model"))
-                                    local isClone, playerId = Misc.CloneOrLocalPlayer(WORLD, parentModel)
-                                    if playerId and playerId == LOCAL_PLAYER.UserId then
-                                        local victimId
-                                        if isClone then
-                                            -- player's clone was hit
-                                            Misc.DestroyClientClone(parentModel)
-                                            victimId = parentModel.Name
-                                        else
-                                            -- player themselves got hit by explosion
-                                            S.Sound[Id.Sound.SCREAM]:Play()
-                                            victimId = LOCAL_PLAYER.UserId
-                                        end
-                                        -- TODO: some effect that will show that it was an explosion that hit the player
-                                        fire_server(Id.C2S.PLAYER_HIT_BY_OWN_ROCKET, victimId)
-                                    end
-                                end
-                            end
-                        end)
-                        -- terminate subscription on the end of explosion
-                        explosionInstance.AncestryChanged:Connect(function()
-                            if not explosionInstance.Parent then
-                                explosionInstance:Destroy()
-                            end
-                        end)
+                        -- local victimId = Misc.IsPlayerHitByExplosion(WORLD, explosionInstance)
+                        -- -- TODO: some effect that will show that it was an explosion that hit the player
+                        -- if victimId then
+                        --     fire_server(Id.C2S.PLAYER_HIT_BY_OWN_ROCKET, victimId)
                         -- end
 
                         -- check if there other targets hit by the explosion
@@ -970,4 +940,3 @@ local _ = Players.PlayerRemoving:Connect(function(player)
 end)
 
 PLAYER_STATE:set_on_modify(C.TTE, function(guid: guid, newValue: num, oldValue: num) end)
--- TODO: spawn bullet ahead of the player (consider its size)

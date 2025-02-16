@@ -53,9 +53,9 @@ m.REGULAR_ENEMY_HITBOX_RADIUS = 2
 m.BOOSTER_DEPTH = 10 -- units
 m.CLONES_IN_A_ROW = 5
 m.INTERCLONES_DISTANCE = 5
+m.ROCKET_SELF_HARM_MULT = .2
 m.CLONES_FOLDER_NAME = "Clones"
 m.PLAYER_HITBOX_NAME = "Hitbox"
--- m.BULLET_NAME = "Bullet"
 m.PLAYER_ALIGN_CONSTR_NAME = "PlayerAlignConstraint"
 m.CLONE_ATTACHMENT_NAME = "CloneGuideAtt"
 m.RUN_ANIMATION_NAME = "RunAnim"
@@ -65,9 +65,7 @@ m.DEFAULT_WEAPON_ID = Id.Weapon.BASIC
 m.DISTANCE_FROM_MID_TO_BOOSTER = 50
 m.DEFAULT_PLAYER_ID = -100
 m.ENEMY_SIGHT_RADIUS = 100
--- TODO: real values
 m.STARTING_CLONE_AMOUNT = 0
--- m.ENEMY_LIFE_TIME              = 20 --sec
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
@@ -97,6 +95,7 @@ World.CId = En.with_id("World.CId") {
     WeaponId       = iota'',   -- id
     TTL            = iota'',   -- epoch
     Bitset         = iota'',   -- flag
+    Total          = iota'', -- number
     -- non-replicated
     ClientInstance = iota'',   -- Instance, not replicated
 }
