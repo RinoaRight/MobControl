@@ -265,4 +265,43 @@ m.IsPlayerHitByExplosion = function(worldState, explosionInstance: Explosion)
     return victimId
 end
 
+local function onClickEvent(input, playerGui: StarterGui, ui_element: GuiObject, func, isOnElementClickedDo: boolean?)
+    if
+        input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch
+        or input.UserInputType == Enum.UserInputType.Gamepad1
+    then
+        local pos = input.Position
+        local uiElementsClicked = playerGui:GetGuiObjectsAtPosition(pos.X, pos.Y)
+
+        -- there were some GUI elements at the click position
+        if #uiElementsClicked > 0 then
+            -- determine if the UI element has been clicked
+            for _, obj in ipairs(uiElementsClicked) do
+                if obj == ui_element then
+                    if isOnElementClickedDo then
+                        func()
+                        return
+                    else
+                        return
+                    end
+                end
+            end
+        end
+
+        -- no UI elements has been clicked
+        if not isOnElementClickedDo then
+            func()
+        end
+    end
+end
+
+function m.OnUIElementNotClickedDo(input, playerGui: StarterGui, ui_element: GuiObject, func)
+    onClickEvent(input, playerGui, ui_element, func, false)
+end
+
+function m.OnUIElementClickedDo(input, playerGui: StarterGui, ui_element: GuiObject, func)
+    onClickEvent(input, playerGui, ui_element, func, true)
+end
+
 return m

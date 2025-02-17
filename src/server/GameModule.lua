@@ -419,7 +419,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     m.DestroyEnemy(enemyGuid)
                 elseif DRIVING_BOX_FRONT.Position.Z <= currentPos.Z then
                     -- activate seek mode on collision with the driver box's front
-                    worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, true))
+                    worldState:set(enemyGuid, W.Bitset, Id.flag_or(flags, Id.EnemyF.SEEK_ACTIVATED))
                 end
             end
         end
@@ -437,6 +437,7 @@ function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
     return function(dt)
         -- weapon cooldown
         local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+        log:trace("LLLLLLL", flags)
         if Id.flag_test(flags, Id.PlayerF.READY) then
             local shot_tte = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTE) :: num
             shot_tte -= dt
@@ -478,7 +479,7 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session
 
     -- define spawning position
     local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, true))
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_or(flags, Id.PlayerF.READY))
 
     local driver_pos = DRIVING_BOX_INSTANCE.Position
     local ground_folder = workspace:FindFirstChild("GroundUnits")

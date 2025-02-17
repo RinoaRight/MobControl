@@ -2,7 +2,7 @@
 -- MIT License
 -- Copyright (c) 2024 Andrew Zhilin (https://github.com/zoon)
 
---[[ stylua: ignore]] script = script or require'script'
+--[[ stylua: ignore]] script = script or require'./script'
 local idk = require(script.Parent.id1919)
 local roflake = require(script.Parent.roflake)
 local struct = require(script.Parent.struct)
@@ -701,9 +701,10 @@ export type S2S = typeof(Id.S2S)
 -- C2C
 -----------------------------
 Id.C2C = enum.with_id "Id.C2C" {
-    _NONE              = iota(Id.Kind.C2C, 0),
-    NEW_BOOSTER_ADDED  = iota'',               -- world_state, player_state, booster_guid
-    NEW_ENEMY_ADDED    = iota'',               -- world_state, player_state, enemy_guid
+    _NONE               = iota(Id.Kind.C2C, 0),
+    NEW_BOOSTER_ADDED   = iota'',               -- world_state, player_state, booster_guid
+    NEW_ENEMY_ADDED     = iota'',               -- world_state, player_state, enemy_guid
+    SHOW_CLONES_TOGGLED = iota'',               -- bool
 }
 KIND_TO_ENUM[Id.Kind.C2C] = Id.C2C
 export type C2C = typeof(Id.C2C)
@@ -781,6 +782,20 @@ elapsed = os.clock() - start
 print(elapsed)
 logger.global:set_level(logger.LOG_LEVELS.DEBUG)
 logger.set_global_level(logger.LOG_LEVELS.DEBUG)
+--]]
+
+---[[ Flags
+local logger = require(script.Parent.logger)
+local lg = logger.create("Flags"):set_prettifier(Id.pp):set_delimiter(" ")
+local flags = Id.PlayerF.NONE
+lg:trace(flags, "-- flags = Id.PlayerF.NONE")
+flags = Id.flag_or(flags, Id.PlayerF.READY)
+lg:trace(flags, "-- Id.flag_or(flags, Id.PlayerF.READY)")
+flags = Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true)
+lg:trace(flags, "-- Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true)")
+flags = Id.flag_set(flags, Id.PlayerF.READY, false)
+lg:trace(flags, "-- Id.flag_set(flags, Id.PlayerF.READY, false)")
+
 --]]
 
 warn("[Id -- ok]")

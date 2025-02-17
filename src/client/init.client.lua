@@ -65,6 +65,7 @@ local EnemiesClient = require(script.EnemiesClient)
 local NumFormat = require(shared.num_format)
 local TaskPool = require(shared.TaskPool)
 local SFX = require(script.SFX)
+local Settings = require(script.Settings)
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
@@ -77,7 +78,6 @@ Misc.AddInstanceToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
 local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
 local activeBulletsDataTable = {} :: { table }
 local NIL_TABLE = table.freeze { "NIL" }
-
 -----------------------------
 -- States
 -----------------------------
@@ -104,6 +104,9 @@ local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 
+local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
+local SETTINGS_BTN_GUI = assert(MAIN_GUI.GearPanel)
+local SETTINGS_MENU_GUI = assert(PLAYER_GUI:WaitForChild("SettingsMenuGUI"))
 -- forward declarations
 local playRunAnimTrack
 local startRunAnim
@@ -346,6 +349,7 @@ local load = function(fire: FireServer, snapshot)
             fire(id, ...)
         end))
     end
+    Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_GUI, SETTINGS_MENU_GUI)
     return state
 end
 
@@ -404,11 +408,52 @@ local function subscribeStartCollider()
     end)
 end
 
+-- TODO: test out clones and bullets visibility on/off
+local function createCloneInstance(playerId, guid)
+    local newInstance = Clones.CreateCloneInstance(playerId, guid)
+    local weaponId = PLAYER_STATE:get(playerId, C.ClientWeaponId)
+    handleGunHoldingAnimation(newInstance, weaponId)
+    if not newInstance then
+        log:error("failed to create clone for player " .. playerId)
+        return
+    end
+end
+
+local function onShowClonesToggled(isTurnedOn)
+    if isTurnedOn then
+        -- option to show others' clones is turned on
+        for guid, refId, playerId in WORLD:select(W.RefId, W.PlayerId) do
+            if playerId == LOCAL_PLAYER.UserId then
+                continue
+            end
+            if Id.kind(refId) == Id.Kind.Clone then
+                createCloneInstance(playerId, guid)
+            end
+        end
+    else
+        -- option to show others' clones is turned off
+        local players = Players:GetPlayers()
+        for _, player in ipairs(players) do
+            if player == LOCAL_PLAYER then
+                continue
+            end
+            local char = player.Character
+            local clonesFolder = char:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
+            if not clonesFolder then
+                continue
+            else
+                clonesFolder:Destroy()
+            end
+        end
+    end
+end
+
 -- Initialization
 do
     TaskPool.spawn(function()
         -- initial subscription of the start button
         subscribeStartCollider()
+        Signal.Connect(Id.C2C.SHOW_CLONES_TOGGLED, onShowClonesToggled)
 
         -- initialization of other players to the player_state
         local allPlayers = Players:GetPlayers()
@@ -462,8 +507,6 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     local pos = rootPart.Position + rootPart.CFrame.LookVector * (bulletSize.Z / 2 + SharedConfig.BULLET_RAYCAST_START_MULT)
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
-    -- local targetThickness = SharedConfig.BOOSTER_DEPTH
-    -- local boosterThickness = SharedConfig.BOOSTER_DEPTH
     local range = SharedConfig.BULLET_BASE_DISTANCE
     if S.Weapon[weapon_id].range then
         range = S.Weapon[weapon_id].range
@@ -741,12 +784,6 @@ RunService.Heartbeat:Connect(function(dt)
                         explosionInstance.DestroyJointRadiusPercent = 0
                         explosionInstance.Parent = workspace
 
-                        -- local victimId = Misc.IsPlayerHitByExplosion(WORLD, explosionInstance)
-                        -- -- TODO: some effect that will show that it was an explosion that hit the player
-                        -- if victimId then
-                        --     fire_server(Id.C2S.PLAYER_HIT_BY_OWN_ROCKET, victimId)
-                        -- end
-
                         -- check if there other targets hit by the explosion
                         local otherTargets = Misc.GetBulletCollidablesInRadius(target.CFrame, explosionSize)
                         if otherTargets and #otherTargets > 0 then
@@ -808,27 +845,33 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 
-    -- fake bullets' animation for other players
-    for _, player in ipairs(players) do
-        if player == LOCAL_PLAYER then
-            continue
-        end
-        if not WORLD:env(ENV_WORLD_READY) then
-            log:warn("WORLD is not ready yet")
-            continue
-        end
-        local playerId = player.UserId
-        if PLAYER_STATE:has(playerId) then
-            local weapon_id = PLAYER_STATE:get(playerId, C.ClientWeaponId)
-            if weapon_id and weapon_id ~= Id.Weapon._NONE then
-                -- player is inside the game session, fire bullets
-                local shot_tte = PLAYER_STATE:get(playerId, C.ClientTTE)
-                if shot_tte then
-                    shot_tte -= dt
-                    if shot_tte <= 0 then
-                        fireBullet(player)
-                    else
-                        PLAYER_STATE:set(playerId, C.ClientTTE, math.max(shot_tte, 0))
+    -- fake bullets' animation for other players (if the options to others' bullets is on)
+    local currentFlags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    if currentFlags then
+        local bulletsFlag = Id.flag_test(currentFlags, Id.PlayerF.OTHER_BULLETS_ON)
+        if bulletsFlag then
+            for _, player in ipairs(players) do
+                if player == LOCAL_PLAYER then
+                    continue
+                end
+                if not WORLD:env(ENV_WORLD_READY) then
+                    log:warn("WORLD is not ready yet")
+                    continue
+                end
+                local playerId = player.UserId
+                if PLAYER_STATE:has(playerId) then
+                    local weapon_id = PLAYER_STATE:get(playerId, C.ClientWeaponId)
+                    if weapon_id and weapon_id ~= Id.Weapon._NONE then
+                        -- player is inside the game session, fire bullets
+                        local shot_tte = PLAYER_STATE:get(playerId, C.ClientTTE)
+                        if shot_tte then
+                            shot_tte -= dt
+                            if shot_tte <= 0 then
+                                fireBullet(player)
+                            else
+                                PLAYER_STATE:set(playerId, C.ClientTTE, math.max(shot_tte, 0))
+                            end
+                        end
                     end
                 end
             end
@@ -860,23 +903,6 @@ infrequentLoop:start(function(dt)
     end
 end, 1, "test")
 
--- create clones if any new clones appeared
--- WORLD:set_on_attach(W.PlayerId, function(guid: guid, newplayerId: num)
---     local id = WORLD:get(guid, W.RefId)
---     if id and Id.kind(id) == Id.Kind.Clone then
---         local clientInstance = workspace:FindFirstChild(guid, true)
---         if not clientInstance then
---             local newInstance = Clones.CreateClone(newplayerId, guid)
---             local weaponId = PLAYER_STATE:get(newplayerId, C.ClientWeaponId)
---             handleGunHoldingAnimation(newInstance, weaponId)
---             if not newInstance then
---                 log:error("failed to create clone for player " .. newplayerId)
---                 return
---             end
---         end
---     end
--- end)
-
 local _booster = PLAYER_STATE:constructor(C.ClientFlags)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     log:debug("~~~>", guid)
@@ -889,7 +915,7 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         -- check if it was an enemy that has been added
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
     elseif Id.kind(newValue) == Id.Kind.Clone and WORLD:get(guid, W.PlayerId) then
-        -- create clones if any new clones appeared
+        -- create clones if any new clones appeared (if the option for others' clones is turned off, for local player only)
         local playerId = WORLD:get(guid, W.PlayerId)
         local player = Players:GetPlayerByUserId(playerId)
         local cloneFolder = player.Character:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
@@ -897,14 +923,13 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         if cloneFolder then
             clientInstance = cloneFolder:FindFirstChild(guid, true)
         end
-        -- local clientInstance = workspace:FindFirstChild(guid, true)
         if not clientInstance then
-            local newInstance = Clones.CreateClone(playerId, guid)
-            local weaponId = PLAYER_STATE:get(playerId, C.ClientWeaponId)
-            handleGunHoldingAnimation(newInstance, weaponId)
-            if not newInstance then
-                log:error("failed to create clone for player " .. playerId)
-                return
+            local currentFlags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+            if currentFlags then
+                local clonesFlag = Id.flag_test(currentFlags, Id.PlayerF.OTHER_CLONES_ON)
+                if clonesFlag or playerId == LOCAL_PLAYER.UserId then
+                    createCloneInstance(playerId, guid)
+                end
             end
         end
     end

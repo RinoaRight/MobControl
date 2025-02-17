@@ -157,7 +157,7 @@ on[Id.C2S._NONE] = function(player_state, ...)
 end
 
 -- local preiousWeaponsInfo = {}
-on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_weapon_id,...)
+on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_weapon_id, ...)
     local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
     if not current_weapon_id or current_weapon_id == Id.Weapon._NONE then
         return
@@ -331,11 +331,18 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     changeWeapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
 
     local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
+    log:trace("player's session started")
     workerMaid.playerLoop = function()
         ServerSupervisor:cancel(_main_loop_player_handler)
+        log:trace("player's session canceled")
     end
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
+end
+
+on[Id.C2S.TOGGLE_PLAYER_FLAG] = function(player_state, isToSwitchOn, flag_id, ...)
+    local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, flag_id, isToSwitchOn))
 end
 -------------------
 -- S2S
@@ -379,9 +386,8 @@ do
             local isReady = false
             repeat
                 task.wait(0.1)
-                for _, thisState in pairs(STATES) do
-                    local flags = thisState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-                    flags = thisState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+                for _, thisPlayerState in pairs(STATES) do
+                    local flags = thisPlayerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
                     if not flags then
                         continue
                     end
@@ -407,8 +413,9 @@ local function init_player(player_state: PlayerState)
         local _game_session_params = player_state.state:constructor(C.RefId, C.TTE, C.Value, C.Bitset) -- weapon_id, weapon_tte, hp, is_active
         _game_session_params(Id.PlayerStats.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
         local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-        player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true))
-        player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.OTHER_CLONES_ON, true))
+        flags = Id.flag_or(flags, Id.PlayerF.OTHER_BULLETS_ON)
+        flags = Id.flag_or(flags, Id.PlayerF.OTHER_CLONES_ON)
+        player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, flags)
     end
 end
 

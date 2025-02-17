@@ -31,9 +31,7 @@ local Misc = require(shared.Misc)
 local SharedConfig = require(shared.SharedConfig)
 local m = {}
 
-local LOCAL_PLAYER = game.Players.LocalPlayer
-
-function m.CreateClone(playerId: int, cloneGuid: num | str)
+function m.CreateCloneInstance(playerId: int, cloneGuid: num | str)
     local cloneInstance
     TaskPool.spawn(function()
         -- clone the player's character
@@ -72,9 +70,6 @@ function m.CreateClone(playerId: int, cloneGuid: num | str)
         for _, instance in cloneInstance:GetDescendants() do
             if instance:IsA("BasePart") then
                 instance.CollisionGroup = "DriverNonCollidable"
-                -- if instance.Name == SharedConfig.PLAYER_HITBOX_NAME then
-                --     instance:Destroy()
-                -- end
             end
         end
 

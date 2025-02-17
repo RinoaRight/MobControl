@@ -157,7 +157,8 @@ do
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
         :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
-        :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        -- :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_persistent_flag(C.Total, C.Bitset)
         :build_with_replica()
 
     PlayerState.main_config = main_config
