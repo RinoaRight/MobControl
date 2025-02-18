@@ -86,7 +86,7 @@ local function onMenuBtnPressed(playerState, btn: any)
     if audio then
         SFX.PLAY_SOUND(audio)
     end
-    local currentFlags = playerState:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    local currentFlags = playerState:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
     if not currentFlags then
         return
     end
@@ -128,7 +128,7 @@ local function toggleGearTransparency(isHovered: boolean)
 end
 
 local function initBtnAppearances(playerState: state.Replica)
-    local currentFlags = playerState:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    local currentFlags = playerState:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
     if not currentFlags then
         return
     end

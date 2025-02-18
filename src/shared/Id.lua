@@ -68,8 +68,8 @@ local Kind = table.freeze {
     Clone           = enum.iota'',
     Weapon          = enum.iota'',
     Enemy           = enum.iota'',
-    PlayerStats     = enum.iota'',
-    WorldStats      = enum.iota'',
+    PlayerSpecs     = enum.iota'',
+    WorldSpecs      = enum.iota'',
     TimedEvent      = enum.iota'',
     Sound           = enum.iota'',
     VFX             = enum.iota'',
@@ -563,9 +563,10 @@ export type Weapon = typeof(Id.Weapon)
 -- Enemy
 -----------------------------
 Id.Enemy = enum.with_id "Id.Enemy" {
-    _NONE   = iota(Id.Kind.Enemy, 0),
-    BASIC   = iota'',
-    CRAZY   = iota'',
+    _NONE      = iota(Id.Kind.Enemy, 0),
+    BASIC      = iota'',
+    CRAZY      = iota'',
+    OCTOBOSS   = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Enemy] = Id.Enemy
 export type Enemy = typeof(Id.Enemy)
@@ -621,26 +622,27 @@ export type VFX = typeof(Id.VFX)
 
 -- stylua: ignore
 -----------------------------
--- Player stats
+-- Player specs
 -----------------------------
-Id.PlayerStats = enum.with_id "Id.PlayerStats" {
-    _NONE         = iota(Id.Kind.PlayerStats, 0),
+Id.PlayerSpecs = enum.with_id "Id.PlayerSpecs" {
+    _NONE         = iota(Id.Kind.PlayerSpecs, 0),
     GAME_SESSION  = iota'',
 }
-KIND_TO_ENUM[Id.Kind.PlayerStats] = Id.PlayerStats
-export type PlayerStats = typeof(Id.PlayerStats)
+KIND_TO_ENUM[Id.Kind.PlayerSpecs] = Id.PlayerSpecs
+export type PlayerStats = typeof(Id.PlayerSpecs)
 
 -- stylua: ignore
 -----------------------------
--- World stats
+-- World specs
 -----------------------------
-Id.WorldStats = enum.with_id "Id.WorldStats" {
-    _NONE            = iota(Id.Kind.WorldStats, 0),
-    GAME_SESSION     = iota'',
+Id.WorldSpecs = enum.with_id "Id.WorldSpecs" {
+    _NONE            = iota(Id.Kind.WorldSpecs, 0),
+    -- GAME_SESSION     = iota'',
     BOOST_WAVE_COUNT = iota'',
+    ENEMY_WAVE_COUNT = iota'',
 }
-KIND_TO_ENUM[Id.Kind.WorldStats] = Id.WorldStats
-export type WorldStats = typeof(Id.WorldStats)
+KIND_TO_ENUM[Id.Kind.WorldSpecs] = Id.WorldSpecs
+export type WorldSpecs = typeof(Id.WorldSpecs)
 
 -- stylua: ignore
 -----------------------------

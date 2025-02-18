@@ -246,26 +246,26 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
 end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
-    self.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, weapon_id)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION, C.RefId, weapon_id)
     local tte = 0
     if weapon_id ~= Id.Weapon._NONE then
         tte = S.Weapon[weapon_id].cooldown
-    elseif not self.state:get(Id.PlayerStats.GAME_SESSION, C.TTE) then
-        self.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, tte)
+    elseif not self.state:get(Id.PlayerSpecs.GAME_SESSION, C.TTE) then
+        self.state:set(Id.PlayerSpecs.GAME_SESSION, C.TTE, tte)
     end
 end
 
 function PlayerState.AddHp(self: PlayerState, howMuch: num)
-    local current = self.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION, C.Value)
     local new_hp = math.min(current + howMuch, SharedConfig.PLAYER_BASE_HP)
-    self.state:set(Id.PlayerStats.GAME_SESSION, C.Value, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION, C.Value, new_hp)
     return current, new_hp
 end
 
 function PlayerState.DeductHp(self: PlayerState, howMuch: num)
-    local current = self.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION, C.Value)
     local new_hp = math.max(current - howMuch, 0)
-    self.state:set(Id.PlayerStats.GAME_SESSION, C.Value, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION, C.Value, new_hp)
     if new_hp <= 0 then
         Signal.Fire(Id.S2S.PLAYER_DIED, self.player_id)
     else

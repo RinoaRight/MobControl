@@ -82,7 +82,7 @@ local function changeWeapon(player_state, weapon_id: id)
 end
 
 local function resetHp(player_state)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Value, SharedConfig.PLAYER_BASE_HP)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Value, SharedConfig.PLAYER_BASE_HP)
     WorldService.world:set(player_state.player_id, W.HP, SharedConfig.PLAYER_BASE_HP)
 end
 
@@ -102,7 +102,7 @@ end
 local function onPlayerDead(player_state: PSS.PlayerState)
     print("Player dead")
     -- check if the player is not already dead
-    if player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId) == Id.Weapon._NONE then
+    if player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.RefId) == Id.Weapon._NONE then
         return
     end
 
@@ -114,11 +114,11 @@ local function onPlayerDead(player_state: PSS.PlayerState)
         constraint:Destroy()
     end
     workerMaid.playerLoop = nil -- stop updating weapon ttl
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, Id.Weapon._NONE)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, 0)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Value, 0)
-    local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, false))
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.RefId, Id.Weapon._NONE)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.TTE, 0)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Value, 0)
+    local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, false))
 
     cleanUpWorldState(player_state, player_state.player_id)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STOPPED_SESSION, player_state.player_id)
@@ -158,13 +158,13 @@ end
 
 -- local preiousWeaponsInfo = {}
 on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_weapon_id, ...)
-    local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+    local current_weapon_id = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.RefId)
     if not current_weapon_id or current_weapon_id == Id.Weapon._NONE then
         return
     end
 
     -- check the legitimacy of the shot
-    local currentTTE = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTE)
+    local currentTTE = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.TTE)
     local tolerance = 0.1
     -- local playerId = tostring(player_state.player_id)
     -- if preiousWeaponsInfo[playerId] and (preiousWeaponsInfo[playerId] == current_weapon_id) then
@@ -177,7 +177,7 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
 
     -- reset  weapon's cooldown
     local cooldown = S.Weapon[current_weapon_id].cooldown
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, cooldown)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.TTE, cooldown)
 
     local playerRoot = player_state.root
     local bulletStartPos = playerRoot.Position + playerRoot.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
@@ -230,6 +230,9 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                 range = bulletWeaponDataEntry.range
             end
             local tolerance = 20
+            if targetRefId == Id.Enemy.OCTOBOSS then
+                tolerance = 50
+            end
             if range + tolerance < distance then
                 -- if math.abs(range - distance) > tolerance then
                 log:error("Weapon's range is smaller than the distance of the bullet", range, distance, targetPos, debug.traceback)
@@ -318,7 +321,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         for _, player in ipairs(total_players) do
             local thisPlayerState = get_state(player)
             if thisPlayerState then
-                local f = thisPlayerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+                local f = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
                 local isReady = Id.flag_test(f, Id.PlayerF.READY)
                 if isReady then
                     players_already_in_session += 1
@@ -341,8 +344,8 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
 end
 
 on[Id.C2S.TOGGLE_PLAYER_FLAG] = function(player_state, isToSwitchOn, flag_id, ...)
-    local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, flag_id, isToSwitchOn))
+    local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Bitset, Id.flag_set(flags, flag_id, isToSwitchOn))
 end
 -------------------
 -- S2S
@@ -387,7 +390,7 @@ do
             repeat
                 task.wait(0.1)
                 for _, thisPlayerState in pairs(STATES) do
-                    local flags = thisPlayerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+                    local flags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
                     if not flags then
                         continue
                     end
@@ -411,11 +414,11 @@ end
 local function init_player(player_state: PlayerState)
     return function()
         local _game_session_params = player_state.state:constructor(C.RefId, C.TTE, C.Value, C.Bitset) -- weapon_id, weapon_tte, hp, is_active
-        _game_session_params(Id.PlayerStats.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
-        local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+        _game_session_params(Id.PlayerSpecs.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
+        local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
         flags = Id.flag_or(flags, Id.PlayerF.OTHER_BULLETS_ON)
         flags = Id.flag_or(flags, Id.PlayerF.OTHER_CLONES_ON)
-        player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, flags)
+        player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Bitset, flags)
     end
 end
 

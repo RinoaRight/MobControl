@@ -60,7 +60,7 @@ m.BOOSTER_DATA_TABLE = {
 function m.SetBoosterValue(worldState: state.Main)
     local boosterRefId = Id.Boost.ADD_CLONE
     local weaponRefId = Id.Weapon.BASIC
-    local wavesTotal = worldState:get(Id.WorldStats.BOOST_WAVE_COUNT, W.Total) or 1 -- default value is for the first booster wave
+    local wavesTotal = worldState:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value) or 1 -- default value is for the first booster wave
 
     if wavesTotal > #m.BOOSTER_DATA_TABLE then
         wavesTotal = #m.BOOSTER_DATA_TABLE
@@ -79,7 +79,7 @@ function m.SetBoosterValue(worldState: state.Main)
 end
 
 function m.GetCurrentBoosterHpMult(worldState: state.Main)
-    local currentBoosterWaveNum = worldState:get(Id.WorldStats.BOOST_WAVE_COUNT, W.Total) or 0
+    local currentBoosterWaveNum = worldState:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value) or 0
     if currentBoosterWaveNum > #m.BOOSTER_DATA_TABLE then
         currentBoosterWaveNum = #m.BOOSTER_DATA_TABLE
     end

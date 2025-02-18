@@ -88,12 +88,12 @@ function m.RemoveEntity(uid: uid)
 end
 
 local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance)
-local _booster_wave_count = m.world:constructor(W.RefId, W.Total)
+local _booster_wave_count = m.world:constructor(W.RefId, W.Value)
 function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, boostContentId: id | bool)
-    local wavesTotal = m.world:get(Id.WorldStats.BOOST_WAVE_COUNT, W.Total)
+    local wavesTotal = m.world:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
     if not wavesTotal then
         -- initiate it for the first ground unit
-        local _  = _booster_wave_count(Id.WorldStats.BOOST_WAVE_COUNT, W.Total, 1)
+        local _  = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 1)
     end
     local guid = _booster(_roflake.uida, boostRefid, value, hp, boostContentId, serverInstance) :: str
     serverInstance.Name = guid
@@ -126,23 +126,23 @@ function m.AddBulletToState(guid, weaponId, startingPos, playerId)
     _bullet(guid, startingPos, playerId, weaponId, ttl)
 end
 
-local _gameSession = m.world:constructor(W.Value) -- enemy wave count
-function m.GetPreviousWaveNumber()
-    local currentNum = m.world:get(Id.WorldStats.GAME_SESSION, W.Value)
+local _enemyCounter = m.world:constructor(W.Value) -- enemy wave count
+function m.GetPreviousEnemyWaveNumber()
+    local currentNum = m.world:get(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value)
     if not currentNum then
         currentNum = 0
-        _gameSession(Id.WorldStats.GAME_SESSION, currentNum)
+        _enemyCounter(Id.WorldSpecs.ENEMY_WAVE_COUNT, currentNum)
     end
     return currentNum
 end
-function m.UpdateWaveCount()
-    local newNum = m.GetPreviousWaveNumber() + 1
-    m.world:set(Id.WorldStats.GAME_SESSION, W.Value, newNum)
+function m.UpdateEnemyWaveCount()
+    local newNum = m.GetPreviousEnemyWaveNumber() + 1
+    m.world:set(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value, newNum)
     return newNum
 end
-function m.ResetWaveCount()
-    local _ = m.GetPreviousWaveNumber() -- to make sure that the entity is created
-    m.world:set(Id.WorldStats.GAME_SESSION, W.Value, 0)
+function m.ResetEnemyWaveCount()
+    local _ = m.GetPreviousEnemyWaveNumber() -- to make sure that the entity is created
+    m.world:set(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value, 0)
 end
 
 -------------------

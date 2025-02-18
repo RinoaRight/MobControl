@@ -92,6 +92,7 @@ m.Boost = {
 m.Enemy = {
     [Id.Enemy.BASIC] = { damage = 10, health = 10, speed = 30.0, meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_1") }, -- hp, hp, studs/sec, assetId
     [Id.Enemy.CRAZY] = { damage = 15, health = 15, speed = 40.0, meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_3") }, -- hp, hp, studs/sec, assetId
+    [Id.Enemy.OCTOBOSS] = { damage = 30, health = 1000, speed = 20.0, meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss") }, -- hp, hp, studs/sec, assetId
 }
 
 m.Sound = {

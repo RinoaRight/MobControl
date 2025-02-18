@@ -158,8 +158,8 @@ local function setBooster(worldState: state.Main, instance: BasePart, get_state:
 end
 
 local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)
-    local wavesTotal = worldState:get(Id.WorldStats.BOOST_WAVE_COUNT, W.Total)
-    worldState:set(Id.WorldStats.BOOST_WAVE_COUNT, W.Total, wavesTotal + 1)
+    local wavesTotal = worldState:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
+    worldState:set(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, wavesTotal + 1)
 
     GROUND_UNITS[index].unit = groundUnit
     local unitPos = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
@@ -192,12 +192,12 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
 
-            local newWaveNumber = WorldService.UpdateWaveCount()
+            local newWaveNumber = WorldService.UpdateEnemyWaveCount()
             local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, newWaveNumber)
 
             TaskPool.spawn(function()
                 task.wait(SharedConfig.ENEMY_WAVE_DELAY)
-                local newWaveNumber = WorldService.UpdateWaveCount()
+                local newWaveNumber = WorldService.UpdateEnemyWaveCount()
                 local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, false, newWaveNumber)
             end)
         end
@@ -257,6 +257,7 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
 end
 
 function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
+    -- TODO: on boss  arrival stop movement of ground units and drivers. on Boss death stop game session
     local oldPos = DRIVING_BOX_INSTANCE.Position
     GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
     return function(dt)
@@ -276,8 +277,9 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             assert(typeof(enemyGuid) == "string")
             -- local lookAt = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + 5)
             local flags = worldState:get(enemyGuid, W.Bitset)
-            local enemyId = worldState:get(enemyGuid, W.RefId)
-            local speed = log:assert(S.Enemy[enemyId].speed, "S.Enemy has no speed for: '%*'", enemyId)
+            local enemyRefId = worldState:get(enemyGuid, W.RefId)
+            local enemyTemplate = assert(S.Enemy[enemyRefId].meshTemplate)
+            local speed = log:assert(S.Enemy[enemyRefId].speed, "S.Enemy has no speed for: '%*'", enemyRefId)
             local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + dt * speed)
             local distToTarget
             local playerId
@@ -333,16 +335,20 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         playerState = get_state(playerId)
 
                         if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
-                            worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                            worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                            if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
+                                worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
+                                worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                            end
                         -- elseif distToTarget < 20 then
                         elseif currentPos.Z > playerRoot.Position.Z - 20 then
                             -- enemy is pretty close to player, cancel seeking
-                            worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                            worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
-                            -- local playerPos = playerRoot.Position
-                            -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                            -- newPos = currentPos:Lerp(target, dt * speed / distToTarget)
+                            if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
+                                worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
+                                worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                                -- local playerPos = playerRoot.Position
+                                -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                                -- newPos = currentPos:Lerp(target, dt * speed / distToTarget)
+                            end
                         else
                             ---[[ old code
                             -- predict player's position, binomial distribution add some randomness
@@ -400,8 +406,9 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
             if distToTarget and playerState then
                 -- enemy is critically close to player, harm them, then die
-                if distToTarget < 5 then
-                    local enemyDamage = S.Enemy[enemyId].damage
+                local d = enemyTemplate.Size.Z / 2
+                if distToTarget < d then
+                    local enemyDamage = S.Enemy[enemyRefId].damage
 
                     playerState:DeductHp(enemyDamage)
 
@@ -436,12 +443,11 @@ end
 function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
     return function(dt)
         -- weapon cooldown
-        local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-        log:trace("LLLLLLL", flags)
+        local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
         if Id.flag_test(flags, Id.PlayerF.READY) then
-            local shot_tte = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTE) :: num
+            local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.TTE) :: num
             shot_tte -= dt
-            player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, math.max(shot_tte, 0))
+            player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.TTE, math.max(shot_tte, 0))
         end
     end
 end
@@ -478,8 +484,8 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session
     -- NOTE: players_already_in_session includes this player_state.player
 
     -- define spawning position
-    local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_or(flags, Id.PlayerF.READY))
+    local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Bitset, Id.flag_or(flags, Id.PlayerF.READY))
 
     local driver_pos = DRIVING_BOX_INSTANCE.Position
     local ground_folder = workspace:FindFirstChild("GroundUnits")
@@ -541,3 +547,4 @@ end
 
 print("[Game Module -- started]")
 return m
+-- TODO: handle end of session on boss's death

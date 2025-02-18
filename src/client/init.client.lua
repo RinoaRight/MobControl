@@ -212,7 +212,7 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
     local player = game.Players:GetPlayerByUserId(player_id)
 
     if player == LOCAL_PLAYER then
-        weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+        weapon_id = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.RefId)
     else
         weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
     end
@@ -562,7 +562,7 @@ local function fireBullet(player)
     local weapon_id
 
     if player == LOCAL_PLAYER then
-        weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+        weapon_id = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.RefId)
     else
         weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
     end
@@ -606,7 +606,7 @@ local function fireBullet(player)
     -- reset ttl for fake fire on the client for all and send to change it on server for the local client
     local weapon_id
     if player == LOCAL_PLAYER then
-        weapon_id = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+        weapon_id = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.RefId)
         -- reset tte server-side
         fire_server(Id.C2S.BULLET_SHOT, bulletGuids, weapon_id)
         -- TODO: change sound for each type of weapon
@@ -720,7 +720,9 @@ RunService.Heartbeat:Connect(function(dt)
                 local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
                 lookAt = playerRoot.Position
             end
-            lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
+            -- lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
+            local y = enemyInstance.Size.Y - enemyInstance.Size.Y / 2 + 1
+            lookAt = Vector3.new(lookAt.X, y, lookAt.Z) -- lock Y axis
             local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
             table.insert(enemyTargets, newCframe)
         end
@@ -824,10 +826,10 @@ RunService.Heartbeat:Connect(function(dt)
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player
-    if PLAYER_STATE:has(Id.PlayerStats.GAME_SESSION) then
-        local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION) then
+        local flags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
         if flags and Id.flag_test(flags, Id.PlayerF.READY) then
-            local weaponId = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+            local weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.RefId)
             if not weaponId or weaponId == Id.Weapon._NONE then
                 log:error("No bullet can be fired for this weapon_id", weaponId)
             end
@@ -846,7 +848,7 @@ RunService.Heartbeat:Connect(function(dt)
     end
 
     -- fake bullets' animation for other players (if the options to others' bullets is on)
-    local currentFlags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    local currentFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
     if currentFlags then
         local bulletsFlag = Id.flag_test(currentFlags, Id.PlayerF.OTHER_BULLETS_ON)
         if bulletsFlag then
@@ -884,7 +886,7 @@ local infrequentLoop = supervisor.create(1, "client-infrequent")
 infrequentLoop:start(function(dt)
     -- player character animation check
     local isRunAnimActive
-    local flags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+    local flags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
     if flags and Id.flag_test(flags, Id.PlayerF.READY) then
         for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
             if v.Name == SharedConfig.RUN_ANIMATION_NAME then
@@ -924,7 +926,7 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
             clientInstance = cloneFolder:FindFirstChild(guid, true)
         end
         if not clientInstance then
-            local currentFlags = PLAYER_STATE:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
+            local currentFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
             if currentFlags then
                 local clonesFlag = Id.flag_test(currentFlags, Id.PlayerF.OTHER_CLONES_ON)
                 if clonesFlag or playerId == LOCAL_PLAYER.UserId then

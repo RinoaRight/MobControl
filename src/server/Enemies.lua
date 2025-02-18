@@ -96,6 +96,14 @@ local function create_grid(cell_w: int, cell_h: int, cols: int, rows: int, origi
     return grid, bitmap, rc2idx, idx2rc
 end
 
+local function spawnBoss(enemyId, unitPos)
+    local bossTemplate = S.Enemy[enemyId].meshTemplate
+    local y = bossTemplate.Size.Y - bossTemplate.Size.Y / 2 + 1
+    local bossPos = Vector3.new(unitPos.X, y, unitPos.Z)
+    local bossGuid = WorldService.AddEnemyToState(enemyId, bossPos)
+    return bossGuid
+end
+
 local m = {}
 
 -- Every odd wave spawns in the current ground unit in front of the boosters, every even - after some time, behind the boosters
@@ -108,7 +116,11 @@ m.ENEMIES_DATA_TABLE = {
 
 function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, waveNumber :int)
     local enemiesGuids = {}
-    if waveNumber > #m.ENEMIES_DATA_TABLE then
+    if waveNumber == SharedConfig.BOSS_WAVE_NUMBER then
+        local bossGuid = spawnBoss(Id.Enemy.OCTOBOSS, groundUnit.Position)
+        table.insert(enemiesGuids, bossGuid)
+        return enemiesGuids 
+    elseif waveNumber > #m.ENEMIES_DATA_TABLE then
         waveNumber = #m.ENEMIES_DATA_TABLE
     end
     local numberOfEnemies = m.ENEMIES_DATA_TABLE[waveNumber].count
