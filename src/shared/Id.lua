@@ -790,13 +790,13 @@ logger.set_global_level(logger.LOG_LEVELS.DEBUG)
 local logger = require(script.Parent.logger)
 local lg = logger.create("Flags"):set_prettifier(Id.pp):set_delimiter(" ")
 local flags = Id.PlayerF.NONE
-lg:trace(flags, "-- flags = Id.PlayerF.NONE")
+-- lg:trace(flags, "-- flags = Id.PlayerF.NONE")
 flags = Id.flag_or(flags, Id.PlayerF.READY)
-lg:trace(flags, "-- Id.flag_or(flags, Id.PlayerF.READY)")
+-- lg:trace(flags, "-- Id.flag_or(flags, Id.PlayerF.READY)")
 flags = Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true)
-lg:trace(flags, "-- Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true)")
+-- lg:trace(flags, "-- Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true)")
 flags = Id.flag_set(flags, Id.PlayerF.READY, false)
-lg:trace(flags, "-- Id.flag_set(flags, Id.PlayerF.READY, false)")
+-- lg:trace(flags, "-- Id.flag_set(flags, Id.PlayerF.READY, false)")
 
 --]]
 

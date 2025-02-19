@@ -88,16 +88,28 @@ function m.RemoveEntity(uid: uid)
 end
 
 local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance)
-local _booster_wave_count = m.world:constructor(W.RefId, W.Value)
 function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, boostContentId: id | bool)
-    local wavesTotal = m.world:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
-    if not wavesTotal then
-        -- initiate it for the first ground unit
-        local _  = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 1)
-    end
     local guid = _booster(_roflake.uida, boostRefid, value, hp, boostContentId, serverInstance) :: str
     serverInstance.Name = guid
     return guid
+end
+
+local _booster_wave_count = m.world:constructor(W.RefId, W.Value)
+function m.UpdateBoosterWaveCount()
+    local wavesTotal = m.world:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
+    if not wavesTotal then
+        local _  = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 1)
+    else
+        m.world:set(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, wavesTotal + 1)
+    end
+end
+function m.ResetBoosterWaveCount()
+    local wavesTotal = m.world:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
+    if not wavesTotal then
+        local _  = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 0)
+    else
+        m.world:set(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 0)
+    end
 end
 
 function m.AddClone(id: id, player_id: int)

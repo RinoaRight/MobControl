@@ -371,41 +371,40 @@ s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
 end
 
 -- initialize main game loop
-do
-    local function startGameSession()
-        TaskPool.spawn(function()
-            GameModule.Init(WorldService.world, get_state)
+local function startGameSession()
+    TaskPool.spawn(function()
+        GameModule.Init(WorldService.world, get_state)
 
-            local playerState
-            repeat
-                task.wait()
-                playerState = get_state(next(STATES) :: int)
-            until playerState ~= nil
-            log:info("playerState", playerState, playerState and playerState.player_id)
-            assert(playerState, "sanity check failed, no player state found")
+        local playerState
+        repeat
+            task.wait()
+            playerState = get_state(next(STATES) :: int)
+        until playerState ~= nil
+        log:info("playerState", playerState, playerState and playerState.player_id)
+        assert(playerState, "sanity check failed, no player state found")
 
-            -- TODO: this is a hack, we should have a better way to do this
-            -- wait until at least 1 player is ready to join the session
-            local isReady = false
-            repeat
-                task.wait(0.1)
-                for _, thisPlayerState in pairs(STATES) do
-                    local flags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
-                    if not flags then
-                        continue
-                    end
-                    isReady = Id.flag_test(flags, Id.PlayerF.READY)
-                    if isReady then
-                        break
-                    end
+        -- TODO: this is a hack, we should have a better way to do this
+        -- wait until at least 1 player is ready to join the session
+        local isReady = false
+        repeat
+            task.wait(0.1)
+            for _, thisPlayerState in pairs(STATES) do
+                local flags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+                if not flags then
+                    continue
                 end
-            until isReady
-            local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
-        end)
-    end
-
-    startGameSession()
+                isReady = Id.flag_test(flags, Id.PlayerF.READY)
+                if isReady then
+                    break
+                end
+            end
+        until isReady
+        WorldService.ResetBoosterWaveCount()
+        local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
+    end)
 end
+
+startGameSession()
 
 -----------------------------
 -- Player Connect

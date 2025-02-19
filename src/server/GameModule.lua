@@ -87,11 +87,11 @@ local FIELD_NAMES = En.with_id("*")({
 local GROUND_UNITS = {
     {                                             zOffset = GROUND_INIT_LENGTH * 2 },
     {                                             zOffset = GROUND_INIT_LENGTH},
-    { unit = GROUND_UNIT_FOLDER.GroundUnit_Start, zOffset = 0},
+    {                                             zOffset = 0},
     {                                             zOffset = -GROUND_INIT_LENGTH },
     {                                             zOffset = GROUND_INIT_LENGTH * -2 },
 }
-local startingPos = GROUND_UNITS[3].unit.Position
+local startingPos = Vector3.new(0, -10, 0) --GROUND_UNITS[3].unit.Position
 
 local DRIVING_BOX_TEMPLATE = assert(ReplicatedStorage.DrivingBox)
 local DRIVING_BOX_INSTANCE = DRIVING_BOX_TEMPLATE:Clone()
@@ -109,6 +109,11 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     end
     groundUnit:Destroy()
 end
+
+local function onBossArrival() 
+    -- TODO: on boss  arrival stop movement of ground units and drivers. on Boss death stop game session
+end
+
 
 local function setBooster(worldState: state.Main, instance: BasePart, get_state: (int) -> PSS.PlayerState?)
     local refID, boostContentId = BoosterServer.SetBoosterValue(worldState)
@@ -158,8 +163,7 @@ local function setBooster(worldState: state.Main, instance: BasePart, get_state:
 end
 
 local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)
-    local wavesTotal = worldState:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
-    worldState:set(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, wavesTotal + 1)
+    WorldService.UpdateBoosterWaveCount()
 
     GROUND_UNITS[index].unit = groundUnit
     local unitPos = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
@@ -193,13 +197,22 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
 
             local newWaveNumber = WorldService.UpdateEnemyWaveCount()
-            local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, newWaveNumber)
+            local enemyGuids = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, newWaveNumber) :: {}
 
             TaskPool.spawn(function()
                 task.wait(SharedConfig.ENEMY_WAVE_DELAY)
                 local newWaveNumber = WorldService.UpdateEnemyWaveCount()
-                local _enemies = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, false, newWaveNumber)
+                enemyGuids = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, false, newWaveNumber)
             end)
+
+            if #enemyGuids > 0 then
+                for _, enemyGuid in ipairs(enemyGuids) do
+                    local enemyRefId = worldState:get(enemyGuid, W.RefId)
+                    if enemyRefId == Id.Enemy.OCTOBOSS then
+                        onBossArrival()
+                    end
+                end
+            end
         end
     end)
 end
@@ -237,28 +250,21 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     -- init first batch of ground units and fill in the data table
     local firstUnit = GROUND_UNIT_TEMPLATE:Clone()
     local secondUnit = GROUND_UNIT_TEMPLATE:Clone()
+    local middleUnit = GROUND_UNIT_TEMPLATE:Clone()
     local fourthUnit = GROUND_UNIT_TEMPLATE:Clone()
     local fifthUnit = GROUND_UNIT_TEMPLATE:Clone()
 
-    -- init first ground unit
-    subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
-    local boosters = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit:GetChildren()
-    for i, booster in ipairs(boosters) do
-        if booster:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
-            setBooster(worldState, booster, get_state)
-        end
-    end
-
-    -- spawn the rest of the first batch of ground units
     spawnGroundUnit(worldState, firstUnit, FIELD_NAMES.FIRST, startingPos)
     spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
+    spawnGroundUnit(worldState, middleUnit, FIELD_NAMES.MIDDLE, startingPos)
+    subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
     spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
 end
 
 function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
-    -- TODO: on boss  arrival stop movement of ground units and drivers. on Boss death stop game session
-    local oldPos = DRIVING_BOX_INSTANCE.Position
+    -- local oldPos = DRIVING_BOX_INSTANCE.Position
+    local oldPos = SharedConfig.DRIVING_BOX_STARTING_POS
     GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
     return function(dt)
         -- driving box movement
@@ -441,6 +447,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 end
 
 function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
+    -- TODO: FIXIT: sometimes doesn't initiate properly
+    print("StartMainLoopPlayer")
     return function(dt)
         -- weapon cooldown
         local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)

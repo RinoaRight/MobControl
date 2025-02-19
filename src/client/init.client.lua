@@ -707,7 +707,6 @@ RunService.Heartbeat:Connect(function(dt)
     local enemyTargets = {}
     for enemyGuid, refId, _hp, newPos, _playerId, _bitset in WORLD:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
         if Id.kind(refId) == Id.Kind.Enemy then
-            -- EnemiesClient.MoveEnemyInstances(WORLD, pos)
             local enemyInstance = ENEMIES_FOLDER:FindFirstChild(enemyGuid)
             local currentPos: Vector3 = enemyInstance.Position
             table.insert(enemies, enemyInstance)
@@ -720,9 +719,9 @@ RunService.Heartbeat:Connect(function(dt)
                 local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
                 lookAt = playerRoot.Position
             end
-            -- lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
             local y = enemyInstance.Size.Y - enemyInstance.Size.Y / 2 + 1
-            lookAt = Vector3.new(lookAt.X, y, lookAt.Z) -- lock Y axis
+            newPos = Vector3.new(newPos.X, y, newPos.Z) -- lock Y axis
+            lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
             local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
             table.insert(enemyTargets, newCframe)
         end
