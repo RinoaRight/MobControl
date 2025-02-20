@@ -653,6 +653,7 @@ local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_si
     return target, isTargetKillable, targetThickness, targetRefId
 end
 
+-- MAIN LOOP
 RunService.Heartbeat:Connect(function(dt)
     local players = game:GetService("Players"):GetPlayers()
     if #players < 1 then

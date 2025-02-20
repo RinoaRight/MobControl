@@ -99,7 +99,7 @@ local function cleanUpWorldState(player_state, this_player_id: int)
     end
 end
 
-local function onPlayerDead(player_state: PSS.PlayerState)
+local function onPlayerSessionFinished(player_state: PSS.PlayerState)
     print("Player dead")
     -- check if the player is not already dead
     if player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.RefId) == Id.Weapon._NONE then
@@ -367,7 +367,18 @@ s2s[Id.S2S.CHANGE_WEAPON] = function(player_state, weapon_id, ...)
 end
 
 s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
-    onPlayerDead(player_state)
+    onPlayerSessionFinished(player_state)
+end
+
+s2s[Id.S2S.STOP_GAME_SESSION] = function(player_state, ...)
+    local total_players = Players:GetPlayers()
+    for _, player in ipairs(total_players) do
+        local thisPlayerState = get_state(player)
+        if thisPlayerState then
+            onPlayerSessionFinished(thisPlayerState)
+        end
+    end
+    WorldService.SetBossFightOff()
 end
 
 -- initialize main game loop
@@ -400,6 +411,7 @@ local function startGameSession()
             end
         until isReady
         WorldService.ResetBoosterWaveCount()
+        WorldService.SetBossFightOff()
         local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
     end)
 end

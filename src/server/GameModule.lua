@@ -110,10 +110,14 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     groundUnit:Destroy()
 end
 
-local function onBossArrival() 
-    -- TODO: on boss  arrival stop movement of ground units and drivers. on Boss death stop game session
+local function onBossArrival()
+    -- TODO: on Boss death stop game session
+    local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
+    for _, unit in ipairs(unitsFolder) do
+        unit.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    end
+    WorldService.SetBossFightOn()
 end
-
 
 local function setBooster(worldState: state.Main, instance: BasePart, get_state: (int) -> PSS.PlayerState?)
     local refID, boostContentId = BoosterServer.SetBoosterValue(worldState)
@@ -181,6 +185,20 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     end
 end
 
+local function generateEnemies(worldState: state.Main)
+    local newWaveNumber = WorldService.UpdateEnemyWaveCount()
+    local enemyGuids = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, newWaveNumber) :: {}
+
+    if #enemyGuids > 0 then
+        for _, enemyGuid in ipairs(enemyGuids) do
+            local enemyRefId = worldState:get(enemyGuid, W.RefId)
+            if enemyRefId == Id.Enemy.OCTOBOSS then
+                onBossArrival()
+            end
+        end
+    end
+end
+
 local function subscribeTrigger(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, index, groundUnit)
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     workerMaid.trigger = trigger.Touched:Connect(function(triggerer)
@@ -196,23 +214,12 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
 
-            local newWaveNumber = WorldService.UpdateEnemyWaveCount()
-            local enemyGuids = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, newWaveNumber) :: {}
+            generateEnemies(worldState)
 
             TaskPool.spawn(function()
                 task.wait(SharedConfig.ENEMY_WAVE_DELAY)
-                local newWaveNumber = WorldService.UpdateEnemyWaveCount()
-                enemyGuids = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, false, newWaveNumber)
+                generateEnemies(worldState)
             end)
-
-            if #enemyGuids > 0 then
-                for _, enemyGuid in ipairs(enemyGuids) do
-                    local enemyRefId = worldState:get(enemyGuid, W.RefId)
-                    if enemyRefId == Id.Enemy.OCTOBOSS then
-                        onBossArrival()
-                    end
-                end
-            end
         end
     end)
 end
@@ -257,20 +264,22 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     spawnGroundUnit(worldState, firstUnit, FIELD_NAMES.FIRST, startingPos)
     spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
     spawnGroundUnit(worldState, middleUnit, FIELD_NAMES.MIDDLE, startingPos)
+
     subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
+
     spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
 end
 
 function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
-    -- local oldPos = DRIVING_BOX_INSTANCE.Position
     local oldPos = SharedConfig.DRIVING_BOX_STARTING_POS
-    GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.AssemblyLinearVelocity = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.CFrame.LookVector * 30
     return function(dt)
         -- driving box movement
-        DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
-        oldPos = DRIVING_BOX_INSTANCE.Position
-
+        local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
+        if not isBossFightOn then
+            DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
+            oldPos = DRIVING_BOX_INSTANCE.Position
+        end
         -- TODO: calculate _proximity to DRIVER to destroy enemy (instead of current collisions)
 
         -- calculate new enemies' positions
@@ -411,15 +420,16 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             end
 
             if distToTarget and playerState then
-                -- enemy is critically close to player, harm them, then die
+                -- enemy is critically close to player, harm them, then die (boss is an exception)
                 local d = enemyTemplate.Size.Z / 2
                 if distToTarget < d then
                     local enemyDamage = S.Enemy[enemyRefId].damage
 
                     playerState:DeductHp(enemyDamage)
-
-                    -- TODO: effects
-                    m.DestroyEnemy(enemyGuid)
+                    if enemyRefId ~= Id.Enemy.OCTOBOSS then
+                        -- TODO: effects
+                        m.DestroyEnemy(enemyGuid)
+                    end
                 end
             end
 
@@ -465,6 +475,11 @@ m.DestroyEnemy = function(guid)
     WorldService.RemoveEntity(guid)
     assert(typeof(guid) == "string") -- sanity check
     workerMaid[guid] = nil
+    local enemyRefId = WorldService.world:get(guid, W.RefId)
+    if enemyRefId == Id.Enemy.OCTOBOSS then
+        WorldService.SetBossFightOff()
+        Signal.Fire(Id.S2S.STOP_GAME_SESSION)
+    end
 end
 
 function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id)

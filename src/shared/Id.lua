@@ -638,8 +638,9 @@ export type PlayerStats = typeof(Id.PlayerSpecs)
 Id.WorldSpecs = enum.with_id "Id.WorldSpecs" {
     _NONE            = iota(Id.Kind.WorldSpecs, 0),
     -- GAME_SESSION     = iota'',
-    BOOST_WAVE_COUNT = iota'',
-    ENEMY_WAVE_COUNT = iota'',
+    BOOST_WAVE_COUNT = iota'', -- number
+    ENEMY_WAVE_COUNT = iota'', -- number
+    BOSS_FIGHT_ON    = iota'', -- bool
 }
 KIND_TO_ENUM[Id.Kind.WorldSpecs] = Id.WorldSpecs
 export type WorldSpecs = typeof(Id.WorldSpecs)
@@ -694,6 +695,7 @@ Id.S2S = enum.with_id "Id.S2S" {
     PURCHASE_FINISHED         = iota'',
     CHANGE_WEAPON             = iota'', -- weapon_id
     PLAYER_DIED               = iota'',
+    STOP_GAME_SESSION         = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)
