@@ -52,7 +52,8 @@ local m = {} :: {
     StartMainLoopPlayer: (PSS.PlayerState) -> (num) -> (),
     Init: (state: state.Main, (int) -> PSS.PlayerState?) -> (),
     CreatePlayerHpGui: (PSS.PlayerState) -> (),
-    DestroyEnemy: (enemy_guid: str) -> (),
+    DestroyEnemy: (enemy_guid: str, player_id: num?) -> (),
+    CleanupGroundUnits: () -> (),
     HandleBoosterDeath: (PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id) -> (),
     StartMainLoopWorld: (world_state: state.Main, (int) -> PSS.PlayerState?) -> (num) -> (),
     SetPlayerAlignment: (PSS.PlayerState) -> (),
@@ -279,6 +280,31 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         if not isBossFightOn then
             DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
             oldPos = DRIVING_BOX_INSTANCE.Position
+        else
+            local allPlayers = game.Players:GetPlayers()
+            local playersInSession = 0
+            for _, player in ipairs(allPlayers) do
+                local weaponId = worldState:get(player.UserId, W.WeaponId)
+                if weaponId ~= Id.Weapon._NONE then
+                    playersInSession += 1
+                end
+            end
+            if #allPlayers > 0 then
+                if playersInSession <= 0 then
+                    -- no players in session, stop the game
+                    local randomPlayerState
+                    for _, player in ipairs(allPlayers) do
+                        randomPlayerState = get_state(player.UserId)
+                        if randomPlayerState then
+                            break
+                        end
+                    end
+                    if randomPlayerState then
+                        local randomPlayerId = randomPlayerState.player_id
+                        Signal.Fire(Id.S2S.STOP_GAME_SESSION, randomPlayerId)
+                    end
+                end
+            end
         end
         -- TODO: calculate _proximity to DRIVER to destroy enemy (instead of current collisions)
 
@@ -439,7 +465,9 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                 if DRIVING_BOX_INSTANCE.Position.Z <= currentPos.Z then
                     -- destroy enemy if it collided with the driving box's rear
-                    m.DestroyEnemy(enemyGuid)
+                    if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
+                        m.DestroyEnemy(enemyGuid)
+                    end
                 elseif DRIVING_BOX_FRONT.Position.Z <= currentPos.Z then
                     -- activate seek mode on collision with the driver box's front
                     worldState:set(enemyGuid, W.Bitset, Id.flag_or(flags, Id.EnemyF.SEEK_ACTIVATED))
@@ -470,15 +498,25 @@ function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
     end
 end
 
-m.DestroyEnemy = function(guid)
+m.DestroyEnemy = function(guid, playerId: num?)
     -- TODO: effects
-    WorldService.RemoveEntity(guid)
-    assert(typeof(guid) == "string") -- sanity check
-    workerMaid[guid] = nil
     local enemyRefId = WorldService.world:get(guid, W.RefId)
     if enemyRefId == Id.Enemy.OCTOBOSS then
         WorldService.SetBossFightOff()
-        Signal.Fire(Id.S2S.STOP_GAME_SESSION)
+        if playerId then
+            -- boss was killed by a player's bullet
+            Signal.Fire(Id.S2S.STOP_GAME_SESSION, playerId)
+        end
+    end
+    WorldService.RemoveEntity(guid)
+    assert(typeof(guid) == "string") -- sanity check
+    workerMaid[guid] = nil
+end
+
+m.CleanupGroundUnits = function()
+    local groundUnits = GROUND_UNIT_FOLDER:GetChildren()
+    for _, unit in ipairs(groundUnits) do
+        deleteGroundUnit(unit, 1)
     end
 end
 

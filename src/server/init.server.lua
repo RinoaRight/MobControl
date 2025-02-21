@@ -76,6 +76,27 @@ if not workspace then
     return
 end
 
+-----------------------------
+-- Update Loops
+-----------------------------
+local ServerSupervisor = supervisor.create(0.1)
+local _loop_update_states = ServerSupervisor:start(function(_dt)
+    local update_world_log = WorldService.world:flash()
+    for _, state in STATES do
+        local update_state_log = state.state:flash()
+        if update_state_log then
+            state:NotifyClient(Id.S2C.UPDATE_STATE, update_state_log)
+        end
+        if not state.state:env("WORLD_READY") then
+            state:NotifyClient(Id.S2C.INIT_WORLD, WorldService.world:snapshot())
+            state.state:env("WORLD_READY", true)
+        elseif update_world_log then
+            state:NotifyClient(Id.S2C.UPDATE_WORLD, update_world_log)
+        end
+    end
+end)
+-----------------------------
+
 local function changeWeapon(player_state, weapon_id: id)
     player_state:ChangeWeapon(weapon_id)
     WorldService.ChangeWeapon(player_state, player_state.player_id, weapon_id)
@@ -124,25 +145,39 @@ local function onPlayerSessionFinished(player_state: PSS.PlayerState)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STOPPED_SESSION, player_state.player_id)
 end
 
------------------------------
--- Update Loops
------------------------------
-local ServerSupervisor = supervisor.create(0.1)
-local _loop_update_states = ServerSupervisor:start(function(_dt)
-    local update_world_log = WorldService.world:flash()
-    for _, state in STATES do
-        local update_state_log = state.state:flash()
-        if update_state_log then
-            state:NotifyClient(Id.S2C.UPDATE_STATE, update_state_log)
-        end
-        if not state.state:env("WORLD_READY") then
-            state:NotifyClient(Id.S2C.INIT_WORLD, WorldService.world:snapshot())
-            state.state:env("WORLD_READY", true)
-        elseif update_world_log then
-            state:NotifyClient(Id.S2C.UPDATE_WORLD, update_world_log)
-        end
-    end
-end)
+local function startGameSession()
+    TaskPool.spawn(function()
+        GameModule.Init(WorldService.world, get_state)
+
+        local playerState
+        repeat
+            task.wait()
+            playerState = get_state(next(STATES) :: int)
+        until playerState ~= nil
+        log:info("playerState", playerState, playerState and playerState.player_id)
+        assert(playerState, "sanity check failed, no player state found")
+
+        -- TODO: this is a hack, we should have a better way to do this
+        -- wait until at least 1 player is ready to join the session
+        local isReady = false
+        repeat
+            task.wait(0.1)
+            for _, thisPlayerState in pairs(STATES) do
+                local flags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+                if not flags then
+                    continue
+                end
+                isReady = Id.flag_test(flags, Id.PlayerF.READY)
+                if isReady then
+                    break
+                end
+            end
+        until isReady
+        WorldService.ResetBoosterWaveCount()
+        WorldService.SetBossFightOff()
+        local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
+    end)
+end
 
 ----------------------------
 -- Event Handling
@@ -248,7 +283,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                 local newHP = enemyHP - dmg
 
                 if enemyHP - dmg <= 0 then
-                    GameModule.DestroyEnemy(targetGuid)
+                    GameModule.DestroyEnemy(targetGuid, playerState.player_id)
                 else
                     WorldService.world:set(targetGuid, W.HP, newHP)
                 end
@@ -333,6 +368,14 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     resetHp(player_state)
     changeWeapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
 
+    -- initialize main game loop if it is not initialized yet
+    local isGameSessionInProgress = WorldService.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
+    if not isGameSessionInProgress then
+        startGameSession()
+        WorldService.SetGameSessionOn()
+    end
+
+    -- initialize player's loop
     local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     log:trace("player's session started")
     workerMaid.playerLoop = function()
@@ -341,6 +384,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     end
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
+
 end
 
 on[Id.C2S.TOGGLE_PLAYER_FLAG] = function(player_state, isToSwitchOn, flag_id, ...)
@@ -370,53 +414,30 @@ s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
     onPlayerSessionFinished(player_state)
 end
 
-s2s[Id.S2S.STOP_GAME_SESSION] = function(player_state, ...)
+s2s[Id.S2S.STOP_GAME_SESSION] = function(_random_player_state, ...)
     local total_players = Players:GetPlayers()
+    print("LLLLLLL total players = ", #total_players)
     for _, player in ipairs(total_players) do
         local thisPlayerState = get_state(player)
         if thisPlayerState then
             onPlayerSessionFinished(thisPlayerState)
         end
     end
+    WorldService.SetGameSessionOff()
     WorldService.SetBossFightOff()
+
+    -- kill remaining enemies
+    local enemiesFolder = workspace:FindFirstChild("Enemies")
+    if enemiesFolder then
+        for _, enemy in ipairs(enemiesFolder:GetChildren()) do
+            -- TODO: FIXIT. boss is not getting destroyed. Also, if the player manages to kill the boss, the session is not finished properly.
+            GameModule.DestroyEnemy(enemy.Name)
+        end
+    end
+
+    -- remove remaining ground units
+    GameModule.CleanupGroundUnits()
 end
-
--- initialize main game loop
-local function startGameSession()
-    TaskPool.spawn(function()
-        GameModule.Init(WorldService.world, get_state)
-
-        local playerState
-        repeat
-            task.wait()
-            playerState = get_state(next(STATES) :: int)
-        until playerState ~= nil
-        log:info("playerState", playerState, playerState and playerState.player_id)
-        assert(playerState, "sanity check failed, no player state found")
-
-        -- TODO: this is a hack, we should have a better way to do this
-        -- wait until at least 1 player is ready to join the session
-        local isReady = false
-        repeat
-            task.wait(0.1)
-            for _, thisPlayerState in pairs(STATES) do
-                local flags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
-                if not flags then
-                    continue
-                end
-                isReady = Id.flag_test(flags, Id.PlayerF.READY)
-                if isReady then
-                    break
-                end
-            end
-        until isReady
-        WorldService.ResetBoosterWaveCount()
-        WorldService.SetBossFightOff()
-        local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
-    end)
-end
-
-startGameSession()
 
 -----------------------------
 -- Player Connect

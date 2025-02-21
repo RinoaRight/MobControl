@@ -130,6 +130,23 @@ function m.SetBossFightOff()
     end
 end
 
+local _start_game_session = m.world:constructor(W.Value)
+function m.SetGameSessionOn()
+    local value = m.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
+    if value == nil then
+        _start_game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, true)
+    else
+        m.world:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value, true)
+    end
+end
+function m.SetGameSessionOff()
+    local value = m.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
+    if value == nil then
+        _start_game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, false)
+    else
+        m.world:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value, false)
+    end
+end
 
 function m.AddClone(id: id, player_id: int)
     local guid = m.nullary_transient(_roflake.uida())

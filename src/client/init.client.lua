@@ -385,19 +385,23 @@ local function subscribeStartCollider()
     local START_BTN = START_GUI:FindFirstChild("OKButton", true)
     maid.StartCollider = SESSION_STARTER_COLLIDER.Touched:Connect(function(other)
         if other == LOCAL_HUMANOID_ROOT_PART then
-            START_GUI.Enabled = true
-            maid.StartBtn = START_BTN.MouseButton1Click:Connect(function()
-                -- diable jumping
-                LOCAL_HUMANOID.JumpPower = 0
-                local playerAtt = Instance.new("Attachment") :: Attachment
-                playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
-                playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
-                playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
-                START_GUI.Enabled = false
-                fire_server(Id.C2S.PLAYER_READY_TO_START)
-                startRunAnim(LOCAL_CHARACTER)
-                maid.StartBtn = nil
-            end)
+            local isBossFightOn = WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
+            if not isBossFightOn then
+                -- interaction with the button is possible only when the boss fight is off
+                START_GUI.Enabled = true
+                maid.StartBtn = START_BTN.MouseButton1Click:Connect(function()
+                    -- diable jumping
+                    LOCAL_HUMANOID.JumpPower = 0
+                    local playerAtt = Instance.new("Attachment") :: Attachment
+                    playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
+                    playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
+                    playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
+                    START_GUI.Enabled = false
+                    fire_server(Id.C2S.PLAYER_READY_TO_START)
+                    startRunAnim(LOCAL_CHARACTER)
+                    maid.StartBtn = nil
+                end)
+            end
             maid.StartCollider = SESSION_STARTER_COLLIDER.TouchEnded:Connect(function(other)
                 if other == LOCAL_HUMANOID_ROOT_PART then
                     START_GUI.Enabled = false
