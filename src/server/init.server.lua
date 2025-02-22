@@ -416,7 +416,6 @@ end
 
 s2s[Id.S2S.STOP_GAME_SESSION] = function(_random_player_state, ...)
     local total_players = Players:GetPlayers()
-    print("LLLLLLL total players = ", #total_players)
     for _, player in ipairs(total_players) do
         local thisPlayerState = get_state(player)
         if thisPlayerState then
