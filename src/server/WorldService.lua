@@ -89,27 +89,81 @@ end
 
 local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance)
 function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, boostContentId: id | bool)
-    local guid = _booster(_roflake.uida, boostRefid, value, hp, boostContentId, serverInstance) :: str
+    local guid = _booster(_roflake.uida(), boostRefid, value, hp, boostContentId, serverInstance) :: str
     serverInstance.Name = guid
     return guid
 end
 
+local _booster_wave_count = m.world:constructor(W.RefId, W.Value)
+function m.UpdateBoosterWaveCount()
+    local wavesTotal = m.world:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
+    if not wavesTotal then
+        local _ = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 1)
+    else
+        m.world:set(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, wavesTotal + 1)
+    end
+end
+function m.ResetBoosterWaveCount()
+    local wavesTotal = m.world:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
+    if not wavesTotal then
+        local _ = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 0)
+    else
+        m.world:set(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 0)
+    end
+end
+
+local _boss_fight_on = m.world:constructor(W.Value)
+function m.SetBossFightOn()
+    local value = m.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
+    if value == nil then
+        _boss_fight_on(Id.WorldSpecs.BOSS_FIGHT_ON, true)
+    else
+        m.world:set(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value, true)
+    end
+end
+function m.SetBossFightOff()
+    local value = m.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
+    if value == nil then
+        _boss_fight_on(Id.WorldSpecs.BOSS_FIGHT_ON, false)
+    else
+        m.world:set(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value, false)
+    end
+end
+
+local _start_game_session = m.world:constructor(W.Value)
+function m.SetGameSessionOn()
+    local value = m.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
+    if value == nil then
+        _start_game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, true)
+    else
+        m.world:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value, true)
+    end
+end
+function m.SetGameSessionOff()
+    local value = m.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
+    if value == nil then
+        _start_game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, false)
+    else
+        m.world:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value, false)
+    end
+end
+
 function m.AddClone(id: id, player_id: int)
-    local guid = m.nullary_transient(_roflake.uida)
+    local guid = m.nullary_transient(_roflake.uida())
     m.world:set(guid, W.RefId, id)
-    m.world:set(guid, W.PLayerId, player_id)
+    m.world:set(guid, W.PlayerId, player_id)
     return guid
 end
 
-local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PLayerId, W.Bitset)
+local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset)
 function m.AddEnemyToState(id: id, pos)
     local hp = S.Enemy[id].health
-    local guid = _roflake.uida
+    local guid = _roflake.uida()
     _enemy(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
     return guid
 end
 
-local _bullet = m.world:constructor(W.Position, W.PLayerId, W.WeaponId, W.TTL) -- starting pos, owner's id, weapon_id
+local _bullet = m.world:constructor(W.Position, W.PlayerId, W.WeaponId, W.TTL) -- starting pos, owner's id, weapon_id
 function m.AddBulletToState(guid, weaponId, startingPos, playerId)
     local range = SharedConfig.BULLET_BASE_DISTANCE
     if S.Weapon[weaponId].range then
@@ -120,23 +174,23 @@ function m.AddBulletToState(guid, weaponId, startingPos, playerId)
     _bullet(guid, startingPos, playerId, weaponId, ttl)
 end
 
-local _gameSession = m.world:constructor(W.Value) -- enemy wave count
-function m.GetPreviousWaveNumber()
-    local currentNum = m.world:get(Id.WorldStats.GAME_SESSION, W.Value)
+local _enemyCounter = m.world:constructor(W.Value) -- enemy wave count
+function m.GetPreviousEnemyWaveNumber()
+    local currentNum = m.world:get(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value)
     if not currentNum then
         currentNum = 0
-        _gameSession(Id.WorldStats.GAME_SESSION, currentNum)
+        _enemyCounter(Id.WorldSpecs.ENEMY_WAVE_COUNT, currentNum)
     end
     return currentNum
 end
-function m.UpdateWaveCount()
-    local newNum = m.GetPreviousWaveNumber() + 1
-    m.world:set(Id.WorldStats.GAME_SESSION, W.Value, newNum)
+function m.UpdateEnemyWaveCount()
+    local newNum = m.GetPreviousEnemyWaveNumber() + 1
+    m.world:set(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value, newNum)
     return newNum
 end
-function m.ResetWaveCount()
-    local _ = m.GetPreviousWaveNumber() -- to make sure that the entity is created
-    m.world:set(Id.WorldStats.GAME_SESSION, W.Value, 0)
+function m.ResetEnemyWaveCount()
+    local _ = m.GetPreviousEnemyWaveNumber() -- to make sure that the entity is created
+    m.world:set(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value, 0)
 end
 
 -------------------

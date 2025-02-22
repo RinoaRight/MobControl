@@ -42,6 +42,8 @@ local Misc = require(shared.Misc)
 local NumFormat = require(shared.num_format)
 local SharedUtils = require(shared.util)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Rand = require(shared.rand)
+
 
 local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
@@ -49,7 +51,7 @@ local GROUND_UNIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
 local GROUND_UNIT_LENGTH_HALF = GROUND_UNIT_LENGTH / 2
 local X_MARGIN = 40
 local SPAWN_SPACE_WIDTH = GROUND_UNIT_TEMPLATE.Size.X - X_MARGIN * 2
-local X_INTERVAL = 5--20
+local X_INTERVAL = 5 --20
 local Z_INTERVAL = 20
 local ENEMY_CELL_SIZE = Vector3.new(2, 6, 2)
 local MAX_ROW, MAX_COLS = 16, 16
@@ -58,7 +60,6 @@ local START_ZONE_GAP = 70
 local FIRST_HALF_Z_OFFSET = -DISTANCE_FROM_MID_TO_BOOSTER + START_ZONE_GAP
 local SECOND_HALF_Z_OFFSET = -DISTANCE_FROM_MID_TO_BOOSTER - SharedConfig.BOOSTER_DEPTH
 local NUM_OF_COLUMNS = math.floor((GROUND_UNIT_LENGTH - X_MARGIN * 2) / X_INTERVAL)
-
 
 -- origin is a center-top
 -- +-----O-----+ -Z   `O` is origin
@@ -95,16 +96,34 @@ local function create_grid(cell_w: int, cell_h: int, cols: int, rows: int, origi
     return grid, bitmap, rc2idx, idx2rc
 end
 
+local function spawnBoss(enemyId, unitPos)
+    local bossTemplate = S.Enemy[enemyId].meshTemplate
+    local y = bossTemplate.Size.Y - bossTemplate.Size.Y / 2 + 1
+    local bossPos = Vector3.new(unitPos.X, y, unitPos.Z)
+    local bossGuid = WorldService.AddEnemyToState(enemyId, bossPos)
+    return bossGuid
+end
+
 local m = {}
 
 -- Every odd wave spawns in the current ground unit in front of the boosters, every even - after some time, behind the boosters
 m.ENEMIES_DATA_TABLE = {
-    {count = 20, ids = {Id.Enemy.BASIC}},
-    {count = 20, ids = {Id.Enemy.BASIC}},
+    { count = 20, gacha = {[Id.Enemy.BASIC] = 1}},
+    { count = 20, gacha = {[Id.Enemy.BASIC] = 1}},
+    { count = 20, gacha = {[Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZY] = .3}},
+    { count = 20, gacha = {[Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZY] = .3}},
 }
 
-function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, numberOfEnemies: int, ids:{id})
+function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, waveNumber :int)
     local enemiesGuids = {}
+    if waveNumber == SharedConfig.BOSS_WAVE_NUMBER then
+        local bossGuid = spawnBoss(Id.Enemy.OCTOBOSS, groundUnit.Position)
+        table.insert(enemiesGuids, bossGuid)
+        return enemiesGuids 
+    elseif waveNumber > #m.ENEMIES_DATA_TABLE then
+        waveNumber = #m.ENEMIES_DATA_TABLE
+    end
+    local numberOfEnemies = m.ENEMIES_DATA_TABLE[waveNumber].count
     if numberOfEnemies <= 0 then
         return enemiesGuids
     end
@@ -124,6 +143,7 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
 
     -- TODO: make sure that the number of columns correspond with cell_width
 
+
     -- make sure the grid fits all the required enemies
     while numberOfEnemies > cols * rows do
         rows += 1
@@ -140,42 +160,12 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         local enemyPos = grid[idx]
         local yOffset = ENEMY_CELL_SIZE.Y / 2
         enemyPos = Vector3.new(enemyPos.X, enemyPos.Y + yOffset, enemyPos.Z)
-        -- if __DEV__ then
-        --     warn("enemy pos", enemyPos)
-        --     local part = Instance.new("Part")
-        --     part.Name = "EnemyPos"..tostring(enemyPos)
-        --     part.Size = Vector3.new(1, 1, 1)
-        --     part.CanCollide = false
-        --     part.Anchored = true
-        --     part.CFrame = CFrame.new(enemyPos)
-        --     part.Parent = workspace
-        --     part.BrickColor = BrickColor.new("Really red")
-        -- end
 
         -- define enemy id
-        local enemyId = Id.Enemy.BASIC
-        if ids then 
-            local ind = math.random(1, #ids)
-            enemyId = ids[ind]
-        end
+        local gacha = m.ENEMIES_DATA_TABLE[waveNumber].gacha
+        local enemyId = Rand.weighted_choice(gacha)
 
-        -- local enemyInstance
-        -- if S.Enemy[enemyId].meshTemplate then
-        --     enemyInstance = S.Enemy[enemyId].meshTemplate:Clone()
-        -- else
-        --     enemyInstance = Instance.new("Part")
-        --     enemyInstance.Size = Vector3.new(2, 6, 2)
-        -- end
-        -- enemyInstance.CanCollide = false
-        -- enemyInstance.Anchored = true
-        -- enemyInstance.CollisionGroup = "BulletCollidable"
-
-        -- local enemyFolder = assert(groundUnit:FindFirstChild("Enemies"))
-        -- enemyInstance.Parent = enemyFolder
-        -- enemyInstance.CFrame = CFrame.new(enemyPos)
         local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyPos)
-        -- assert(typeof(enemyGuid) == "string")
-        -- enemyInstance.Name = enemyGuid
         table.insert(enemiesGuids, enemyGuid)
     end
     return enemiesGuids

@@ -26,28 +26,37 @@ local TweenService = game:GetService("TweenService")
 local NumFormat = require(shared.num_format)
 local Queue = require(shared.queue)
 local rand = require(shared.rand)
+local LOCAL_PLAYER = game.Players.LocalPlayer
+local PlayerService = game:GetService("Players")
+local W = SharedConfig.World.CId
 
 local m = {}
 m.__index = m
 
-local raycastParams = RaycastParams.new()
--- raycastParams.CollisionGroup = "BulletCollidable"
--- raycastParams.FilterType = Enum.RaycastFilterType.Include
 local blacklist = {} :: { Instance }
 
-m.AddPlayerCharToRaycastFilter = function(instance)
+m.AddInstanceToRaycastFilter = function(instance)
     table.insert(blacklist, instance)
 end
 
-local function playFlickerAnim(textBox, mult, hp, isToDestroy)
+local function playFlickerAnim(textBox, mult, value, isToDestroy)
     Taskpool.spawn(function()
         local originalSize = textBox.Size :: UDim2
         local tweenIn =
             TweenService:Create(textBox, TweenInfo.new(0.1), { Size = UDim2.fromScale(originalSize.X.Scale * mult, originalSize.Y.Scale * mult) })
         local tweenOut = TweenService:Create(textBox, TweenInfo.new(0.1), { Size = originalSize })
-        local formattedHp = NumFormat.format_number(hp, nil, nil, true)
+        local isPlus = value >= 0
+        local col = Color3.fromHex("55ff00")
+        if not isPlus then
+            col = Color3.fromHex("ff5500")
+        end
+        local formattedHp = NumFormat.format_number(value, nil, nil, true)
+        if isPlus then
+            formattedHp = "+" .. formattedHp
+        end
 
         textBox.Text = formattedHp
+        textBox.TextColor3 = col
         tweenIn:Play()
         task.wait(0.4)
         tweenOut:Play()
@@ -76,10 +85,11 @@ m.FlickerPlayerHPGui = function(originalTextBox: TextLabel, mult: num, hp: num)
     playFlickerAnim(currentTextBox, mult, hp, isToDestroy)
 end
 
-m.IsBulletCollidableToHit = function(pos: Vector3)
-    raycastParams.FilterDescendantsInstances = blacklist
-    local rayDirection = Vector3.new(0, 0, -SharedConfig.BULLET_BASE_DISTANCE)
-    local raycastResult = workspace:Raycast(pos, rayDirection, raycastParams)
+m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
+    local blockcastParams = RaycastParams.new()
+    blockcastParams.FilterDescendantsInstances = blacklist
+    local rayDirection = Vector3.new(0, 0, -bulletRange)
+    local blockcastResult = workspace:Blockcast(bulletCFrame, bulletSize, rayDirection, blockcastParams)
     -- if "debug" then
     --     local ray = Instance.new("Part")
     --     ray.CanCollide = false
@@ -91,16 +101,41 @@ m.IsBulletCollidableToHit = function(pos: Vector3)
     -- end
     local target = nil
     local distance
-    local raycastInstance
-    if raycastResult then
-        raycastInstance = raycastResult.Instance
-        -- if raycastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
-        if raycastInstance.CollisionGroup == SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME then
-            target = raycastInstance
-            distance = (raycastResult.Position - pos).Magnitude
+    local blockcastInstance
+    if blockcastResult then
+        blockcastInstance = blockcastResult.Instance
+        -- if blockcastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
+        if blockcastInstance.CollisionGroup == SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME then
+            target = blockcastInstance
+            distance = (blockcastResult.Position - bulletCFrame.Position).Magnitude
         end
     end
     return target, distance
+end
+
+local partsInRadiusParams = OverlapParams.new()
+partsInRadiusParams.FilterDescendantsInstances = blacklist
+m.GetBulletCollidablesInRadius = function(cFrame, size)
+    local instances = workspace:GetPartBoundsInBox(cFrame, size, partsInRadiusParams)
+    local bulletCollidables = {}
+    for _, instance in ipairs(instances) do
+        if instance.CollisionGroup == SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME then
+            table.insert(bulletCollidables, instance)
+        end
+    end
+    return bulletCollidables
+end
+
+m.CloneOrLocalPlayer = function(world_state, character: Model)
+    local isClone, playerId
+    assert(character.Parent)
+    if character.Parent.Name == SharedConfig.CLONES_FOLDER_NAME then
+        isClone = true
+        playerId = world_state:get(character.Name, W.PlayerId)
+    elseif PlayerService:GetPlayerFromCharacter(character) then
+        playerId = PlayerService:GetPlayerFromCharacter(character).UserId
+    end
+    return isClone, playerId
 end
 
 m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
@@ -162,6 +197,12 @@ m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num)
     end)
 end
 
+m.DestroyClientClone = function(character: Model)
+    local root = character:FindFirstChild("HumanoidRootPart") :: BasePart
+    m.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED], root.Position, 0)
+    character:Destroy()
+end
+
 m.EquipWeaponModel = function(char, weapon_id: int)
     local weapon_instance = S.Weapon[weapon_id].instance:Clone()
     -- spawn instance and parent it to the player
@@ -177,6 +218,90 @@ m.EquipWeaponModel = function(char, weapon_id: int)
     w.Part0 = weldingSpot
     w.Part1 = weapon_instance.PrimaryPart
     return weapon_instance
+end
+
+m.IsPlayerHitByExplosion = function(worldState, explosionInstance: Explosion)
+    local victimId
+
+    -- set up a table to track the models hit
+    local modelsHit = {}
+    explosionInstance.Hit:Connect(function(part, distance)
+        -- check if the local player is hit (NOTE: no friendly fire allowed)
+        local parentModel = part.Parent
+        if parentModel then
+            -- check to see if this model has already been hit
+            if modelsHit[parentModel] then
+                return
+            end
+            -- log this model as hit
+            modelsHit[parentModel] = true
+
+            -- look for a humanoid
+            local humanoid = parentModel:FindFirstChild("Humanoid")
+            if humanoid then
+                assert(parentModel:IsA("Model"))
+                local isClone, playerId = m.CloneOrLocalPlayer(worldState, parentModel)
+                if playerId and playerId == LOCAL_PLAYER.UserId then
+                    if isClone then
+                        -- player's clone was hit
+                        m.DestroyClientClone(parentModel)
+                        victimId = parentModel.Name
+                    else
+                        -- player themselves got hit by explosion
+                        S.Sound[Id.Sound.SCREAM]:Play()
+                        victimId = LOCAL_PLAYER.UserId
+                    end
+                end
+            end
+        end
+    end)
+    -- terminate subscription on the end of explosion
+    explosionInstance.AncestryChanged:Connect(function()
+        if not explosionInstance.Parent then
+            explosionInstance:Destroy()
+        end
+    end)
+
+    return victimId
+end
+
+local function onClickEvent(input, playerGui: StarterGui, ui_element: GuiObject, func, isOnElementClickedDo: boolean?)
+    if
+        input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch
+        or input.UserInputType == Enum.UserInputType.Gamepad1
+    then
+        local pos = input.Position
+        local uiElementsClicked = playerGui:GetGuiObjectsAtPosition(pos.X, pos.Y)
+
+        -- there were some GUI elements at the click position
+        if #uiElementsClicked > 0 then
+            -- determine if the UI element has been clicked
+            for _, obj in ipairs(uiElementsClicked) do
+                if obj == ui_element then
+                    if isOnElementClickedDo then
+                        func()
+                        return
+                    else
+                        return
+                    end
+                end
+            end
+        end
+
+        -- no UI elements has been clicked
+        if not isOnElementClickedDo then
+            func()
+        end
+    end
+end
+
+function m.OnUIElementNotClickedDo(input, playerGui: StarterGui, ui_element: GuiObject, func)
+    onClickEvent(input, playerGui, ui_element, func, false)
+end
+
+function m.OnUIElementClickedDo(input, playerGui: StarterGui, ui_element: GuiObject, func)
+    onClickEvent(input, playerGui, ui_element, func, true)
 end
 
 return m

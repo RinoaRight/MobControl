@@ -2,7 +2,7 @@
 -- MIT License
 -- Copyright (c) 2024 Andrew Zhilin (https://github.com/zoon)
 
---[[ stylua: ignore]] script = script or require'script'
+--[[ stylua: ignore]] script = script or require'./script'
 local idk = require(script.Parent.id1919)
 local roflake = require(script.Parent.roflake)
 local struct = require(script.Parent.struct)
@@ -68,10 +68,11 @@ local Kind = table.freeze {
     Clone           = enum.iota'',
     Weapon          = enum.iota'',
     Enemy           = enum.iota'',
-    PlayerStats     = enum.iota'',
-    WorldStats      = enum.iota'',
+    PlayerSpecs     = enum.iota'',
+    WorldSpecs      = enum.iota'',
     TimedEvent      = enum.iota'',
     Sound           = enum.iota'',
+    VFX             = enum.iota'',
     STMState        = enum.iota'',
     -- protocol:
     S2S             = enum.iota(110, 1, idk.MAX_KIND),
@@ -386,6 +387,7 @@ Id.Boost = enum.with_id "Id.Boost" {
     ADD_CLONE           = iota'',
     -- BULLET_SPEED_MULT   = iota'',
     CHANGE_WEAPON       = iota'',
+    FIRST_AID_KIT       = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Boost] = Id.Boost
 export type Boost = typeof(Id.Boost)
@@ -482,8 +484,10 @@ export type PassF = typeof(Id.PassF)
 -- PlayerF
 -----------------------------
 Id.PlayerF = enum.with_id "Id.PlayerF" {
-    NONE   = flag(Id.Kind.PlayerF),
-    READY  = flag'',
+    NONE               = flag(Id.Kind.PlayerF),
+    OTHER_BULLETS_ON   = flag'',
+    OTHER_CLONES_ON    = flag'',
+    READY              = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
@@ -544,11 +548,12 @@ export type Clone = typeof(Id.Clone)
 -- Weapon
 -----------------------------
 Id.Weapon = enum.with_id "Id.Weapon" {
-    _NONE   = iota(Id.Kind.Weapon, 0),
-    DEFAULT = iota'',
-    BASIC   = iota'',
-    SMG     = iota'',
-    SHOTGUN = iota'',
+    _NONE    = iota(Id.Kind.Weapon, 0),
+    DEFAULT  = iota'',
+    BASIC    = iota'',
+    SMG      = iota'',
+    SPRAYGUN = iota'',
+    ROCKET   = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Weapon] = Id.Weapon
 export type Weapon = typeof(Id.Weapon)
@@ -558,8 +563,10 @@ export type Weapon = typeof(Id.Weapon)
 -- Enemy
 -----------------------------
 Id.Enemy = enum.with_id "Id.Enemy" {
-    _NONE   = iota(Id.Kind.Enemy, 0),
-    BASIC   = iota'',
+    _NONE      = iota(Id.Kind.Enemy, 0),
+    BASIC      = iota'',
+    CRAZY      = iota'',
+    OCTOBOSS   = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Enemy] = Id.Enemy
 export type Enemy = typeof(Id.Enemy)
@@ -588,10 +595,11 @@ export type Animation = typeof(Id.Animation)
 
 -- stylua: ignore
 -----------------------------
--- Animation
+-- Sound
 -----------------------------
 Id.Sound = enum.with_id "Id.Sound" {
     _NONE                 = iota(Id.Kind.Sound, 0),
+    CLICK                 = iota'',
     FIRE_PISTOL           = iota'',
     FIRE_PISTOL_LOCALIZED = iota'',
     RELOAD                = iota'',
@@ -603,25 +611,39 @@ export type Sound = typeof(Id.Sound)
 
 -- stylua: ignore
 -----------------------------
--- Player stats
+-- VFX
 -----------------------------
-Id.PlayerStats = enum.with_id "Id.PlayerStats" {
-    _NONE         = iota(Id.Kind.PlayerStats, 0),
-    GAME_SESSION  = iota'',
+Id.VFX = enum.with_id "Id.VFX" {
+    _NONE                 = iota(Id.Kind.VFX, 0),
+    EXPLOSION             = iota'',
 }
-KIND_TO_ENUM[Id.Kind.PlayerStats] = Id.PlayerStats
-export type PlayerStats = typeof(Id.PlayerStats)
+KIND_TO_ENUM[Id.Kind.VFX] = Id.VFX
+export type VFX = typeof(Id.VFX)
 
 -- stylua: ignore
 -----------------------------
--- World stats
+-- Player specs
 -----------------------------
-Id.WorldStats = enum.with_id "Id.WorldStats" {
-    _NONE         = iota(Id.Kind.WorldStats, 0),
+Id.PlayerSpecs = enum.with_id "Id.PlayerSpecs" {
+    _NONE         = iota(Id.Kind.PlayerSpecs, 0),
     GAME_SESSION  = iota'',
 }
-KIND_TO_ENUM[Id.Kind.WorldStats] = Id.WorldStats
-export type WorldStats = typeof(Id.WorldStats)
+KIND_TO_ENUM[Id.Kind.PlayerSpecs] = Id.PlayerSpecs
+export type PlayerStats = typeof(Id.PlayerSpecs)
+
+-- stylua: ignore
+-----------------------------
+-- World specs
+-----------------------------
+Id.WorldSpecs = enum.with_id "Id.WorldSpecs" {
+    _NONE                        = iota(Id.Kind.WorldSpecs, 0),
+    GAME_SESSION_IN_PROGRESS     = iota'',
+    BOOST_WAVE_COUNT             = iota'', -- number
+    ENEMY_WAVE_COUNT             = iota'', -- number
+    BOSS_FIGHT_ON                = iota'', -- bool
+}
+KIND_TO_ENUM[Id.Kind.WorldSpecs] = Id.WorldSpecs
+export type WorldSpecs = typeof(Id.WorldSpecs)
 
 -- stylua: ignore
 -----------------------------
@@ -673,6 +695,7 @@ Id.S2S = enum.with_id "Id.S2S" {
     PURCHASE_FINISHED         = iota'',
     CHANGE_WEAPON             = iota'', -- weapon_id
     PLAYER_DIED               = iota'',
+    STOP_GAME_SESSION         = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)
@@ -682,9 +705,10 @@ export type S2S = typeof(Id.S2S)
 -- C2C
 -----------------------------
 Id.C2C = enum.with_id "Id.C2C" {
-    _NONE              = iota(Id.Kind.C2C, 0),
-    NEW_BOOSTER_ADDED  = iota'',               -- world_state, player_state, booster_guid
-    NEW_ENEMY_ADDED    = iota'',               -- world_state, player_state, enemy_guid
+    _NONE               = iota(Id.Kind.C2C, 0),
+    NEW_BOOSTER_ADDED   = iota'',               -- world_state, player_state, booster_guid
+    NEW_ENEMY_ADDED     = iota'',               -- world_state, player_state, enemy_guid
+    SHOW_CLONES_TOGGLED = iota'',               -- bool
 }
 KIND_TO_ENUM[Id.Kind.C2C] = Id.C2C
 export type C2C = typeof(Id.C2C)
@@ -695,11 +719,11 @@ export type C2C = typeof(Id.C2C)
 -----------------------------
 Id.C2S = enum.with_id "Id.C2S" {
     _NONE                     = iota(Id.Kind.C2S, 0),
-    -- BOOSTER_HIT               = iota'', 
-    BULLET_SHOT               = iota'', -- {bullet_guids}
-    -- ENEMY_HIT                 = iota'', -- enemy_guid, bullet_guid
-    TARGET_HIT                = iota'', -- enemy_guid, bullet_guid
+    BULLET_SHOT               = iota'', -- {bullet_guids}, bullet_weapon_id
+    TARGET_HIT                = iota'', -- {enemy_guids}, bullet_guid
+    TOGGLE_PLAYER_FLAG        = iota'', -- bool, flag_id
     PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
+    PLAYER_HIT_BY_OWN_ROCKET  = iota'', -- triggerer_guid (or player_id)
     PLAYER_READY_TO_START     = iota'',               
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
@@ -710,12 +734,13 @@ export type C2S = typeof(Id.C2S)
 -- S2C
 -----------------------------
 Id.S2C = enum.with_id "Id.S2C" {
-    _NONE          = iota(Id.Kind.S2C, 0),
-    UPDATE_STATE   = iota'',
-    INIT_WORLD     = iota'',
-    UPDATE_WORLD   = iota'',
-    PLAYER_DAMAGED = iota'', -- int (player damage)
-    PLAYER_DIED    = iota'', 
+    _NONE             = iota(Id.Kind.S2C, 0),
+    UPDATE_STATE      = iota'',
+    BOOSTER_DESTROYED = iota'', -- boost_ref_id, value, boost_content_id
+    INIT_WORLD        = iota'',
+    UPDATE_WORLD      = iota'',
+    PLAYER_DAMAGED    = iota'', -- int (player damage)
+    PLAYER_DIED       = iota'', 
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)
@@ -761,6 +786,20 @@ elapsed = os.clock() - start
 print(elapsed)
 logger.global:set_level(logger.LOG_LEVELS.DEBUG)
 logger.set_global_level(logger.LOG_LEVELS.DEBUG)
+--]]
+
+---[[ Flags
+local logger = require(script.Parent.logger)
+local lg = logger.create("Flags"):set_prettifier(Id.pp):set_delimiter(" ")
+local flags = Id.PlayerF.NONE
+-- lg:trace(flags, "-- flags = Id.PlayerF.NONE")
+flags = Id.flag_or(flags, Id.PlayerF.READY)
+-- lg:trace(flags, "-- Id.flag_or(flags, Id.PlayerF.READY)")
+flags = Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true)
+-- lg:trace(flags, "-- Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true)")
+flags = Id.flag_set(flags, Id.PlayerF.READY, false)
+-- lg:trace(flags, "-- Id.flag_set(flags, Id.PlayerF.READY, false)")
+
 --]]
 
 warn("[Id -- ok]")

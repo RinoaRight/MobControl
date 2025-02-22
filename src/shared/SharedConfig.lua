@@ -47,15 +47,17 @@ m.BULLET_BASE_DISTANCE = 240 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP = 100
 m.CONTROL_DISTANCE_TO_TARGET = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT = 2
+-- TODO: revert to normal value
+m.BOSS_WAVE_NUMBER = 4--21
 m.MOVEMENT_LINEAR_VELOCITY = 30
 m.ENEMY_WAVE_DELAY = 7
 m.REGULAR_ENEMY_HITBOX_RADIUS = 2
 m.BOOSTER_DEPTH = 10 -- units
 m.CLONES_IN_A_ROW = 5
 m.INTERCLONES_DISTANCE = 5
+m.ROCKET_SELF_HARM_MULT = .2
 m.CLONES_FOLDER_NAME = "Clones"
 m.PLAYER_HITBOX_NAME = "Hitbox"
--- m.BULLET_NAME = "Bullet"
 m.PLAYER_ALIGN_CONSTR_NAME = "PlayerAlignConstraint"
 m.CLONE_ATTACHMENT_NAME = "CloneGuideAtt"
 m.RUN_ANIMATION_NAME = "RunAnim"
@@ -65,9 +67,8 @@ m.DEFAULT_WEAPON_ID = Id.Weapon.BASIC
 m.DISTANCE_FROM_MID_TO_BOOSTER = 50
 m.DEFAULT_PLAYER_ID = -100
 m.ENEMY_SIGHT_RADIUS = 100
--- TODO: real values
 m.STARTING_CLONE_AMOUNT = 0
--- m.ENEMY_LIFE_TIME              = 20 --sec
+m.DRIVING_BOX_STARTING_POS = Vector3.new(0, 50, 255)
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
@@ -93,10 +94,11 @@ World.CId = En.with_id("World.CId") {
     BoostContentId = iota'',   -- id
     Position       = iota'',   -- vector3
     ServerInstance = iota'',   -- Instance
-    PLayerId       = iota'',   -- number
+    PlayerId       = iota'',   -- number
     WeaponId       = iota'',   -- id
     TTL            = iota'',   -- epoch
     Bitset         = iota'',   -- flag
+    Total          = iota'', -- number
     -- non-replicated
     ClientInstance = iota'',   -- Instance, not replicated
 }
@@ -108,7 +110,7 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(W)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PLayerId, W.WeaponId, W.TTL, W.Bitset)
+        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PlayerId, W.WeaponId, W.TTL, W.Bitset)
         :set_destructor(W.ServerInstance, disposer.dispose)
         :build_with_replica()
 
@@ -158,7 +160,8 @@ do
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
         :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
-        :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        -- :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_persistent_flag(C.Total, C.Bitset)
         :build_with_replica()
 
     PlayerState.main_config = main_config

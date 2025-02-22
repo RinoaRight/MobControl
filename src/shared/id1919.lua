@@ -236,7 +236,7 @@ repeat -- usage example and test
         break
     end
 
-    local En = require("Enum")
+    local En = require("./Enum")
 
     local Id = {}
     Id.__index = Id

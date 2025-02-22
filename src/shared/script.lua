@@ -9,6 +9,6 @@
 
 return table.freeze(setmetatable({}, {
     __index = function(self, key)
-        return key == "Parent" and self or key
+        return key == "Parent" and self or ("./" .. key)
     end
 }))

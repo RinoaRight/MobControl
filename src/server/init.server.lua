@@ -76,48 +76,6 @@ if not workspace then
     return
 end
 
-local function changeWeapon(player_state, weapon_id: id)
-    player_state:ChangeWeapon(weapon_id)
-    WorldService.ChangeWeapon(player_state, player_state.player_id, weapon_id)
-end
-
-local function resetHp(player_state)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Value, SharedConfig.PLAYER_BASE_HP)
-    WorldService.world:set(player_state.player_id, W.HP, SharedConfig.PLAYER_BASE_HP)
-end
-
-local function cleanUpWorldState(player_state, this_player_id: int)
-    -- clean up clones
-    for uid, ref_id, player_id in WorldService.world:select(W.RefId, W.PLayerId) do
-        if Id.kind(ref_id) == Id.Kind.Clone and player_id == this_player_id then
-            WorldService.RemoveEntity(uid)
-        end
-    end
-    -- clean up weapon
-    if WorldService.world:has(this_player_id) then
-        WorldService.ChangeWeapon(player_state, this_player_id, Id.Weapon._NONE)
-    end
-end
-
-local function onPlayerDead(player_state: PSS.PlayerState)
-    player_state:NotifyClient(Id.S2C.PLAYER_DIED)
-    local lobby_spawn = assert(workspace:FindFirstChild("Lobby"):FindFirstChild("SpawnLocation"))
-    player_state.root.CFrame = lobby_spawn.CFrame
-    local constraint = player_state.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
-    if constraint then
-        constraint:Destroy()
-    end
-    workerMaid.playerLoop = nil -- stop updating weapon ttl
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.RefId, Id.Weapon._NONE)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, 0)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Value, 0)
-    local flags = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, false))
-
-    cleanUpWorldState(player_state, player_state.player_id)
-    Remote.Server.Broadcast(Id.S2CC.PLAYER_STOPPED_SESSION, player_state.player_id)
-end
-
 -----------------------------
 -- Update Loops
 -----------------------------
@@ -137,6 +95,89 @@ local _loop_update_states = ServerSupervisor:start(function(_dt)
         end
     end
 end)
+-----------------------------
+
+local function changeWeapon(player_state, weapon_id: id)
+    player_state:ChangeWeapon(weapon_id)
+    WorldService.ChangeWeapon(player_state, player_state.player_id, weapon_id)
+end
+
+local function resetHp(player_state)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Value, SharedConfig.PLAYER_BASE_HP)
+    WorldService.world:set(player_state.player_id, W.HP, SharedConfig.PLAYER_BASE_HP)
+end
+
+local function cleanUpWorldState(player_state, this_player_id: int)
+    -- clean up clones
+    for uid, ref_id, player_id in WorldService.world:select(W.RefId, W.PlayerId) do
+        if Id.kind(ref_id) == Id.Kind.Clone and player_id == this_player_id then
+            WorldService.RemoveEntity(uid)
+        end
+    end
+    -- clean up weapon
+    if WorldService.world:has(this_player_id) then
+        WorldService.ChangeWeapon(player_state, this_player_id, Id.Weapon._NONE)
+    end
+end
+
+local function onPlayerSessionFinished(player_state: PSS.PlayerState)
+    print("Player dead")
+    -- check if the player is not already dead
+    if player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.RefId) == Id.Weapon._NONE then
+        return
+    end
+
+    player_state:NotifyClient(Id.S2C.PLAYER_DIED)
+    local lobby_spawn = assert(workspace:FindFirstChild("Lobby"):FindFirstChild("SpawnLocation"))
+    player_state.root.CFrame = lobby_spawn.CFrame
+    local constraint = player_state.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
+    if constraint then
+        constraint:Destroy()
+    end
+    workerMaid.playerLoop = nil -- stop updating weapon ttl
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.RefId, Id.Weapon._NONE)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.TTE, 0)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Value, 0)
+    local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, false))
+
+    cleanUpWorldState(player_state, player_state.player_id)
+    Remote.Server.Broadcast(Id.S2CC.PLAYER_STOPPED_SESSION, player_state.player_id)
+end
+
+local function startGameSession()
+    TaskPool.spawn(function()
+        GameModule.Init(WorldService.world, get_state)
+
+        local playerState
+        repeat
+            task.wait()
+            playerState = get_state(next(STATES) :: int)
+        until playerState ~= nil
+        log:info("playerState", playerState, playerState and playerState.player_id)
+        assert(playerState, "sanity check failed, no player state found")
+
+        -- TODO: this is a hack, we should have a better way to do this
+        -- wait until at least 1 player is ready to join the session
+        local isReady = false
+        repeat
+            task.wait(0.1)
+            for _, thisPlayerState in pairs(STATES) do
+                local flags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+                if not flags then
+                    continue
+                end
+                isReady = Id.flag_test(flags, Id.PlayerF.READY)
+                if isReady then
+                    break
+                end
+            end
+        until isReady
+        WorldService.ResetBoosterWaveCount()
+        WorldService.SetBossFightOff()
+        local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
+    end)
+end
 
 ----------------------------
 -- Event Handling
@@ -150,18 +191,19 @@ on[Id.C2S._NONE] = function(player_state, ...)
     log:debug(Id.C2S._NONE, player_state.player_id, ...)
 end
 
-local preiousWeaponsInfo = {}
-on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, ...)
-    local current_weapon_id = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.RefId)
+-- local preiousWeaponsInfo = {}
+on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_weapon_id, ...)
+    local current_weapon_id = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.RefId)
     if not current_weapon_id or current_weapon_id == Id.Weapon._NONE then
         return
     end
 
     -- check the legitimacy of the shot
-    local currentTTE = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.TTE)
+    local currentTTE = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.TTE)
     local tolerance = 0.1
-    local playerId = tostring(player_state.player_id)
-    if preiousWeaponsInfo[playerId] and preiousWeaponsInfo[playerId] == current_weapon_id then
+    -- local playerId = tostring(player_state.player_id)
+    -- if preiousWeaponsInfo[playerId] and (preiousWeaponsInfo[playerId] == current_weapon_id) then
+    if current_weapon_id == bullet_weapon_id then
         if currentTTE and currentTTE > tolerance then
             log:error("The shot happened faster than the weapon's cooldown lets it", currentTTE)
             return
@@ -170,7 +212,7 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, ...)
 
     -- reset  weapon's cooldown
     local cooldown = S.Weapon[current_weapon_id].cooldown
-    player_state.state:set(Id.PlayerStats.GAME_SESSION, C.TTE, cooldown)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.TTE, cooldown)
 
     local playerRoot = player_state.root
     local bulletStartPos = playerRoot.Position + playerRoot.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
@@ -179,82 +221,101 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, ...)
         WorldService.AddBulletToState(bullet_guids[i], current_weapon_id, bulletStartPos, player_state.player_id)
     end
 
-    preiousWeaponsInfo[playerId] = current_weapon_id
+    -- preiousWeaponsInfo[playerId] = current_weapon_id
 end
 
-on[Id.C2S.TARGET_HIT] = function(playerState, targetGuid, bulletGuid, ...)
-    if WorldService.world:has(targetGuid) and WorldService.world:has(bulletGuid) then
-        local targetRefId = WorldService.world:get(targetGuid, W.RefId)
-        local targetPos
-        local serverInstance
-
-        if Id.kind(targetRefId) == Id.Kind.Enemy then
-            targetPos = WorldService.world:get(targetGuid, W.Position)
-        elseif Id.kind(targetRefId) == Id.Kind.Boost then
-            serverInstance = WorldService.world:get(targetGuid, W.ServerInstance)
-            targetPos = serverInstance.Position
-        end
-
-        if not targetPos then
-            return
-        end
-
-        local bulletStartPos = WorldService.world:get(bulletGuid, W.Position)
-        local distance = (bulletStartPos - targetPos).Magnitude
-        local bulletWeaponId = WorldService.world:get(bulletGuid, W.WeaponId)
-
-        -- check for the range hacks
-        local range = SharedConfig.BULLET_BASE_DISTANCE
-        if S.Weapon[bulletWeaponId].range then
-            range = S.Weapon[bulletWeaponId].range
-        end
-        local tolerance = 20
-        if range + tolerance < distance then
-            log:error("Weapon's range is smaller than the distance of the bullet")
-            return
-        end
-
-        if Id.kind(targetRefId) == Id.Kind.Enemy then
-            local enemyHP = WorldService.world:get(targetGuid, W.HP)
-            local dmg = 0
-            if S.Weapon[bulletWeaponId] and S.Weapon[bulletWeaponId].damage then
-                dmg = S.Weapon[bulletWeaponId].damage
-            end
-            local newHP = enemyHP - dmg
-
-            if enemyHP - dmg <= 0 then
-                GameModule.DestroyEnemy(targetGuid)
-            else
-                WorldService.world:set(targetGuid, W.HP, newHP)
-            end
-        elseif Id.kind(targetRefId) == Id.Kind.Boost then
-            local dmg = S.Weapon[bulletWeaponId].damage
-            local booster_hp = WorldService.world:get(targetGuid, W.HP)
-            local new_hp = booster_hp - dmg
-            local boosterGui = serverInstance:FindFirstChildWhichIsA("SurfaceGui")
-            if boosterGui then
-                boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
-            end
-            if new_hp <= 0 then
-                -- give boost to the player who killed the booster
-                local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
-                local value = WorldService.world:get(targetGuid, W.Value)
-                WorldService.world:delete(targetGuid)
-                if playerState.state:has(targetGuid) then
-                    playerState.state:delete(targetGuid)
-                end
-
-                GameModule.HandleBoosterDeath(playerState, targetGuid, targetRefId, value, boostContentId)
-            else
-                WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
-            end
-        else
-            return
-        end
-
-        -- delete bullet entity
-        WorldService.RemoveEntity(bulletGuid)
+on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
+    if not WorldService.world:has(bulletGuid) then
+        return
     end
+    local bulletStartPos = WorldService.world:get(bulletGuid, W.Position)
+    local bulletWeaponId = WorldService.world:get(bulletGuid, W.WeaponId)
+    local bulletWeaponDataEntry = S.Weapon[bulletWeaponId]
+
+    if bulletWeaponId ~= Id.Weapon.ROCKET and #targetGuids > 1 then
+        -- only rocket missile can hit multiple targets
+        return
+    end
+
+    for _, targetGuid in ipairs(targetGuids) do
+        if WorldService.world:has(targetGuid) then
+            local targetRefId = WorldService.world:get(targetGuid, W.RefId)
+            local targetPos
+            local serverInstance
+
+            if Id.kind(targetRefId) == Id.Kind.Enemy then
+                targetPos = WorldService.world:get(targetGuid, W.Position)
+            elseif Id.kind(targetRefId) == Id.Kind.Boost then
+                serverInstance = WorldService.world:get(targetGuid, W.ServerInstance)
+                targetPos = serverInstance.Position
+            end
+
+            if not targetPos then
+                return
+            end
+
+            local distance = (bulletStartPos - targetPos).Magnitude
+            if bulletWeaponId == Id.Weapon.ROCKET then
+                distance -= bulletWeaponDataEntry.explosionSize.Z
+            end
+
+            -- check for the range hacks
+            local range = SharedConfig.BULLET_BASE_DISTANCE
+            if bulletWeaponDataEntry.range then
+                range = bulletWeaponDataEntry.range
+            end
+            local tolerance = 20
+            if targetRefId == Id.Enemy.OCTOBOSS then
+                tolerance = 50
+            end
+            if range + tolerance < distance then
+                -- if math.abs(range - distance) > tolerance then
+                log:error("Weapon's range is smaller than the distance of the bullet", range, distance, targetPos, debug.traceback)
+                return
+            end
+
+            if Id.kind(targetRefId) == Id.Kind.Enemy then
+                local enemyHP = WorldService.world:get(targetGuid, W.HP)
+                local dmg = 0
+                if bulletWeaponDataEntry and bulletWeaponDataEntry.damage then
+                    dmg = bulletWeaponDataEntry.damage
+                end
+                local newHP = enemyHP - dmg
+
+                if enemyHP - dmg <= 0 then
+                    GameModule.DestroyEnemy(targetGuid, playerState.player_id)
+                else
+                    WorldService.world:set(targetGuid, W.HP, newHP)
+                end
+            elseif Id.kind(targetRefId) == Id.Kind.Boost then
+                local dmg = S.Weapon[bulletWeaponId].damage
+                local booster_hp = WorldService.world:get(targetGuid, W.HP)
+                local new_hp = booster_hp - dmg
+                local boosterGui = serverInstance:FindFirstChildWhichIsA("SurfaceGui")
+                if boosterGui then
+                    boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
+                end
+                if new_hp <= 0 then
+                    -- give boost to the player who killed the booster
+                    local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
+                    local value = WorldService.world:get(targetGuid, W.Value)
+                    WorldService.world:delete(targetGuid)
+                    if playerState.state:has(targetGuid) then
+                        playerState.state:delete(targetGuid)
+                    end
+
+                    GameModule.HandleBoosterDeath(playerState, targetGuid, targetRefId, value, boostContentId)
+                else
+                    WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
+                end
+            else
+                return
+            end
+        end
+    end
+
+    -- delete bullet entity
+    WorldService.RemoveEntity(bulletGuid)
 end
 
 on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, triggerer_id: num | str, ...)
@@ -264,14 +325,24 @@ on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str,
     local isPlayer = type(triggerer_id) == "number"
 
     local booster_hp = WorldService.world:get(booster_guid, W.HP)
-    local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
 
     if isPlayer then
-        if player_hp - booster_hp <= 0 then
-            onPlayerDead(player_state)
-        else
-            player_state:DeductHp(booster_hp)
-        end
+        player_state:DeductHp(booster_hp)
+    else
+        -- delete clone
+        WorldService.world:delete(triggerer_id)
+    end
+end
+
+on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num | str, ...)
+    if not triggerer_id then
+        log:error("Collision triggerer id is not defined")
+    end
+    local isPlayer = type(triggerer_id) == "number"
+    -- local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION, C.Value)
+    local damage = S.Weapon[Id.Weapon.ROCKET].damage * SharedConfig.ROCKET_SELF_HARM_MULT
+    if isPlayer then
+        player_state:DeductHp(damage)
     else
         -- delete clone
         WorldService.world:delete(triggerer_id)
@@ -281,13 +352,15 @@ end
 on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     local total_players = Players:GetPlayers()
     local players_already_in_session = 1 -- including this player
-    for _, player in ipairs(total_players) do
-        local playerState = get_state(player)
-        if playerState then
-            local f = playerState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-            local isReady = Id.flag_test(f, Id.PlayerF.READY)
-            if isReady then
-                players_already_in_session += 1
+    if #total_players > 1 then
+        for _, player in ipairs(total_players) do
+            local thisPlayerState = get_state(player)
+            if thisPlayerState then
+                local f = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+                local isReady = Id.flag_test(f, Id.PlayerF.READY)
+                if isReady then
+                    players_already_in_session += 1
+                end
             end
         end
     end
@@ -295,12 +368,28 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     resetHp(player_state)
     changeWeapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
 
+    -- initialize main game loop if it is not initialized yet
+    local isGameSessionInProgress = WorldService.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
+    if not isGameSessionInProgress then
+        startGameSession()
+        WorldService.SetGameSessionOn()
+    end
+
+    -- initialize player's loop
     local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
+    log:trace("player's session started")
     workerMaid.playerLoop = function()
         ServerSupervisor:cancel(_main_loop_player_handler)
+        log:trace("player's session canceled")
     end
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
+
+end
+
+on[Id.C2S.TOGGLE_PLAYER_FLAG] = function(player_state, isToSwitchOn, flag_id, ...)
+    local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Bitset, Id.flag_set(flags, flag_id, isToSwitchOn))
 end
 -------------------
 -- S2S
@@ -322,45 +411,31 @@ s2s[Id.S2S.CHANGE_WEAPON] = function(player_state, weapon_id, ...)
 end
 
 s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
-    onPlayerDead(player_state)
+    onPlayerSessionFinished(player_state)
 end
 
--- initialize main game loop
-do
-    local function startGameSession()
-        TaskPool.spawn(function()
-            GameModule.Init(WorldService.world, get_state)
+s2s[Id.S2S.STOP_GAME_SESSION] = function(_random_player_state, ...)
+    local total_players = Players:GetPlayers()
+    for _, player in ipairs(total_players) do
+        local thisPlayerState = get_state(player)
+        if thisPlayerState then
+            onPlayerSessionFinished(thisPlayerState)
+        end
+    end
+    WorldService.SetGameSessionOff()
+    WorldService.SetBossFightOff()
 
-            local playerState
-            repeat
-                task.wait()
-                playerState = get_state(next(STATES) :: int)
-            until playerState ~= nil
-            log:info("playerState", playerState, playerState and playerState.player_id)
-            assert(playerState, "sanity check failed, no player state found")
-
-            -- TODO: this is a hack, we should have a better way to do this
-            -- wait until at least 1 player is ready to join the session
-            local isReady = false
-            repeat
-                task.wait(0.1)
-                for _, thisState in pairs(STATES) do
-                    local flags = thisState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-                    flags = thisState.state:get(Id.PlayerStats.GAME_SESSION, C.Bitset)
-                    if not flags then
-                        continue
-                    end
-                    isReady = Id.flag_test(flags, Id.PlayerF.READY)
-                    if isReady then
-                        break
-                    end
-                end
-            until isReady
-            local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
-        end)
+    -- kill remaining enemies
+    local enemiesFolder = workspace:FindFirstChild("Enemies")
+    if enemiesFolder then
+        for _, enemy in ipairs(enemiesFolder:GetChildren()) do
+            -- TODO: FIXIT. boss is not getting destroyed. Also, if the player manages to kill the boss, the session is not finished properly.
+            GameModule.DestroyEnemy(enemy.Name)
+        end
     end
 
-    startGameSession()
+    -- remove remaining ground units
+    GameModule.CleanupGroundUnits()
 end
 
 -----------------------------
@@ -370,7 +445,11 @@ end
 local function init_player(player_state: PlayerState)
     return function()
         local _game_session_params = player_state.state:constructor(C.RefId, C.TTE, C.Value, C.Bitset) -- weapon_id, weapon_tte, hp, is_active
-        _game_session_params(Id.PlayerStats.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
+        _game_session_params(Id.PlayerSpecs.GAME_SESSION, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
+        local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+        flags = Id.flag_or(flags, Id.PlayerF.OTHER_BULLETS_ON)
+        flags = Id.flag_or(flags, Id.PlayerF.OTHER_CLONES_ON)
+        player_state.state:set(Id.PlayerSpecs.GAME_SESSION, C.Bitset, flags)
     end
 end
 

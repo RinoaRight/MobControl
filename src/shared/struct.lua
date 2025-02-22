@@ -27,7 +27,7 @@ type map<k, v> = { [k]: v }
 type fun = (...any) -> ...any
 local _fmt = string.format
 
---[[ stylua: ignore]] script = script or require'script'
+--[[ stylua: ignore]] script = script or require'./script'
 local lpack = require(script.Parent.lpack)
 
 -----------------------------

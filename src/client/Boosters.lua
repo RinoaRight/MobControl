@@ -41,6 +41,7 @@ local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
+local SFX = require(script.Parent.SFX)
 
 local function onBoosterAdded(worldState, playerState: state.Replica, boosterGuid)
     local instance = workspace:FindFirstChild(boosterGuid, true)
@@ -66,27 +67,26 @@ local function onBoosterAdded(worldState, playerState: state.Replica, boosterGui
 
         -- local player has not yet collided with this booster, do the checks
         local triggererId
-        if character.Parent.Name == SharedConfig.CLONES_FOLDER_NAME then
-            -- player's clone collided with the booster, check if it the local player's clone
-            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED], triggerer.Position, 0)
-            character:Destroy()
-        elseif PlayerService:GetPlayerFromCharacter(character) == LOCAL_PLAYER then
-            -- player themselves collided with the booster
-            triggererId = LOCAL_PLAYER.UserId
-            S.Sound[Id.Sound.SCREAM]:Play()
+        local isClone, playerId = Misc.CloneOrLocalPlayer(worldState, character)
+        if playerId and playerId == LOCAL_PLAYER.UserId then
+            if isClone then
+                -- player's clone collided with the booster
+                Misc.DestroyClientClone(character)
+                triggererId = character.Name
+            else
+                -- player themselves collided with the booster for the first time, set the flag for the check above
+                playerState:set(boosterGuid, C.ClientFlags, true)
+                triggererId = LOCAL_PLAYER.UserId
+                -- NOTE: legacy. Audio is played in on_Player_damaged
+                -- local audio = S.Sound[Id.Sound.SCREAM]
+                -- if audio then
+                --     SFX.PLAY_SOUND(audio)
+                -- end
+            end
+            Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, boosterGuid, triggererId)
         end
 
         if triggererId then
-            -- local player has collided with this booster for the first time, set it to the state
-            playerState:set(boosterGuid, C.ClientFlags, true)
-            Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, boosterGuid, triggererId)
-            local playerHP = playerState:get(Id.PlayerStats.GAME_SESSION, C.Value)
-            local boosterHP = worldState:get(boosterGuid, W.HP)
-            local remainingHP = playerHP - boosterHP
-            if remainingHP > 0 then
-                Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, -boosterHP)
-                -- TODO: pain animation
-            end
         end
     end)
 end
