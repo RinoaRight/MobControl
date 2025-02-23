@@ -505,6 +505,7 @@ m.DestroyEnemy = function(guid, playerId: num?)
         WorldService.SetBossFightOff()
         if playerId then
             -- boss was killed by a player's bullet
+            -- TODO: grand finale and winnings
             Signal.Fire(Id.S2S.STOP_GAME_SESSION, playerId)
         end
     end

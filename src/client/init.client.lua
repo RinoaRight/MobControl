@@ -670,7 +670,13 @@ RunService.Heartbeat:Connect(function(dt)
     local playerRootPart
     for _, player in ipairs(players) do
         local char = player.Character
+        if not char then
+            return
+        end
         playerRootPart = assert(char.HumanoidRootPart) :: Part
+        if not playerRootPart then
+            return
+        end
         local clonesFolder = char:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
         if not clonesFolder then
             continue

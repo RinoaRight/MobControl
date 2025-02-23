@@ -143,6 +143,25 @@ local function onPlayerSessionFinished(player_state: PSS.PlayerState)
 
     cleanUpWorldState(player_state, player_state.player_id)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STOPPED_SESSION, player_state.player_id)
+
+    -- check if any player is still in the session. If not, stop the session altogether.
+    local isAnyOneInSession = false
+    local total_players = Players:GetPlayers()
+    for _, player in ipairs(total_players) do
+        local thisPlayerState = get_state(player)
+        if thisPlayerState then
+            local thisPlayerFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+            if thisPlayerFlags then
+                if Id.flag_test(flags, Id.PlayerF.READY) then
+                    isAnyOneInSession = true
+                    break
+                end
+            end
+        end
+    end
+    if not isAnyOneInSession then
+        Signal.Fire(Id.S2S.STOP_GAME_SESSION, player_state.player_id)
+    end
 end
 
 local function startGameSession()
@@ -384,7 +403,6 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     end
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
-
 end
 
 on[Id.C2S.TOGGLE_PLAYER_FLAG] = function(player_state, isToSwitchOn, flag_id, ...)
@@ -417,9 +435,11 @@ end
 s2s[Id.S2S.STOP_GAME_SESSION] = function(_random_player_state, ...)
     local total_players = Players:GetPlayers()
     for _, player in ipairs(total_players) do
-        local thisPlayerState = get_state(player)
+        local thisPlayerState = get_state(player.UserId)
         if thisPlayerState then
             onPlayerSessionFinished(thisPlayerState)
+        else
+            log:error("Player state not found", debug.traceback())
         end
     end
     WorldService.SetGameSessionOff()
