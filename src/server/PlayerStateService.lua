@@ -99,6 +99,8 @@ export type PlayerState = {
     DeductHp: (self: PlayerState, amount: num) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
+    UpdateSessionDamageStats: (self: PlayerState, dmg: num) -> int,
+    UpdateSessionEnemyKills: (self: PlayerState) -> int,
     nullary_local: (state.uid_or_gen) -> uid,
     nullary_transient: (state.uid_or_gen) -> uid,
     __index: any,
@@ -246,26 +248,26 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
 end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION, C.RefId, weapon_id)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, weapon_id)
     local tte = 0
     if weapon_id ~= Id.Weapon._NONE then
         tte = S.Weapon[weapon_id].cooldown
-    elseif not self.state:get(Id.PlayerSpecs.GAME_SESSION, C.TTE) then
-        self.state:set(Id.PlayerSpecs.GAME_SESSION, C.TTE, tte)
+    elseif not self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) then
+        self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, tte)
     end
 end
 
 function PlayerState.AddHp(self: PlayerState, howMuch: num)
-    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION, C.Value)
+    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
     local new_hp = math.min(current + howMuch, SharedConfig.PLAYER_BASE_HP)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION, C.Value, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, new_hp)
     return current, new_hp
 end
 
 function PlayerState.DeductHp(self: PlayerState, howMuch: num)
-    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION, C.Value)
+    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
     local new_hp = math.max(current - howMuch, 0)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION, C.Value, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, new_hp)
     if new_hp <= 0 then
         Signal.Fire(Id.S2S.PLAYER_DIED, self.player_id)
     else
@@ -273,6 +275,21 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num)
     end
     return new_hp
 end
+
+function PlayerState.UpdateSessionDamageStats(self: PlayerState, dmg: num): int
+    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
+    local newVal = oldVal + dmg
+    self.state:set(Id.PlayerSpecs.SESSION_DAMAGE, C.Value, newVal)
+    return newVal
+end
+
+function PlayerState.UpdateSessionEnemyKills(self: PlayerState): int
+    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+    local newVal = oldVal + 1
+    self.state:set(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value, newVal)
+    return newVal
+end
+
 
 function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
     local clonesAmount = 0

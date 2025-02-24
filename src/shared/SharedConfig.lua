@@ -98,7 +98,7 @@ World.CId = En.with_id("World.CId") {
     WeaponId       = iota'',   -- id
     TTL            = iota'',   -- epoch
     Bitset         = iota'',   -- flag
-    Total          = iota'', -- number
+    Total          = iota'',   -- number
     -- non-replicated
     ClientInstance = iota'',   -- Instance, not replicated
 }
@@ -134,20 +134,20 @@ m.PlayerState = PlayerState
 -- Components
 -------------------
 PlayerState.CId = En.with_id("PlayerState.Cid") {
-    RefId           = iota(0, 1, 31),
+    RefId                = iota(0, 1, 31),
     -- timers
-    TTL             = iota'', -- epoch
-    TTE             = iota'', -- sec (*1)
+    TTL                  = iota'', -- epoch
+    TTE                  = iota'', -- sec (*1)
     -- values
-    Value           = iota'', -- number
-    Total           = iota'', -- number
-    Bitset          = iota'', -- flag
-    Instance        = iota'', -- Instance(client)
-    WorldGui        = iota'', -- any
+    Value                = iota'', -- number
+    Total                = iota'', -- number
+    Bitset               = iota'', -- flag
+    Instance             = iota'', -- Instance(client)
+    WorldGui             = iota'', -- any
     -- client-only
-    ClientWeaponId  = iota'', -- number
-    ClientFlags     = iota'', -- flag
-    ClientTTE       = iota'', -- sec (*1)
+    ClientWeaponId       = iota'', -- number
+    ClientFlags          = iota'', -- flag
+    ClientTTE            = iota'', -- sec (*1)
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).
 --     NOTE: W.TTL is a wall time

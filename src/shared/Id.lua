@@ -625,8 +625,10 @@ export type VFX = typeof(Id.VFX)
 -- Player specs
 -----------------------------
 Id.PlayerSpecs = enum.with_id "Id.PlayerSpecs" {
-    _NONE         = iota(Id.Kind.PlayerSpecs, 0),
-    GAME_SESSION  = iota'',
+    _NONE                = iota(Id.Kind.PlayerSpecs, 0),
+    GAME_SESSION_PARAMS  = iota'',
+    SESSION_DAMAGE       = iota'',
+    SESSION_ENEMY_KILLS  = iota'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerSpecs] = Id.PlayerSpecs
 export type PlayerStats = typeof(Id.PlayerSpecs)
