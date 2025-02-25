@@ -175,6 +175,9 @@ PlayerState.__index = PlayerState
 function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, array<any>)
     local state = state.main(SharedConfig.PlayerState.main_config)
     local char = player.Character or player.CharacterAdded:Wait()
+    
+    char.Archivable = true
+
     local player_state: PlayerState = table.freeze(setmetatable({
         player_id = player.UserId,
         state_store_key = tostring(player.UserId),

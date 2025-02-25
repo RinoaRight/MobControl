@@ -58,6 +58,7 @@ local Kind = table.freeze {
     Area            = enum.iota'',
     Effect          = enum.iota'',
     Ability         = enum.iota'',
+    Achievement     = enum.iota'',
     Animation       = enum.iota'',
     Product         = enum.iota'',
     Pass            = enum.iota'',
@@ -534,6 +535,17 @@ export type Countable = typeof(Id.Countable)
 
 -- stylua: ignore
 -----------------------------
+-- Achievement
+-----------------------------
+Id.Achievement = enum.with_id "Id.Achievement" {
+    _NONE       = iota(Id.Kind.Achievement, 0),
+    BOSS_KILLER = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Achievement] = Id.Achievement
+export type Achievement = typeof(Id.Achievement)
+
+-- stylua: ignore
+-----------------------------
 -- Clone
 -----------------------------
 Id.Clone = enum.with_id "Id.Clone" {
@@ -588,6 +600,7 @@ export type TimedEvent = typeof(Id.TimedEvent)
 -----------------------------
 Id.Animation = enum.with_id "Id.Animation" {
     _NONE   = iota(Id.Kind.Animation, 0),
+    DANCE   = iota'',
     HOLD    = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Animation] = Id.Animation
@@ -697,7 +710,8 @@ Id.S2S = enum.with_id "Id.S2S" {
     PURCHASE_FINISHED         = iota'',
     CHANGE_WEAPON             = iota'', -- weapon_id
     PLAYER_DIED               = iota'',
-    STOP_GAME_SESSION         = iota'',
+    FINAL_BOSS_KILLED         = iota'',
+    -- STOP_GAME_SESSION         = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)

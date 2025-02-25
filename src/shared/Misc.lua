@@ -85,6 +85,34 @@ m.FlickerPlayerHPGui = function(originalTextBox: TextLabel, mult: num, hp: num)
     playFlickerAnim(currentTextBox, mult, hp, isToDestroy)
 end
 
+m.PlayCharacterAnim = function(character: Model, animId: str, isLooped: bool?)
+    local humanoid = assert(character:WaitForChild("Humanoid"))
+    local animator = humanoid:FindFirstChild("Animator") :: Animator
+    local activeAnimTrack
+    for _, animTrack in ipairs(animator:GetPlayingAnimationTracks()) do
+        if animTrack.Animation.AnimationId == animId then
+            activeAnimTrack = animTrack
+            break
+        end
+    end
+
+    if not activeAnimTrack then
+        local animation = Instance.new("Animation")
+        animation.AnimationId = animId
+        local newHoldAnimTrack = animator:LoadAnimation(animation)
+        activeAnimTrack = newHoldAnimTrack
+    end
+
+    if isLooped then
+        activeAnimTrack.Looped = true
+    end
+
+    activeAnimTrack.Priority = Enum.AnimationPriority.Action4
+    activeAnimTrack:Play(0.100000001, 1, 2)
+    
+    return activeAnimTrack
+end
+
 m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
     local blockcastParams = RaycastParams.new()
     blockcastParams.FilterDescendantsInstances = blacklist

@@ -127,27 +127,27 @@ local function setPlayerToClientState(player_id, weapon_id)
 end
 
 local function handleGunHoldingAnimation(character, weapon_id: int)
-    local humanoid = assert(character:WaitForChild("Humanoid"))
+    -- local humanoid = assert(character:WaitForChild("Humanoid"))
     local animId = S.Animation[Id.Animation.HOLD]
-    local activeHoldAnimTrack
-    for _, animTrack in ipairs(humanoid:GetPlayingAnimationTracks()) do
-        if animTrack.Animation.AnimationId == animId then
-            activeHoldAnimTrack = animTrack
-            break
-        end
-    end
+    local activeHoldAnimTrack = Misc.PlayCharacterAnim(character, animId, false)
+    -- for _, animTrack in ipairs(humanoid:GetPlayingAnimationTracks()) do
+    --     if animTrack.Animation.AnimationId == animId then
+    --         activeHoldAnimTrack = animTrack
+    --         break
+    --     end
+    -- end
 
     if weapon_id == Id.Weapon._NONE and activeHoldAnimTrack then
         activeHoldAnimTrack:Stop()
-    else
-        if not activeHoldAnimTrack then
-            local holdAnimation = Instance.new("Animation")
-            holdAnimation.AnimationId = animId
-            local newHoldAnimTrack = character.Humanoid:LoadAnimation(holdAnimation)
-            activeHoldAnimTrack = newHoldAnimTrack
-        end
-        activeHoldAnimTrack.Priority = Enum.AnimationPriority.Action4
-        activeHoldAnimTrack:Play(0.100000001, 1, 2)
+    -- else
+    --     if not activeHoldAnimTrack then
+    --         local holdAnimation = Instance.new("Animation")
+    --         holdAnimation.AnimationId = animId
+    --         local newHoldAnimTrack = character.Humanoid:LoadAnimation(holdAnimation)
+    --         activeHoldAnimTrack = newHoldAnimTrack
+    --     end
+    --     activeHoldAnimTrack.Priority = Enum.AnimationPriority.Action4
+    --     activeHoldAnimTrack:Play(0.100000001, 1, 2)
     end
 end
 
@@ -374,7 +374,7 @@ playRunAnimTrack = function(runAnimTrack)
 end
 
 startRunAnim = function(character)
-    local runAnimTrack = character.Humanoid:LoadAnimation(RUN_ANIM)
+    local runAnimTrack = character.Humanoid.Animator:LoadAnimation(RUN_ANIM)
     runAnimTrack.Priority = Enum.AnimationPriority.Action3
     playRunAnimTrack(runAnimTrack)
     return runAnimTrack

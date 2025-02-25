@@ -33,6 +33,7 @@ local m = {}
 m.__index = m
 
 m.Animation = {
+    [Id.Animation.DANCE] = "rbxassetid://507771019",
     [Id.Animation.HOLD] = "rbxassetid://14928151227",
 }
 

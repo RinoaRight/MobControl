@@ -281,30 +281,30 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
             oldPos = DRIVING_BOX_INSTANCE.Position
         else
-            local allPlayers = game.Players:GetPlayers()
-            local playersInSession = 0
-            for _, player in ipairs(allPlayers) do
-                local weaponId = worldState:get(player.UserId, W.WeaponId)
-                if weaponId ~= Id.Weapon._NONE then
-                    playersInSession += 1
-                end
-            end
-            if #allPlayers > 0 then
-                if playersInSession <= 0 then
-                    -- no players in session, stop the game
-                    local randomPlayerState
-                    for _, player in ipairs(allPlayers) do
-                        randomPlayerState = get_state(player.UserId)
-                        if randomPlayerState then
-                            break
-                        end
-                    end
-                    if randomPlayerState then
-                        local randomPlayerId = randomPlayerState.player_id
-                        Signal.Fire(Id.S2S.STOP_GAME_SESSION, randomPlayerId)
-                    end
-                end
-            end
+            -- local allPlayers = game.Players:GetPlayers()
+            -- local playersInSession = 0
+            -- for _, player in ipairs(allPlayers) do
+            --     local weaponId = worldState:get(player.UserId, W.WeaponId)
+            --     if weaponId ~= Id.Weapon._NONE then
+            --         playersInSession += 1
+            --     end
+            -- end
+            -- if #allPlayers > 0 then
+            --     if playersInSession <= 0 then
+            --         -- no players in session, stop the game
+            --         local randomPlayerState
+            --         for _, player in ipairs(allPlayers) do
+            --             randomPlayerState = get_state(player.UserId)
+            --             if randomPlayerState then
+            --                 break
+            --             end
+            --         end
+            --         if randomPlayerState then
+            --             local randomPlayerId = randomPlayerState.player_id
+            --             Signal.Fire(Id.S2S.STOP_GAME_SESSION, randomPlayerId)
+            --         end
+            --     end
+            -- end
         end
         -- TODO: calculate _proximity to DRIVER to destroy enemy (instead of current collisions)
 
@@ -505,9 +505,9 @@ m.DestroyEnemy = function(guid, playerId: num?)
         WorldService.SetBossFightOff()
         if playerId then
             -- boss was killed by a player's bullet
-            -- TODO: grand finale and winnings (congrats to the one who killed the boss, to the one who inflicted the most damage,
-            -- and to who killed the most enemies)
-            Signal.Fire(Id.S2S.STOP_GAME_SESSION, playerId)
+
+            -- Signal.Fire(Id.S2S.STOP_GAME_SESSION, playerId)
+            Signal.Fire(Id.S2S.FINAL_BOSS_KILLED, playerId)
         end
     end
     WorldService.RemoveEntity(guid)
