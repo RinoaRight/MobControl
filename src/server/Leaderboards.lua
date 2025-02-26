@@ -65,6 +65,8 @@ m.SpawnWinner = function(playerState: PSS.PlayerState, achievementId)
         return
     end
 
+    local orientationBlock = podium:FindFirstChild("OrientationBlock")
+
     -- spawn winner's clone
     local clone = playerChar:Clone()
     clone.Parent = podium
@@ -72,11 +74,12 @@ m.SpawnWinner = function(playerState: PSS.PlayerState, achievementId)
     local currentScale = clone:GetScale()
     local newScale = currentScale * 3
     clone:ScaleTo(newScale)
-    -- TODO: refactor the position
-    cloneRoot.CFrame = podium.CFrame * CFrame.Angles(0, math.rad(-90), 0)
-    local yOffset = podium.Size.Y / 2
     local oldPos = cloneRoot.Position :: Vector3
-    cloneRoot.Position = Vector3.new(oldPos.X, oldPos.Y + yOffset, oldPos.Z) --+ podium.CFrame.LookVector
+    local podiumPos = podium.Position :: Vector3 
+    local diff = math.abs(podium.Position.Y - cloneRoot.Position.Y)
+    local yOffset = podium.Size.Y / 2 + diff
+    local targetPos = Vector3.new(podiumPos.X, oldPos.Y + yOffset, podiumPos.Z)
+    cloneRoot.CFrame = CFrame.lookAlong(targetPos, -orientationBlock.Position)
 
     -- play animation
     local animId = S.Animation[Id.Animation.DANCE]
