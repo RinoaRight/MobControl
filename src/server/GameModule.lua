@@ -53,7 +53,7 @@ local m = {} :: {
     Init: (state: state.Main, (int) -> PSS.PlayerState?) -> (),
     CreatePlayerHpGui: (PSS.PlayerState) -> (),
     DestroyEnemy: (enemy_guid: str, player_id: num?) -> (),
-    CleanupGroundUnits: () -> (),
+    Cleanup: () -> (),
     HandleBoosterDeath: (PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id) -> (),
     StartMainLoopWorld: (world_state: state.Main, (int) -> PSS.PlayerState?) -> (num) -> (),
     SetPlayerAlignment: (PSS.PlayerState) -> (),
@@ -96,8 +96,8 @@ local startingPos = Vector3.new(0, -10, 0) --GROUND_UNITS[3].unit.Position
 
 local DRIVING_BOX_TEMPLATE = assert(ReplicatedStorage.DrivingBox)
 local DRIVING_BOX_INSTANCE = DRIVING_BOX_TEMPLATE:Clone()
-local DRIVING_BOX_FRONT = assert(DRIVING_BOX_INSTANCE.PartFront)
 DRIVING_BOX_INSTANCE.Parent = game.Workspace
+local DRIVING_BOX_FRONT = assert(DRIVING_BOX_INSTANCE.PartFront)
 local DRIVING_BOX_ATT = Instance.new("Attachment") :: Attachment
 DRIVING_BOX_ATT.Parent = DRIVING_BOX_FRONT
 
@@ -112,7 +112,7 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
 end
 
 local function onBossArrival()
-    -- TODO: on Boss death stop game session
+    -- TODO: less abrupt thing than full stop of movement
     local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
     for _, unit in ipairs(unitsFolder) do
         unit.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
@@ -275,38 +275,16 @@ end
 function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     local oldPos = SharedConfig.DRIVING_BOX_STARTING_POS
     return function(dt)
+        if not worldState:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value) then
+            return
+        end
+
         -- driving box movement
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
         if not isBossFightOn then
             DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
             oldPos = DRIVING_BOX_INSTANCE.Position
-        else
-            -- local allPlayers = game.Players:GetPlayers()
-            -- local playersInSession = 0
-            -- for _, player in ipairs(allPlayers) do
-            --     local weaponId = worldState:get(player.UserId, W.WeaponId)
-            --     if weaponId ~= Id.Weapon._NONE then
-            --         playersInSession += 1
-            --     end
-            -- end
-            -- if #allPlayers > 0 then
-            --     if playersInSession <= 0 then
-            --         -- no players in session, stop the game
-            --         local randomPlayerState
-            --         for _, player in ipairs(allPlayers) do
-            --             randomPlayerState = get_state(player.UserId)
-            --             if randomPlayerState then
-            --                 break
-            --             end
-            --         end
-            --         if randomPlayerState then
-            --             local randomPlayerId = randomPlayerState.player_id
-            --             Signal.Fire(Id.S2S.STOP_GAME_SESSION, randomPlayerId)
-            --         end
-            --     end
-            -- end
         end
-        -- TODO: calculate _proximity to DRIVER to destroy enemy (instead of current collisions)
 
         -- calculate new enemies' positions
         for enemyGuid, refId, _hp, currentPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
@@ -316,7 +294,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
             -- sanity check
             assert(typeof(enemyGuid) == "string")
-            -- local lookAt = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + 5)
             local flags = worldState:get(enemyGuid, W.Bitset)
             local enemyRefId = worldState:get(enemyGuid, W.RefId)
             local enemyTemplate = assert(S.Enemy[enemyRefId].meshTemplate)
@@ -502,12 +479,13 @@ m.DestroyEnemy = function(guid, playerId: num?)
     -- TODO: effects
     local enemyRefId = WorldService.world:get(guid, W.RefId)
     if enemyRefId == Id.Enemy.OCTOBOSS then
-        WorldService.SetBossFightOff()
-        if playerId then
-            -- boss was killed by a player's bullet
-
-            -- Signal.Fire(Id.S2S.STOP_GAME_SESSION, playerId)
-            Signal.Fire(Id.S2S.FINAL_BOSS_KILLED, playerId)
+        if WorldService.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then -- we are checking player_id, other checks are redundant
+            WorldService.SetBossFightOff()
+            if playerId then
+                -- boss was killed by a player's bullet
+                -- Signal.Fire(Id.S2S.STOP_GAME_SESSION, playerId)
+                Signal.Fire(Id.S2S.FINAL_BOSS_KILLED, playerId)
+            end
         end
     end
     WorldService.RemoveEntity(guid)
@@ -515,10 +493,19 @@ m.DestroyEnemy = function(guid, playerId: num?)
     workerMaid[guid] = nil
 end
 
-m.CleanupGroundUnits = function()
+m.Cleanup = function()
+    -- delete ground units
     local groundUnits = GROUND_UNIT_FOLDER:GetChildren()
     for _, unit in ipairs(groundUnits) do
         deleteGroundUnit(unit, 1)
+    end
+    
+    -- reset driving box position
+    DRIVING_BOX_INSTANCE.Position = SharedConfig.DRIVING_BOX_STARTING_POS
+
+    -- delete bullets
+    for guid, _pos, _playerId, _weaponId, _ttl in WorldService.world:select(W.Position, W.PlayerId, W.WeaponId, W.TTL) do
+        WorldService.RemoveEntity(guid)
     end
 end
 
@@ -610,4 +597,3 @@ end
 
 print("[Game Module -- started]")
 return m
--- TODO: handle end of session on boss's death

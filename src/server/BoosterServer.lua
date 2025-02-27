@@ -88,3 +88,4 @@ function m.GetCurrentBoosterHpMult(worldState: state.Main)
 end
 
 return m
+-- TODO: clone bosster hp should be dependent on the number of clones

@@ -139,15 +139,15 @@ local function handleGunHoldingAnimation(character, weapon_id: int)
 
     if weapon_id == Id.Weapon._NONE and activeHoldAnimTrack then
         activeHoldAnimTrack:Stop()
-    -- else
-    --     if not activeHoldAnimTrack then
-    --         local holdAnimation = Instance.new("Animation")
-    --         holdAnimation.AnimationId = animId
-    --         local newHoldAnimTrack = character.Humanoid:LoadAnimation(holdAnimation)
-    --         activeHoldAnimTrack = newHoldAnimTrack
-    --     end
-    --     activeHoldAnimTrack.Priority = Enum.AnimationPriority.Action4
-    --     activeHoldAnimTrack:Play(0.100000001, 1, 2)
+        -- else
+        --     if not activeHoldAnimTrack then
+        --         local holdAnimation = Instance.new("Animation")
+        --         holdAnimation.AnimationId = animId
+        --         local newHoldAnimTrack = character.Humanoid:LoadAnimation(holdAnimation)
+        --         activeHoldAnimTrack = newHoldAnimTrack
+        --     end
+        --     activeHoldAnimTrack.Priority = Enum.AnimationPriority.Action4
+        --     activeHoldAnimTrack:Play(0.100000001, 1, 2)
     end
 end
 
@@ -414,7 +414,7 @@ end
 
 -- TODO: test out clones and bullets visibility on/off
 local function createCloneInstance(playerId, guid)
-    local newInstance = Clones.CreateCloneInstance(playerId, guid)
+    local newInstance = Clones.CreateCloneInstance(WORLD, playerId, guid)
     local weaponId = PLAYER_STATE:get(playerId, C.ClientWeaponId)
     handleGunHoldingAnimation(newInstance, weaponId)
     if not newInstance then
@@ -958,21 +958,19 @@ WORLD:set_on_attach(W.WeaponId, function(guid: guid, newValue: num)
     end
 end)
 
--- remove clone
 WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
     if Id.kind(oldValue) == Id.Kind.Clone then
-        local clientInstance = workspace:FindFirstChild(guid, true)
+        -- remove clone instance
+        -- local clientInstance = workspace:FindFirstChild(guid, true)
+        local clientInstance = WORLD:get(guid, W.ClientInstance)
         if clientInstance then
             clientInstance:Destroy()
         end
-    end
-end)
-
-local _ = Players.PlayerRemoving:Connect(function(player)
-    -- player has left the server, delete them from playerState
-    local guid = player.UserId
-    if PLAYER_STATE:has(guid) then
-        PLAYER_STATE:delete(guid)
+    elseif Id.kind(oldValue) == Id.Kind.Enemy then
+        local clientInstance = WORLD:get(guid, W.ClientInstance)
+        if clientInstance then
+            clientInstance:Destroy()
+        end
     end
 end)
 

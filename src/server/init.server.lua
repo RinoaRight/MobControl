@@ -124,8 +124,8 @@ local function cleanUpWorldState(player_state, this_player_id: int)
 end
 
 local function onPlayerSessionFinishedWorld(player_state, playerId)
-    cleanUpWorldState(player_state, player_state.player_id)
-    Remote.Server.Broadcast(Id.S2CC.PLAYER_STOPPED_SESSION, player_state.player_id)
+    cleanUpWorldState(player_state, playerId)
+    Remote.Server.Broadcast(Id.S2CC.PLAYER_STOPPED_SESSION, playerId)
 
     -- check if any player is still in the session. If not, stop the session altogether.
     local isAnyOneInSession = false
@@ -143,7 +143,7 @@ local function onPlayerSessionFinishedWorld(player_state, playerId)
         end
     end
     if not isAnyOneInSession then
-        stopGameSession()
+        stopGameSession(playerId)
         -- Signal.Fire(Id.S2S.STOP_GAME_SESSION, player_state.player_id)
     end
 end
@@ -177,6 +177,8 @@ end
 
 local function startGameSession()
     TaskPool.spawn(function()
+        Leaderboards.ResetLeaderboards()
+
         GameModule.Init(WorldService.world, get_state)
 
         local playerState
@@ -209,30 +211,33 @@ local function startGameSession()
     end)
 end
 
-stopGameSession = function()
+stopGameSession = function(exception_player_id: num?)
     local total_players = Players:GetPlayers()
     for _, player in ipairs(total_players) do
-        local thisPlayerState = get_state(player.UserId)
-        if thisPlayerState then
-            onPlayerSessionFinishedPlayerState(thisPlayerState)
-        else
-            log:error("Player state not found", debug.traceback())
+        local userId = player.UserId
+        if userId ~= exception_player_id then
+            -- skip the player who ended the session to avoid recursion
+            local thisPlayerState = get_state(userId)
+            if thisPlayerState then
+                onPlayerSessionFinishedPlayerState(thisPlayerState)
+            else
+                log:error("Player state not found", debug.traceback())
+            end
         end
     end
     WorldService.SetGameSessionOff()
     WorldService.SetBossFightOff()
 
     -- kill remaining enemies
-    local enemiesFolder = workspace:FindFirstChild("Enemies")
-    if enemiesFolder then
-        for _, enemy in ipairs(enemiesFolder:GetChildren()) do
-            -- TODO: FIXIT. boss is not getting destroyed. Also, if the player manages to kill the boss, the session is not finished properly.
-            GameModule.DestroyEnemy(enemy.Name)
+    for guid, refId, _hp, _pos, _player_id, _bitset in WorldService.world:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
+        if Id.kind(refId) == Id.Kind.Enemy then
+            local thisGuid = guid :: guid
+            GameModule.DestroyEnemy(thisGuid)
         end
     end
 
-    -- remove remaining ground units
-    GameModule.CleanupGroundUnits()
+    -- remove remaining ground units and reset driving box
+    GameModule.Cleanup()
 end
 
 ----------------------------
@@ -474,38 +479,47 @@ s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
     onPlayerSessionFinishedPlayerState(player_state)
 end
 
-s2s[Id.S2S.FINAL_BOSS_KILLED] = function(player_state, ...)
+s2s[Id.S2S.FINAL_BOSS_KILLED] = function(boss_killer_player_state, ...)
     stopGameSession()
-    -- TODO: grand finale and winnings (congrats to the one who killed the boss, to the one who inflicted the most damage,
-    -- and to who killed the most enemies)
+
+    -- boss killer leaderboard
+    Leaderboards.SpawnWinner(boss_killer_player_state, Id.Achievement.BOSS_KILLER)
+    local total_players = Players:GetPlayers()
+
+    -- most damage leaderboard
+    local playerWithMostDamageState
+    local mostDamageInflicted = 0
+    for _, player in ipairs(total_players) do
+        local thisPlayerState = get_state(player.UserId)
+        if thisPlayerState then
+            local damage = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
+            if damage and (damage > mostDamageInflicted) then
+                mostDamageInflicted = damage
+                playerWithMostDamageState = thisPlayerState
+            end
+        end
+    end
+    if playerWithMostDamageState then
+        Leaderboards.SpawnWinner(playerWithMostDamageState, Id.Achievement.MOST_DAMAGE)
+    end
+
+    -- most enemies leaderboard
+    local playerWithMostKillsState
+    local mostKills = 0
+    for _, player in ipairs(total_players) do
+        local thisPlayerState = get_state(player.UserId)
+        if thisPlayerState then
+            local kills = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+            if kills and (kills > mostKills) then
+                mostKills = kills
+                playerWithMostKillsState = thisPlayerState
+            end
+        end
+    end
+    if playerWithMostKillsState then
+        Leaderboards.SpawnWinner(playerWithMostKillsState, Id.Achievement.MOST_ENEMIES)
+    end
 end
-
--- s2s[Id.S2S.STOP_GAME_SESSION] = function(player_state, ...)
---     -- TODO: pass the player who ended the session
---     local total_players = Players:GetPlayers()
---     for _, player in ipairs(total_players) do
---         local thisPlayerState = get_state(player.UserId)
---         if thisPlayerState then
---             onPlayerSessionFinishedPlayerState(thisPlayerState)
---         else
---             log:error("Player state not found", debug.traceback())
---         end
---     end
---     WorldService.SetGameSessionOff()
---     WorldService.SetBossFightOff()
-
---     -- kill remaining enemies
---     local enemiesFolder = workspace:FindFirstChild("Enemies")
---     if enemiesFolder then
---         for _, enemy in ipairs(enemiesFolder:GetChildren()) do
---             -- TODO: FIXIT. boss is not getting destroyed. Also, if the player manages to kill the boss, the session is not finished properly.
---             GameModule.DestroyEnemy(enemy.Name)
---         end
---     end
-
---     -- remove remaining ground units
---     GameModule.CleanupGroundUnits()
--- end
 
 -----------------------------
 -- Player Connect
@@ -523,8 +537,6 @@ local function init_player(player_state: PlayerState)
         flags = Id.flag_or(flags, Id.PlayerF.OTHER_BULLETS_ON)
         flags = Id.flag_or(flags, Id.PlayerF.OTHER_CLONES_ON)
         player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, flags)
-        -- TODO: remove
-        Leaderboards.SpawnWinner(player_state, Id.Achievement.BOSS_KILLER)
     end
 end
 

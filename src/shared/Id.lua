@@ -538,8 +538,10 @@ export type Countable = typeof(Id.Countable)
 -- Achievement
 -----------------------------
 Id.Achievement = enum.with_id "Id.Achievement" {
-    _NONE       = iota(Id.Kind.Achievement, 0),
-    BOSS_KILLER = iota'',
+    _NONE        = iota(Id.Kind.Achievement, 0),
+    BOSS_KILLER  = iota'',
+    MOST_DAMAGE  = iota'',
+    MOST_ENEMIES = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Achievement] = Id.Achievement
 export type Achievement = typeof(Id.Achievement)

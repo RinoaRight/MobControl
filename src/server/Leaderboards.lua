@@ -47,14 +47,31 @@ local BoosterServer = require(server.BoosterServer)
 
 local LOBBY = workspace:WaitForChild("Lobby")
 local LEADERBOARDS_FOLDER = LOBBY:WaitForChild("Leaderboards")
-local BOSS_KILLER_PODIUM = assert(LEADERBOARDS_FOLDER:WaitForChild("BossKillerPodium"))
+local PODIUMS_STAND = LEADERBOARDS_FOLDER:WaitForChild("WinnerPodiums")
+local BOSS_KILLER_PODIUM = assert(PODIUMS_STAND:WaitForChild("BossKillerPodium"))
+local MOST_DAMAGE_PODIUM = assert(PODIUMS_STAND:WaitForChild("MostDamagePodium"))
+local MOST_ENEMIES_PODIUM = assert(PODIUMS_STAND:WaitForChild("MostEnemiesPodium"))
 
 local m = {}
+
+m.ResetLeaderboards = function()
+    for _, podium in ipairs(PODIUMS_STAND:GetChildren()) do
+        for _, child in ipairs(podium:GetChildren()) do
+            if child:IsA("Model") then
+                child:Destroy()
+            end
+        end
+    end
+end
 
 m.SpawnWinner = function(playerState: PSS.PlayerState, achievementId)
     local podium
     if achievementId == Id.Achievement.BOSS_KILLER then
         podium = BOSS_KILLER_PODIUM
+    elseif achievementId == Id.Achievement.MOST_DAMAGE then
+        podium = MOST_DAMAGE_PODIUM
+    elseif achievementId == Id.Achievement.MOST_ENEMIES then
+        podium = MOST_ENEMIES_PODIUM
     end
     if not podium then
         return
@@ -82,6 +99,7 @@ m.SpawnWinner = function(playerState: PSS.PlayerState, achievementId)
     cloneRoot.CFrame = CFrame.lookAlong(targetPos, -orientationBlock.Position)
 
     -- play animation
+    -- TODO: different animations for each achievement
     local animId = S.Animation[Id.Animation.DANCE]
     if animId then
         Misc.PlayCharacterAnim(clone, animId, true)

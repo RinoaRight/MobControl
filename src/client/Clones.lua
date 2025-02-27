@@ -29,9 +29,11 @@ local disposer = require(shared.disposer)
 local state = require(shared.state)
 local Misc = require(shared.Misc)
 local SharedConfig = require(shared.SharedConfig)
+local W = SharedConfig.World.CId
+
 local m = {}
 
-function m.CreateCloneInstance(playerId: int, cloneGuid: num | str)
+function m.CreateCloneInstance(worldState, playerId: int, cloneGuid: num | str)
     local cloneInstance
     TaskPool.spawn(function()
         -- clone the player's character
@@ -67,6 +69,9 @@ function m.CreateCloneInstance(playerId: int, cloneGuid: num | str)
         local humanoid = cloneInstance:WaitForChild("Humanoid") :: Humanoid
         humanoid.DisplayName = " "
         cloneInstance.Name = cloneGuid
+        
+        worldState:set(cloneGuid, W.ClientInstance, cloneInstance)
+
         for _, instance in cloneInstance:GetDescendants() do
             if instance:IsA("BasePart") then
                 instance.CollisionGroup = "DriverNonCollidable"
