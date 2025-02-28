@@ -917,14 +917,18 @@ end, 1, "test")
 
 local _booster = PLAYER_STATE:constructor(C.ClientFlags)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
-    log:debug("~~~>", guid)
+    log:trace("~~~>", guid, newValue)
+    if not Id.is(newValue) then
+       log:error("Invalid value for RefId", newValue, WORLD:format_row(guid))
+    end
     -- check if it was a booster that has been added
     if Id.kind(newValue) == Id.Kind.Boost then
         -- subscribe boosters to collisions
         _booster(guid, false)
-        Signal.Broadcast(Id.C2C.NEW_BOOSTER_ADDED, WORLD, PLAYER_STATE, guid)
+        Booster.onBoosterAdded(WORLD, PLAYER_STATE, guid) -- ERROR: booster instance not created yet
     elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
         -- check if it was an enemy that has been added
+
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
     elseif Id.kind(newValue) == Id.Kind.Clone and WORLD:get(guid, W.PlayerId) then
         -- create clones if any new clones appeared (if the option for others' clones is turned off, for local player only)
@@ -961,11 +965,14 @@ end)
 WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
     if Id.kind(oldValue) == Id.Kind.Clone then
         -- remove clone instance
-        -- local clientInstance = workspace:FindFirstChild(guid, true)
         local clientInstance = WORLD:get(guid, W.ClientInstance)
         if clientInstance then
             clientInstance:Destroy()
         end
+    elseif Id.kind(oldValue) == Id.Kind.Boost then
+        local boosterGuid = guid :: string
+        PLAYER_STATE:delete(boosterGuid)
+        Booster.CancelSubscription(boosterGuid)
     elseif Id.kind(oldValue) == Id.Kind.Enemy then
         local clientInstance = WORLD:get(guid, W.ClientInstance)
         if clientInstance then

@@ -806,7 +806,7 @@ logger.global:set_level(logger.LOG_LEVELS.DEBUG)
 logger.set_global_level(logger.LOG_LEVELS.DEBUG)
 --]]
 
----[[ Flags
+--[[ Flags
 local logger = require(script.Parent.logger)
 local lg = logger.create("Flags"):set_prettifier(Id.pp):set_delimiter(" ")
 local flags = Id.PlayerF.NONE

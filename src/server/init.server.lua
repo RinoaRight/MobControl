@@ -227,6 +227,8 @@ stopGameSession = function(exception_player_id: num?)
     end
     WorldService.SetGameSessionOff()
     WorldService.SetBossFightOff()
+    WorldService.ResetBoosterWaveCount()
+    WorldService.ResetEnemyWaveCount()
 
     -- kill remaining enemies
     for guid, refId, _hp, _pos, _player_id, _bitset in WorldService.world:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
@@ -238,6 +240,9 @@ stopGameSession = function(exception_player_id: num?)
 
     -- remove remaining ground units and reset driving box
     GameModule.Cleanup()
+    task.wait(0.1)
+    log:info("Game session stopped")
+    log:info(WorldService.world:format_state("*"))
 end
 
 ----------------------------
@@ -437,8 +442,8 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     -- initialize main game loop if it is not initialized yet
     local isGameSessionInProgress = WorldService.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
     if not isGameSessionInProgress then
-        startGameSession()
         WorldService.SetGameSessionOn()
+        startGameSession()
     end
 
     -- initialize player's loop

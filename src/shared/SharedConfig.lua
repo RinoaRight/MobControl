@@ -49,7 +49,8 @@ m.CONTROL_DISTANCE_TO_TARGET = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT = 2
 -- TODO: revert to normal value
 m.BOSS_WAVE_NUMBER = 1--21
-m.MOVEMENT_LINEAR_VELOCITY = 30
+m.MOVEMENT_LINEAR_VELOCITY_REG = 30
+m.MOVEMENT_LINEAR_VELOCITY_BOSS = 10
 m.ENEMY_WAVE_DELAY = 7
 m.REGULAR_ENEMY_HITBOX_RADIUS = 2
 m.BOOSTER_DEPTH = 10 -- units
@@ -146,7 +147,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     WorldGui             = iota'', -- any
     -- client-only
     ClientWeaponId       = iota'', -- number
-    ClientFlags          = iota'', -- flag
+    ClientFlags          = iota'', -- bool
     ClientTTE            = iota'', -- sec (*1)
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).

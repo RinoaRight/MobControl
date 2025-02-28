@@ -85,12 +85,17 @@ end
 
 function m.RemoveEntity(uid: uid)
     m.world:delete(uid)
+    -- local refId = m.world:get(uid, W.RefId)
+    -- if refId and Id.kind(refId) == Id.Kind.Boost then
+        
+    -- end
 end
 
 local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance)
 function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, boostContentId: id | bool)
-    local guid = _booster(_roflake.uida(), boostRefid, value, hp, boostContentId, serverInstance) :: str
+    local guid = _roflake.uida()
     serverInstance.Name = guid
+    local _ = _booster(guid, boostRefid, value, hp, boostContentId, serverInstance) :: str
     return guid
 end
 

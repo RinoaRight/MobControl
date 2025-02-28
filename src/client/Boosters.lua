@@ -43,13 +43,18 @@ local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 local SFX = require(script.Parent.SFX)
 
-local function onBoosterAdded(worldState, playerState: state.Replica, boosterGuid)
+
+
+local m = {}
+
+local _BOOSTER_GUID_TO_ADD = {} :: {guid}
+m.onBoosterAdded = function(worldState:state.Replica, playerState: state.Replica, boosterGuid)
     local instance = workspace:FindFirstChild(boosterGuid, true)
+    -- TODO: FIXME. Instance is not replicated yet. Either wait, or call this func on instance added event
     workerMaid[boosterGuid] = instance.Touched:Connect(function(triggerer)
         if triggerer.Name ~= "HumanoidRootPart" then
             return
         end
-
         local character = triggerer.Parent
         assert(character:IsA("Model")) -- sanity check
         -- check if this player already collided with this booster.
@@ -77,22 +82,18 @@ local function onBoosterAdded(worldState, playerState: state.Replica, boosterGui
                 -- player themselves collided with the booster for the first time, set the flag for the check above
                 playerState:set(boosterGuid, C.ClientFlags, true)
                 triggererId = LOCAL_PLAYER.UserId
-                -- NOTE: legacy. Audio is played in on_Player_damaged
-                -- local audio = S.Sound[Id.Sound.SCREAM]
-                -- if audio then
-                --     SFX.PLAY_SOUND(audio)
-                -- end
             end
             Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, boosterGuid, triggererId)
-        end
-
-        if triggererId then
         end
     end)
 end
 
-local m = {}
+m.CancelSubscription = function(guid)
+    if workerMaid[guid] then
+        workerMaid[guid] = nil
+    end
+end
 
-workerMaid.sub = Signal.Connect(Id.C2C.NEW_BOOSTER_ADDED, onBoosterAdded)
+-- workerMaid.sub = Signal.Connect(Id.C2C.NEW_BOOSTER_ADDED, onBoosterAdded)
 
 return m

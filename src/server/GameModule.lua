@@ -108,6 +108,13 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
             WorldService.RemoveEntity(v.Name)
         end
     end
+    -- delete boosters
+    local boosters = groundUnit:GetChildren()
+    for i, booster in ipairs(boosters) do
+        if WorldService.world:has(booster.Name) then
+            WorldService.RemoveEntity(booster.Name)
+        end
+    end
     groundUnit:Destroy()
 end
 
@@ -115,7 +122,7 @@ local function onBossArrival()
     -- TODO: less abrupt thing than full stop of movement
     local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
     for _, unit in ipairs(unitsFolder) do
-        unit.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
     end
     WorldService.SetBossFightOn()
 end
@@ -177,7 +184,7 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     trigger.CFrame = CFrame.new(9, 20.5, unitPos.Z - 245)
     groundUnit.Parent = GROUND_UNIT_FOLDER
-    groundUnit.AssemblyLinearVelocity = groundUnit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY
+    groundUnit.AssemblyLinearVelocity = groundUnit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_REG
     for i = 1, 12 do --12 boosters
         local booster = BOOSTER_TEMPLATE:Clone()
         booster.CFrame = CFrame.new(BOOSTER_OFFSET_X - BOOSTER_GAP * (i - 1), BOOSTER_OFFSET_Y, unitPos.Z + BOOSTER_OFFSET_Z)
@@ -215,10 +222,21 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
 
-            generateEnemies(worldState)
+            if worldState:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value) then
+                generateEnemies(worldState)
+            end
 
             TaskPool.spawn(function()
-                task.wait(SharedConfig.ENEMY_WAVE_DELAY)
+                -- if game session is still on, generate the next wave after a delay
+                local countdown = SharedConfig.ENEMY_WAVE_DELAY
+                while countdown > 0 do
+                    task.wait(0.1)
+                    countdown -= 0.1
+                    if not worldState:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value) then
+                        -- game session stopped, cancel second wave
+                        return
+                    end
+                end
                 generateEnemies(worldState)
             end)
         end
@@ -270,6 +288,9 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
 
     spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
+
+    -- unanchor the driving box so that it can register collisions
+    DRIVING_BOX_INSTANCE.Anchored = false
 end
 
 function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
@@ -462,8 +483,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 end
 
 function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
-    -- TODO: FIXIT: sometimes doesn't initiate properly
-    print("StartMainLoopPlayer")
     return function(dt)
         -- weapon cooldown
         local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
@@ -483,7 +502,6 @@ m.DestroyEnemy = function(guid, playerId: num?)
             WorldService.SetBossFightOff()
             if playerId then
                 -- boss was killed by a player's bullet
-                -- Signal.Fire(Id.S2S.STOP_GAME_SESSION, playerId)
                 Signal.Fire(Id.S2S.FINAL_BOSS_KILLED, playerId)
             end
         end
@@ -494,13 +512,22 @@ m.DestroyEnemy = function(guid, playerId: num?)
 end
 
 m.Cleanup = function()
+    -- anchor driving box so that it won't fall down
+    DRIVING_BOX_INSTANCE.Anchored = true
+
     -- delete ground units
     local groundUnits = GROUND_UNIT_FOLDER:GetChildren()
-    for _, unit in ipairs(groundUnits) do
-        deleteGroundUnit(unit, 1)
+    for i, unit in ipairs(groundUnits) do
+        deleteGroundUnit(unit, i)
     end
-    
+
+    -- delete boosters
+    for guid, _refId, _value, _hp, _boostContentId in WorldService.world:select(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance) do
+        WorldService.RemoveEntity(guid)
+    end
+
     -- reset driving box position
+    -- TODO: FIXIT. Only a part is getting moved.
     DRIVING_BOX_INSTANCE.Position = SharedConfig.DRIVING_BOX_STARTING_POS
 
     -- delete bullets
@@ -515,7 +542,6 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     end
     -- unsubscribe booster
     workerMaid[booster_guid] = nil
-    -- TODO: others
     if boost_ref_id == Id.Boost.ADD_CLONE then
         for i = 1, value do
             local playerId = playerState.player_id
