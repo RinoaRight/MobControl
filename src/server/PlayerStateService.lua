@@ -104,6 +104,7 @@ export type PlayerState = {
     nullary_local: (state.uid_or_gen) -> uid,
     nullary_transient: (state.uid_or_gen) -> uid,
     __index: any,
+    __tostring: (self: PlayerState) -> str,
 }
 
 -- note: was warm_up cache
@@ -302,6 +303,10 @@ function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
         end
     end
     return clonesAmount
+end
+
+function PlayerState.__tostring(self: PlayerState): str
+    return fmt("PlayerState(%*)\n=====\n%*\n====\n", self.player_id, self.state:format_state(7))
 end
 -----------------------------
 -- Quick test
