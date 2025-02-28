@@ -42,7 +42,6 @@ m.__index = m
 
 local FLAG_BIT = 0x200 -- bit 10
 local IDK_BIT = 0x80000 -- bit 20
-local FLAGS_TEST = bit32.bor(IDK_BIT, FLAG_BIT) -- bit 20 and 10
 local MIN_ORD = 0
 local MAX_ORD = 511
 
@@ -87,11 +86,11 @@ end
 assert(not plausible(-1))
 
 function m.is_flags(id: any): bool
-    return plausible(id) and bit32.btest(id, FLAGS_TEST)
+    return plausible(id) and bit32.btest(id, FLAG_BIT)
 end
 
 function m.is_id(id: any): bool
-    return plausible(id) and not bit32.btest(id, FLAGS_TEST)
+    return plausible(id) and not bit32.btest(id, FLAG_BIT)
 end
 
 m.plausible = plausible
