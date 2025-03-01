@@ -355,14 +355,15 @@ end
 
 local fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
 
-local DRIVING_BOX_INSTANCE = workspace:FindFirstChild("DrivingBox")
+local DRIVING_BOX_INSTANCE = workspace:WaitForChild("DrivingBoxModel")
 repeat
     wait()
 until DRIVING_BOX_INSTANCE
-Misc.AddInstanceToRaycastFilter(DRIVING_BOX_INSTANCE)
+local DRIVING_BOX_BACK_PART = DRIVING_BOX_INSTANCE:FindFirstChild("DrivingBoxBackPart")
+Misc.AddInstanceToRaycastFilter(DRIVING_BOX_BACK_PART)
 local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
 local LOCAL_PLAYER = game.Players.LocalPlayer
-local DRIVING_BOX_ATT = workspace:WaitForChild("DrivingBox", 10):FindFirstChild("Attachment")
+local DRIVING_BOX_ATT = DRIVING_BOX_FRONT.Attachment
 
 -- load run animation
 local animateScript = LOCAL_CHARACTER:WaitForChild("Animate")

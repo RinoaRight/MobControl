@@ -99,11 +99,11 @@ function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, 
     return guid
 end
 
-local _booster_wave_count = m.world:constructor(W.RefId, W.Value)
+local _booster_wave_count = m.world:constructor(W.Value)
 function m.UpdateBoosterWaveCount()
     local wavesTotal = m.world:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
     if not wavesTotal then
-        local _ = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 1)
+        local _ = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, 1)
     else
         m.world:set(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, wavesTotal + 1)
     end
@@ -111,7 +111,7 @@ end
 function m.ResetBoosterWaveCount()
     local wavesTotal = m.world:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
     if not wavesTotal then
-        local _ = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 0)
+        local _ = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, 0)
     else
         m.world:set(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 0)
     end

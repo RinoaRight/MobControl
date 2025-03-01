@@ -91,12 +91,13 @@ local GROUND_UNITS = {
     {                                             zOffset = 0},
     {                                             zOffset = -GROUND_INIT_LENGTH },
     {                                             zOffset = GROUND_INIT_LENGTH * -2 },
-}
-local startingPos = Vector3.new(0, -10, 0) --GROUND_UNITS[3].unit.Position
+}::{{unit: Part?, zOffset: num}}
+local startingPos = Vector3.new(0, -10, 0)
 
-local DRIVING_BOX_TEMPLATE = assert(ReplicatedStorage.DrivingBox)
+local DRIVING_BOX_TEMPLATE = assert(ReplicatedStorage.DrivingBoxModel)
 local DRIVING_BOX_INSTANCE = DRIVING_BOX_TEMPLATE:Clone()
 DRIVING_BOX_INSTANCE.Parent = game.Workspace
+local DRIVING_BOX_BACK_PART = assert(DRIVING_BOX_INSTANCE.DrivingBoxBackPart)
 local DRIVING_BOX_FRONT = assert(DRIVING_BOX_INSTANCE.PartFront)
 local DRIVING_BOX_ATT = Instance.new("Attachment") :: Attachment
 DRIVING_BOX_ATT.Parent = DRIVING_BOX_FRONT
@@ -195,7 +196,8 @@ end
 
 local function generateEnemies(worldState: state.Main)
     local newWaveNumber = WorldService.UpdateEnemyWaveCount()
-    local enemyGuids = Enemies.AddEnemies(worldState, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit, true, newWaveNumber) :: {}
+    local unit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
+    local enemyGuids = Enemies.AddEnemies(worldState, unit, true, newWaveNumber) :: {}
 
     if #enemyGuids > 0 then
         for _, enemyGuid in ipairs(enemyGuids) do
@@ -211,21 +213,25 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     workerMaid.trigger = trigger.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
-            subscribeTrigger(worldState, get_state, FIELD_NAMES.FOURTH, GROUND_UNITS[FIELD_NAMES.FOURTH].unit)
+            local fourth = GROUND_UNITS[FIELD_NAMES.FOURTH].unit :: Part
+            subscribeTrigger(worldState, get_state, FIELD_NAMES.FOURTH, fourth)
             trigger:Destroy()
-            deleteGroundUnit(GROUND_UNITS[FIELD_NAMES.FIRST].unit, FIELD_NAMES.FIRST)
+            local first = GROUND_UNITS[FIELD_NAMES.FIRST].unit :: Part
+            deleteGroundUnit(first, FIELD_NAMES.FIRST)
             -- shift all other units in the data table accordingly
             GROUND_UNITS[FIELD_NAMES.FIRST].unit = GROUND_UNITS[FIELD_NAMES.SECOND].unit
             GROUND_UNITS[FIELD_NAMES.SECOND].unit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
             GROUND_UNITS[FIELD_NAMES.MIDDLE].unit = GROUND_UNITS[FIELD_NAMES.FOURTH].unit
             GROUND_UNITS[FIELD_NAMES.FOURTH].unit = GROUND_UNITS[FIELD_NAMES.FIFTH].unit
-            local refPos = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit.Position
+            local middle = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
+            local refPos = middle.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
 
             if worldState:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value) then
                 generateEnemies(worldState)
             end
 
+            local isToSpawn = true
             TaskPool.spawn(function()
                 -- if game session is still on, generate the next wave after a delay
                 local countdown = SharedConfig.ENEMY_WAVE_DELAY
@@ -234,10 +240,13 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
                     countdown -= 0.1
                     if not worldState:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value) then
                         -- game session stopped, cancel second wave
-                        return
+                        isToSpawn = false
+                        break
                     end
                 end
-                generateEnemies(worldState)
+                if isToSpawn and countdown < 0 then
+                    generateEnemies(worldState)
+                end
             end)
         end
     end)
@@ -284,13 +293,14 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
     spawnGroundUnit(worldState, middleUnit, FIELD_NAMES.MIDDLE, startingPos)
 
-    subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, GROUND_UNITS[FIELD_NAMES.MIDDLE].unit)
+    local middle = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
+    subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, middle)
 
     spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
 
     -- unanchor the driving box so that it can register collisions
-    DRIVING_BOX_INSTANCE.Anchored = false
+    DRIVING_BOX_BACK_PART.Anchored = false
 end
 
 function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
@@ -303,9 +313,11 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         -- driving box movement
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
         if not isBossFightOn then
-            DRIVING_BOX_INSTANCE.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
-            oldPos = DRIVING_BOX_INSTANCE.Position
+            DRIVING_BOX_BACK_PART.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
+        else
+            -- DRIVING_BOX_BACK_PART.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.3)
         end
+        oldPos = DRIVING_BOX_BACK_PART.Position
 
         -- calculate new enemies' positions
         for enemyGuid, refId, _hp, currentPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
@@ -384,9 +396,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                             if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
                                 worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
                                 worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
-                                -- local playerPos = playerRoot.Position
-                                -- local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                                -- newPos = currentPos:Lerp(target, dt * speed / distToTarget)
                             end
                         else
                             ---[[ old code
@@ -461,7 +470,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 -- update enemy's position
                 worldState:set(enemyGuid, W.Position, newPos)
 
-                if DRIVING_BOX_INSTANCE.Position.Z <= currentPos.Z then
+                if DRIVING_BOX_BACK_PART.Position.Z <= currentPos.Z then
                     -- destroy enemy if it collided with the driving box's rear
                     if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
                         m.DestroyEnemy(enemyGuid)
@@ -513,12 +522,15 @@ end
 
 m.Cleanup = function()
     -- anchor driving box so that it won't fall down
-    DRIVING_BOX_INSTANCE.Anchored = true
+    DRIVING_BOX_BACK_PART.Anchored = true
 
     -- delete ground units
     local groundUnits = GROUND_UNIT_FOLDER:GetChildren()
     for i, unit in ipairs(groundUnits) do
         deleteGroundUnit(unit, i)
+    end
+    for i, data in ipairs(GROUND_UNITS) do
+        data.unit = nil
     end
 
     -- delete boosters
@@ -527,8 +539,7 @@ m.Cleanup = function()
     end
 
     -- reset driving box position
-    -- TODO: FIXIT. Only a part is getting moved.
-    DRIVING_BOX_INSTANCE.Position = SharedConfig.DRIVING_BOX_STARTING_POS
+    DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(SharedConfig.DRIVING_BOX_STARTING_POS))
 
     -- delete bullets
     for guid, _pos, _playerId, _weaponId, _ttl in WorldService.world:select(W.Position, W.PlayerId, W.WeaponId, W.TTL) do
@@ -563,7 +574,7 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session
     local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, Id.flag_or(flags, Id.PlayerF.READY))
 
-    local driver_pos = DRIVING_BOX_INSTANCE.Position
+    local driver_pos = DRIVING_BOX_BACK_PART.Position
     local ground_folder = workspace:FindFirstChild("GroundUnits")
     local existing_ground_units = ground_folder:GetChildren()
     local last_spawned_ground_unit = existing_ground_units[#existing_ground_units]

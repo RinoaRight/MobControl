@@ -242,7 +242,7 @@ stopGameSession = function(exception_player_id: num?)
     GameModule.Cleanup()
     task.wait(0.1)
     log:info("Game session stopped")
-    log:info(WorldService.world:format_state("*"))
+    log:info(">", WorldService.world:format_state("*"))
 end
 
 ----------------------------
