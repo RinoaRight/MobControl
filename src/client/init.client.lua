@@ -63,6 +63,7 @@ local Clones = require(script.Clones)
 local Booster = require(script.Boosters)
 local EnemiesClient = require(script.EnemiesClient)
 local NumFormat = require(shared.num_format)
+local Popup = require(script.UI_Popup)
 local TaskPool = require(shared.TaskPool)
 local SFX = require(script.SFX)
 local Settings = require(script.Settings)
@@ -103,6 +104,8 @@ local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
+
+local POPUP_GUI = assert(PLAYER_GUI:WaitForChild("PopupGUI"))
 
 local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
 local SETTINGS_BTN_GUI = assert(MAIN_GUI.GearPanel)
@@ -173,10 +176,7 @@ end
 
 on[Id.S2C.PLAYER_DAMAGED] = function(state: state.Replica, deducted_hp: int)
     Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, deducted_hp)
-    local audio = S.Sound[Id.Sound.SCREAM]
-    if audio then
-        SFX.PLAY_SOUND(audio)
-    end
+    SFX.PLAY_SOUND(Id.Sound.SCREAM)
 end
 
 on[Id.S2C.BOOSTER_DESTROYED] = function(state: state.Replica, boost_ref_id: id, value: num, boost_content_id: id)
@@ -204,6 +204,15 @@ on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
     end
 end
 
+on[Id.S2C.SHOW_POPUP_SERVER] = function(state: state.Replica, event_id: id)
+    if event_id == Id.C2S.PLAYER_READY_TO_START then
+        Signal.Broadcast(Id.C2C.SHOW_POPUP_CLIENT, {
+            text = "Max number of players reached =(\nWait for the next round!",
+            ok = function() end,
+        })
+    end
+end
+
 -- Server Broadcasts
 local on_cc = {} :: { [id]: (...any) -> () }
 
@@ -221,9 +230,20 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
     end
 
     if player_id == LOCAL_PLAYER.UserId then
+        -- disable jumping
+        LOCAL_HUMANOID.JumpPower = 0
+
+        -- create attachement for clones
+        local playerAtt = Instance.new("Attachment") :: Attachment
+        playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
+        playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
+        playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
+
+        -- start running animation
+        startRunAnim(LOCAL_CHARACTER)
+
         local hp = SharedConfig.PLAYER_BASE_HP
         Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, hp)
-        -- the rest of the logic is already done in subscribeStartCollider
         return
     else
         local player = Players:GetPlayerByUserId(player_id)
@@ -312,10 +332,7 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
     -- SFX and initial bullet TTE
     if player_id == LOCAL_PLAYER.UserId then
         if weapon_id ~= Id.Weapon._NONE then
-            local audio = S.Sound[Id.Sound.RELOAD]
-            if audio then
-                SFX.PLAY_SOUND(audio)
-            end
+            SFX.PLAY_SOUND(Id.Sound.RELOAD)
         end
     else
         local tte = S.Weapon[Id.Weapon.BASIC].cooldown
@@ -350,6 +367,7 @@ local load = function(fire: FireServer, snapshot)
         end))
     end
     Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_GUI, SETTINGS_MENU_GUI)
+    Popup:Init(POPUP_GUI)
     return state
 end
 
@@ -391,15 +409,8 @@ local function subscribeStartCollider()
                 -- interaction with the button is possible only when the boss fight is off
                 START_GUI.Enabled = true
                 maid.StartBtn = START_BTN.MouseButton1Click:Connect(function()
-                    -- diable jumping
-                    LOCAL_HUMANOID.JumpPower = 0
-                    local playerAtt = Instance.new("Attachment") :: Attachment
-                    playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
-                    playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
-                    playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
                     START_GUI.Enabled = false
                     fire_server(Id.C2S.PLAYER_READY_TO_START)
-                    startRunAnim(LOCAL_CHARACTER)
                     maid.StartBtn = nil
                 end)
             end
@@ -615,10 +626,7 @@ local function fireBullet(player)
         -- reset tte server-side
         fire_server(Id.C2S.BULLET_SHOT, bulletGuids, weapon_id)
         -- TODO: change sound for each type of weapon
-        local audio = S.Sound[Id.Sound.FIRE_PISTOL]
-        if audio then
-            SFX.PLAY_SOUND(audio)
-        end
+        SFX.PLAY_SOUND(Id.Sound.FIRE_PISTOL)
     else
         weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
         -- TODO: change sound for each type of weapon
@@ -920,7 +928,7 @@ local _booster = PLAYER_STATE:constructor(C.ClientFlags)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     log:trace("~~~>", guid, newValue)
     if not Id.is(newValue) then
-       log:error("Invalid value for RefId", newValue, WORLD:format_row(guid))
+        log:error("Invalid value for RefId", newValue, WORLD:format_row(guid))
     end
     -- check if it was a booster that has been added
     if Id.kind(newValue) == Id.Kind.Boost then

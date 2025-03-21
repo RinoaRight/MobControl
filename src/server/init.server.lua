@@ -436,6 +436,11 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         end
     end
 
+    if players_already_in_session > SharedConfig.MAX_PLAYERS_IN_SESSION then
+        player_state:NotifyClient(Id.S2C.SHOW_POPUP_SERVER, Id.C2S.PLAYER_READY_TO_START)
+        return
+    end
+
     resetHp(player_state)
     changeWeapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
 

@@ -615,6 +615,7 @@ export type Animation = typeof(Id.Animation)
 Id.Sound = enum.with_id "Id.Sound" {
     _NONE                 = iota(Id.Kind.Sound, 0),
     CLICK                 = iota'',
+    ERROR                 = iota'',
     FIRE_PISTOL           = iota'',
     FIRE_PISTOL_LOCALIZED = iota'',
     RELOAD                = iota'',
@@ -724,9 +725,10 @@ export type S2S = typeof(Id.S2S)
 -----------------------------
 Id.C2C = enum.with_id "Id.C2C" {
     _NONE               = iota(Id.Kind.C2C, 0),
-    NEW_BOOSTER_ADDED   = iota'',               -- world_state, player_state, booster_guid
-    NEW_ENEMY_ADDED     = iota'',               -- world_state, player_state, enemy_guid
-    SHOW_CLONES_TOGGLED = iota'',               -- bool
+    NEW_BOOSTER_ADDED   = iota'', -- world_state, player_state, booster_guid
+    NEW_ENEMY_ADDED     = iota'', -- world_state, player_state, enemy_guid
+    SHOW_CLONES_TOGGLED = iota'', -- bool
+    SHOW_POPUP_CLIENT   = iota'', -- {params}
 }
 KIND_TO_ENUM[Id.Kind.C2C] = Id.C2C
 export type C2C = typeof(Id.C2C)
@@ -759,6 +761,7 @@ Id.S2C = enum.with_id "Id.S2C" {
     UPDATE_WORLD      = iota'',
     PLAYER_DAMAGED    = iota'', -- int (player damage)
     PLAYER_DIED       = iota'', 
+    SHOW_POPUP_SERVER = iota'', -- event_id
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)

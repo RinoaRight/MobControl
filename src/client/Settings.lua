@@ -82,10 +82,7 @@ local function updateOnOffButton(btn, isToTurnOn)
 end
 
 local function onMenuBtnPressed(playerState, btn: any)
-    local audio = S.Sound[Id.Sound.CLICK]
-    if audio then
-        SFX.PLAY_SOUND(audio)
-    end
+    SFX.PLAY_SOUND(Id.Sound.CLICK)
     local currentFlags = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
     if not currentFlags then
         return
@@ -199,10 +196,7 @@ function m.Init(state: state.Replica, playerGui: StarterGui, settingsBtnGUI: Scr
     end)
 
     _maid.gearBtn = SharedUtils.ConnectThrottled(GEAR_BUTTON.Activated, 0.5, function()
-        local audio = S.Sound[Id.Sound.CLICK]
-        if audio then
-            SFX.PLAY_SOUND(audio)
-        end
+        SFX.PLAY_SOUND(Id.Sound.CLICK)
         onEnter(state, playerGui)
     end)
 end

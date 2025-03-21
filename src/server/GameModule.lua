@@ -186,7 +186,7 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     trigger.CFrame = CFrame.new(9, 20.5, unitPos.Z - 245)
     groundUnit.Parent = GROUND_UNIT_FOLDER
     groundUnit.AssemblyLinearVelocity = groundUnit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_REG
-    for i = 1, 12 do --12 boosters
+    for i = 1, SharedConfig.BOOSTERS_IN_UNIT do --12 boosters
         local booster = BOOSTER_TEMPLATE:Clone()
         booster.CFrame = CFrame.new(BOOSTER_OFFSET_X - BOOSTER_GAP * (i - 1), BOOSTER_OFFSET_Y, unitPos.Z + BOOSTER_OFFSET_Z)
         booster.Parent = groundUnit
