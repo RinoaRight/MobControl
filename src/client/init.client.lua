@@ -926,7 +926,7 @@ end, 1, "test")
 
 local _booster = PLAYER_STATE:constructor(C.ClientFlags)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
-    log:trace("~~~>", guid, newValue)
+    -- log:trace("~~~>", guid, newValue)
     if not Id.is(newValue) then
         log:error("Invalid value for RefId", newValue, WORLD:format_row(guid))
     end
@@ -934,7 +934,8 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     if Id.kind(newValue) == Id.Kind.Boost then
         -- subscribe boosters to collisions
         _booster(guid, false)
-        Booster.onBoosterAdded(WORLD, PLAYER_STATE, guid) -- ERROR: booster instance not created yet
+        local boosterGuid = guid::string
+        Booster.onBoosterAdded(WORLD, PLAYER_STATE, boosterGuid) 
     elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
         -- check if it was an enemy that has been added
 

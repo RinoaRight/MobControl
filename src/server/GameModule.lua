@@ -313,9 +313,11 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         -- driving box movement
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
         if not isBossFightOn then
-            DRIVING_BOX_BACK_PART.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
+            -- DRIVING_BOX_BACK_PART.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
+            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5))
         else
             -- DRIVING_BOX_BACK_PART.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.3)
+            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.1))
         end
         oldPos = DRIVING_BOX_BACK_PART.Position
 
@@ -529,13 +531,17 @@ m.Cleanup = function()
     for i, unit in ipairs(groundUnits) do
         deleteGroundUnit(unit, i)
     end
-    for i, data in ipairs(GROUND_UNITS) do
-        data.unit = nil
+    for i, entry in ipairs(GROUND_UNITS) do
+        entry.unit = nil
     end
 
+    workerMaid.trigger = nil
+
     -- delete boosters
-    for guid, _refId, _value, _hp, _boostContentId in WorldService.world:select(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance) do
-        WorldService.RemoveEntity(guid)
+    for guid, refId, _value, _hp, _boostContentId in WorldService.world:select(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance) do
+        if Id.kind(refId) == Id.Kind.Boost then
+            WorldService.RemoveEntity(guid)
+        end
     end
 
     -- reset driving box position

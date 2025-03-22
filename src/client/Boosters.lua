@@ -42,15 +42,9 @@ local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 local SFX = require(script.Parent.SFX)
+local TaskPool = require(shared.TaskPool)
 
-
-
-local m = {}
-
-local _BOOSTER_GUID_TO_ADD = {} :: {guid}
-m.onBoosterAdded = function(worldState:state.Replica, playerState: state.Replica, boosterGuid)
-    local instance = workspace:FindFirstChild(boosterGuid, true)
-    -- TODO: FIXME. Instance is not replicated yet. Either wait, or call this func on instance added event
+local function subscribeBooster(playerState, worldState: state.Replica, boosterGuid: string, instance)
     workerMaid[boosterGuid] = instance.Touched:Connect(function(triggerer)
         if triggerer.Name ~= "HumanoidRootPart" then
             return
@@ -85,6 +79,28 @@ m.onBoosterAdded = function(worldState:state.Replica, playerState: state.Replica
             end
             Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, boosterGuid, triggererId)
         end
+    end)
+end
+
+local m = {}
+
+local _BOOSTER_GUID_TO_ADD = {} :: { guid }
+m.onBoosterAdded = function(worldState: state.Replica, playerState: state.Replica, boosterGuid)
+    TaskPool.spawn(function()
+        -- wait for instance to be created
+        local instance
+        local countdown = 3
+        while not instance do
+            if countdown <= 0 then
+                log:error("Booster instance not found for guid %s", boosterGuid)
+                return
+            end
+            local t = .1
+            task.wait(t)
+            countdown -= t
+            instance = workspace:FindFirstChild(boosterGuid, true)
+        end
+        subscribeBooster(playerState, worldState, boosterGuid, instance)
     end)
 end
 

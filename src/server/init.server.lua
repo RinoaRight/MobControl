@@ -152,7 +152,7 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState)
     print("Player dead")
     -- check if the player is not already dead
     local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-    if not Id.flag_test(flags, Id.PlayerF.READY) then
+    if flags and not Id.flag_test(flags, Id.PlayerF.READY) then
         return
     end
     -- if player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId) == Id.Weapon._NONE then
@@ -240,9 +240,9 @@ stopGameSession = function(exception_player_id: num?)
 
     -- remove remaining ground units and reset driving box
     GameModule.Cleanup()
-    task.wait(0.1)
-    log:info("Game session stopped")
-    log:info(">", WorldService.world:format_state("*"))
+    -- task.wait(0.1)
+    -- log:info("Game session stopped")
+    -- log:info(">", WorldService.world:format_state("*"))
 end
 
 ----------------------------
