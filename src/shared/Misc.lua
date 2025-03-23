@@ -61,7 +61,7 @@ local function playFlickerAnim(textBox, mult, value, isToDestroy)
         task.wait(0.4)
         tweenOut:Play()
         task.wait(0.4)
-        textBox.Text = ""
+        textBox.Text = SharedConfig.DEFAULT_HP_GUI_TEXT
         if isToDestroy then
             local gui = assert(textBox.Parent)
             gui:Destroy()
@@ -72,7 +72,7 @@ end
 m.FlickerPlayerHPGui = function(originalTextBox: TextLabel, mult: num, hp: num)
     local currentTextBox = originalTextBox
     local isToDestroy = false
-    if currentTextBox.Text ~= "" then
+    if currentTextBox.Text ~= SharedConfig.DEFAULT_HP_GUI_TEXT then
         local oldGiu = assert(currentTextBox.Parent)
         local newGuiIntance = oldGiu:Clone() :: BillboardGui
         newGuiIntance.Parent = oldGiu.Parent

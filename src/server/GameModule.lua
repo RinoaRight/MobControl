@@ -101,6 +101,12 @@ local DRIVING_BOX_BACK_PART = assert(DRIVING_BOX_INSTANCE.DrivingBoxBackPart)
 local DRIVING_BOX_FRONT = assert(DRIVING_BOX_INSTANCE.PartFront)
 local DRIVING_BOX_ATT = Instance.new("Attachment") :: Attachment
 DRIVING_BOX_ATT.Parent = DRIVING_BOX_FRONT
+local chldrn = DRIVING_BOX_INSTANCE:GetChildren()
+for _, child in ipairs(chldrn) do
+    if child:IsA("WeldConstraint") then
+        child.Enabled = true
+    end
+end
 
 local function deleteGroundUnit(groundUnit: Part, index: int)
     local children = groundUnit:GetChildren()
@@ -292,11 +298,11 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
     spawnGroundUnit(worldState, middleUnit, FIELD_NAMES.MIDDLE, startingPos)
 
-    task.spawn(function()
+    -- task.spawn(function()
         local middle = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part)
-        task.wait(0.2) -- needed to make sure trigger is placed in the right spot
+        -- task.wait(0.2) -- needed to make sure trigger is placed in the right spot
         subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, middle)
-    end)
+    -- end)
 
     spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
@@ -340,10 +346,10 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             local playerId
             local playerState
             
-            -- TODO: FIXME: enemies keep accelerating instead of maintaining constant speed
-            if math.random() > .98 then
-                print("LLLLLLLLLL", (newPos.Z - currentPos.Z))
-            end
+            -- TODO: FIXME: enemies keep accelerating instead of maintaining constant speed. 
+            -- if math.random() > .98 then
+            --     print("LLLLLLLLLL", (newPos.Z - currentPos.Z))
+            -- end
 
             if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
                 local players = game.Players:GetPlayers()
@@ -437,7 +443,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                         newPos = currentPos + lookAt * dt * speed
                                         --]]
 
-                            --[[ Cloude version
+                            --[[ Claude version
                                         -- TODO: tune this, this is the speed at which the enemy will rotate to face the player
                                         local K = 0.05 --2.5 -- radians/sec
                                         local playerPos = playerRoot.Position
@@ -492,7 +498,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         -- delete bullet entity when ttl is up
-        for bulletGuid, startPos, ownerId, wepaonId, ttl in worldState:select(W.Position, W.PlayerId, W.WeaponId, W.TTL) do
+        for bulletGuid, startPos, ownerId, weaponId, ttl in worldState:select(W.Position, W.PlayerId, W.WeaponId, W.TTL) do
             if roflake.time() > ttl then
                 WorldService.RemoveEntity(bulletGuid)
             end

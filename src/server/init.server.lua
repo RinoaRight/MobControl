@@ -207,11 +207,17 @@ local function startGameSession()
         until isReady
         WorldService.ResetBoosterWaveCount()
         WorldService.SetBossFightOff()
-        local _ = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
+
+        local _main_loop_world_handler = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
+        workerMaid.worldLoop = function()
+            ServerSupervisor:cancel(_main_loop_world_handler)
+            log:trace("world session canceled")
+        end
     end)
 end
 
 stopGameSession = function(exception_player_id: num?)
+    workerMaid.worldLoop = nil
     local total_players = Players:GetPlayers()
     for _, player in ipairs(total_players) do
         local userId = player.UserId

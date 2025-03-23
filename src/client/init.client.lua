@@ -493,7 +493,7 @@ do
         end
         -- initialize player's hp GUI
         PLAYER_HP_GUI.Adornee = LOCAL_HUMANOID_HEAD
-        PLAYER_HP_TEXT_BOX.Text = ""
+        PLAYER_HP_TEXT_BOX.Text = SharedConfig.DEFAULT_HP_GUI_TEXT
     end)
 end
 
@@ -748,6 +748,11 @@ RunService.Heartbeat:Connect(function(dt)
             lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
             local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
             table.insert(enemyTargets, newCframe)
+            -- DEBUG: ZOON: FIXME: remove this
+            if refId == Id.Enemy.OCTOBOSS and math.random() > 0.95 then
+                local e = enemyInstance
+                log:info("LLLLLLLLLL~~~> BOSS", e.Name, e.AssemblyLinearVelocity.Magnitude, e.AssemblyLinearVelocity)
+            end
         end
     end
     if #enemies > 0 then
