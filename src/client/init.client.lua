@@ -727,7 +727,11 @@ RunService.Heartbeat:Connect(function(dt)
     local enemyTargets = {}
     for enemyGuid, refId, _hp, newPos, _playerId, _bitset in WORLD:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
         if Id.kind(refId) == Id.Kind.Enemy then
-            local enemyInstance = ENEMIES_FOLDER:FindFirstChild(enemyGuid)
+            -- local enemyInstance = ENEMIES_FOLDER:FindFirstChild(enemyGuid)
+            local enemyInstance = WORLD:get(enemyGuid, W.ClientInstance)
+            if not enemyInstance then
+                continue
+            end
             local currentPos: Vector3 = enemyInstance.Position
             table.insert(enemies, enemyInstance)
             local lookAt = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + 5)
@@ -934,11 +938,9 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     if Id.kind(newValue) == Id.Kind.Boost then
         -- subscribe boosters to collisions
         _booster(guid, false)
-        local boosterGuid = guid::string
-        Booster.onBoosterAdded(WORLD, PLAYER_STATE, boosterGuid) 
+        local boosterGuid = guid :: string
+        Booster.onBoosterAdded(WORLD, PLAYER_STATE, boosterGuid)
     elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
-        -- check if it was an enemy that has been added
-
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
     elseif Id.kind(newValue) == Id.Kind.Clone and WORLD:get(guid, W.PlayerId) then
         -- create clones if any new clones appeared (if the option for others' clones is turned off, for local player only)
@@ -975,16 +977,18 @@ end)
 WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
     if Id.kind(oldValue) == Id.Kind.Clone then
         -- remove clone instance
-        local clientInstance = WORLD:get(guid, W.ClientInstance)
-        if clientInstance then
-            clientInstance:Destroy()
+        -- local clientInstance = WORLD:get(guid, W.ClientInstance)
+        local cloneInstance = workspace:FindFirstChild(guid, true)
+        if cloneInstance then
+            cloneInstance:Destroy()
         end
     elseif Id.kind(oldValue) == Id.Kind.Boost then
         local boosterGuid = guid :: string
         PLAYER_STATE:delete(boosterGuid)
         Booster.CancelSubscription(boosterGuid)
     elseif Id.kind(oldValue) == Id.Kind.Enemy then
-        local clientInstance = WORLD:get(guid, W.ClientInstance)
+        -- local clientInstance = WORLD:get(guid, W.ClientInstance)
+        local clientInstance = ENEMIES_FOLDER:FindFirstChild(guid)
         if clientInstance then
             clientInstance:Destroy()
         end

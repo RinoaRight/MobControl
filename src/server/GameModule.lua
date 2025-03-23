@@ -180,11 +180,11 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
 
     GROUND_UNITS[index].unit = groundUnit
     local unitPos = CFrame.new(refPos.X, refPos.Y, refPos.Z + GROUND_UNITS[index].zOffset)
+    groundUnit.Parent = GROUND_UNIT_FOLDER
     groundUnit.CFrame = unitPos
 
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     trigger.CFrame = CFrame.new(9, 20.5, unitPos.Z - 245)
-    groundUnit.Parent = GROUND_UNIT_FOLDER
     groundUnit.AssemblyLinearVelocity = groundUnit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_REG
     for i = 1, SharedConfig.BOOSTERS_IN_UNIT do --12 boosters
         local booster = BOOSTER_TEMPLATE:Clone()
@@ -288,19 +288,21 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     local middleUnit = GROUND_UNIT_TEMPLATE:Clone()
     local fourthUnit = GROUND_UNIT_TEMPLATE:Clone()
     local fifthUnit = GROUND_UNIT_TEMPLATE:Clone()
-
     spawnGroundUnit(worldState, firstUnit, FIELD_NAMES.FIRST, startingPos)
     spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
     spawnGroundUnit(worldState, middleUnit, FIELD_NAMES.MIDDLE, startingPos)
 
-    local middle = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
-    subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, middle)
+    task.spawn(function()
+        local middle = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part)
+        task.wait(0.2) -- needed to make sure trigger is placed in the right spot
+        subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, middle)
+    end)
 
     spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
-
     -- unanchor the driving box so that it can register collisions
     DRIVING_BOX_BACK_PART.Anchored = false
+    DRIVING_BOX_FRONT.Anchored = false
 end
 
 function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
@@ -337,6 +339,11 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             local distToTarget
             local playerId
             local playerState
+            
+            -- TODO: FIXME: enemies keep accelerating instead of maintaining constant speed
+            if math.random() > .98 then
+                print("LLLLLLLLLL", (newPos.Z - currentPos.Z))
+            end
 
             if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
                 local players = game.Players:GetPlayers()
@@ -525,6 +532,7 @@ end
 m.Cleanup = function()
     -- anchor driving box so that it won't fall down
     DRIVING_BOX_BACK_PART.Anchored = true
+    DRIVING_BOX_FRONT.Anchored = true
 
     -- delete ground units
     local groundUnits = GROUND_UNIT_FOLDER:GetChildren()
