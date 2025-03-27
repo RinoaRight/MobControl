@@ -209,15 +209,19 @@ local function startGameSession()
         WorldService.SetBossFightOff()
 
         local _main_loop_world_handler = ServerSupervisor:start(GameModule.StartMainLoopWorld(WorldService.world, get_state))
+        log:trace("world loop started")
         workerMaid.worldLoop = function()
-            ServerSupervisor:cancel(_main_loop_world_handler)
-            log:trace("world session canceled")
+            task.defer(function()
+                ServerSupervisor:cancel(_main_loop_world_handler)
+                log:trace("world loop canceled")
+            end)
         end
     end)
 end
 
 stopGameSession = function(exception_player_id: num?)
     workerMaid.worldLoop = nil
+
     local total_players = Players:GetPlayers()
     for _, player in ipairs(total_players) do
         local userId = player.UserId
@@ -249,6 +253,50 @@ stopGameSession = function(exception_player_id: num?)
     -- task.wait(0.1)
     -- log:info("Game session stopped")
     -- log:info(">", WorldService.world:format_state("*"))
+end
+
+local function onFinalBossKilledByPlayer(boss_killer_player_state)
+    -- TODO: congratulatory effects
+
+    stopGameSession()
+
+    -- boss killer leaderboard
+    Leaderboards.SpawnWinner(boss_killer_player_state, Id.Achievement.BOSS_KILLER)
+    local total_players = Players:GetPlayers()
+
+    -- most damage leaderboard
+    local playerWithMostDamageState
+    local mostDamageInflicted = 0
+    for _, player in ipairs(total_players) do
+        local thisPlayerState = get_state(player.UserId)
+        if thisPlayerState then
+            local damage = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
+            if damage and (damage > mostDamageInflicted) then
+                mostDamageInflicted = damage
+                playerWithMostDamageState = thisPlayerState
+            end
+        end
+    end
+    if playerWithMostDamageState then
+        Leaderboards.SpawnWinner(playerWithMostDamageState, Id.Achievement.MOST_DAMAGE)
+    end
+
+    -- most enemies leaderboard
+    local playerWithMostKillsState
+    local mostKills = 0
+    for _, player in ipairs(total_players) do
+        local thisPlayerState = get_state(player.UserId)
+        if thisPlayerState then
+            local kills = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+            if kills and (kills > mostKills) then
+                mostKills = kills
+                playerWithMostKillsState = thisPlayerState
+            end
+        end
+    end
+    if playerWithMostKillsState then
+        Leaderboards.SpawnWinner(playerWithMostKillsState, Id.Achievement.MOST_ENEMIES)
+    end
 end
 
 ----------------------------
@@ -357,7 +405,23 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                 if enemyHP - dmg <= 0 then
                     local _ = playerState:UpdateSessionDamageStats(enemyHP)
                     local _ = playerState:UpdateSessionEnemyKills()
+
+                    -- add reward for killing enemies
+                    local bounty = 0
+                    if S.Enemy[targetRefId].reward then
+                        bounty = S.Enemy[targetRefId].reward
+                    end
+                    playerState:AddCountable(Id.Countable.COIN, bounty)
+
                     GameModule.DestroyEnemy(targetGuid, playerState.player_id)
+
+                    -- check if the enemy was the final boss, if yes, finish round
+                    if targetRefId == Id.Enemy.OCTOBOSS then
+                        if WorldService.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then -- we are checking player_id, other checks are redundant
+                            WorldService.SetBossFightOff()
+                            onFinalBossKilledByPlayer(playerState)
+                        end
+                    end
                 else
                     local _ = playerState:UpdateSessionDamageStats(dmg)
                     WorldService.world:set(targetGuid, W.HP, newHP)
@@ -379,6 +443,9 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                         playerState.state:delete(targetGuid)
                     end
                     local _ = playerState:UpdateSessionDamageStats(booster_hp)
+
+                    -- give reward for killing booster
+                    playerState:AddCountable(Id.Countable.COIN, SharedConfig.COINS_PER_BOOSTER)
 
                     GameModule.HandleBoosterDeath(playerState, targetGuid, targetRefId, value, boostContentId)
                 else
@@ -462,7 +529,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     log:trace("player's session started")
     workerMaid.playerLoop = function()
         ServerSupervisor:cancel(_main_loop_player_handler)
-        log:trace("player's session canceled")
+        log:trace("player's loop canceled")
     end
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
@@ -495,47 +562,47 @@ s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
     onPlayerSessionFinishedPlayerState(player_state)
 end
 
-s2s[Id.S2S.FINAL_BOSS_KILLED] = function(boss_killer_player_state, ...)
-    stopGameSession()
+-- s2s[Id.S2S.FINAL_BOSS_KILLED] = function(boss_killer_player_state, ...)
+--     stopGameSession()
 
-    -- boss killer leaderboard
-    Leaderboards.SpawnWinner(boss_killer_player_state, Id.Achievement.BOSS_KILLER)
-    local total_players = Players:GetPlayers()
+--     -- boss killer leaderboard
+--     Leaderboards.SpawnWinner(boss_killer_player_state, Id.Achievement.BOSS_KILLER)
+--     local total_players = Players:GetPlayers()
 
-    -- most damage leaderboard
-    local playerWithMostDamageState
-    local mostDamageInflicted = 0
-    for _, player in ipairs(total_players) do
-        local thisPlayerState = get_state(player.UserId)
-        if thisPlayerState then
-            local damage = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
-            if damage and (damage > mostDamageInflicted) then
-                mostDamageInflicted = damage
-                playerWithMostDamageState = thisPlayerState
-            end
-        end
-    end
-    if playerWithMostDamageState then
-        Leaderboards.SpawnWinner(playerWithMostDamageState, Id.Achievement.MOST_DAMAGE)
-    end
+--     -- most damage leaderboard
+--     local playerWithMostDamageState
+--     local mostDamageInflicted = 0
+--     for _, player in ipairs(total_players) do
+--         local thisPlayerState = get_state(player.UserId)
+--         if thisPlayerState then
+--             local damage = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
+--             if damage and (damage > mostDamageInflicted) then
+--                 mostDamageInflicted = damage
+--                 playerWithMostDamageState = thisPlayerState
+--             end
+--         end
+--     end
+--     if playerWithMostDamageState then
+--         Leaderboards.SpawnWinner(playerWithMostDamageState, Id.Achievement.MOST_DAMAGE)
+--     end
 
-    -- most enemies leaderboard
-    local playerWithMostKillsState
-    local mostKills = 0
-    for _, player in ipairs(total_players) do
-        local thisPlayerState = get_state(player.UserId)
-        if thisPlayerState then
-            local kills = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
-            if kills and (kills > mostKills) then
-                mostKills = kills
-                playerWithMostKillsState = thisPlayerState
-            end
-        end
-    end
-    if playerWithMostKillsState then
-        Leaderboards.SpawnWinner(playerWithMostKillsState, Id.Achievement.MOST_ENEMIES)
-    end
-end
+--     -- most enemies leaderboard
+--     local playerWithMostKillsState
+--     local mostKills = 0
+--     for _, player in ipairs(total_players) do
+--         local thisPlayerState = get_state(player.UserId)
+--         if thisPlayerState then
+--             local kills = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+--             if kills and (kills > mostKills) then
+--                 mostKills = kills
+--                 playerWithMostKillsState = thisPlayerState
+--             end
+--         end
+--     end
+--     if playerWithMostKillsState then
+--         Leaderboards.SpawnWinner(playerWithMostKillsState, Id.Achievement.MOST_ENEMIES)
+--     end
+-- end
 
 -----------------------------
 -- Player Connect
@@ -553,6 +620,8 @@ local function init_player(player_state: PlayerState)
         flags = Id.flag_or(flags, Id.PlayerF.OTHER_BULLETS_ON)
         flags = Id.flag_or(flags, Id.PlayerF.OTHER_CLONES_ON)
         player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, flags)
+        -- NOTE: not needed currently, this is for future purposes
+        player_state:ResetCountable(Id.Countable.COIN)
     end
 end
 
@@ -578,8 +647,6 @@ game.Players.PlayerRemoving:Connect(function(player)
     TaskPool.call(function()
         state:Save()
         task.wait()
-        -- TODO: correct exit
-        -- WorldService.RemovePlayer(state)
         state:Destroy()
         onPlayerSessionFinishedWorld(state, state.player_id)
     end)

@@ -614,7 +614,9 @@ export type Animation = typeof(Id.Animation)
 -----------------------------
 Id.Sound = enum.with_id "Id.Sound" {
     _NONE                 = iota(Id.Kind.Sound, 0),
+    BELL                  = iota'',
     CLICK                 = iota'',
+    COIN_DROP             = iota'',
     ERROR                 = iota'',
     FIRE_PISTOL           = iota'',
     FIRE_PISTOL_LOCALIZED = iota'',
@@ -713,7 +715,7 @@ Id.S2S = enum.with_id "Id.S2S" {
     PURCHASE_FINISHED         = iota'',
     CHANGE_WEAPON             = iota'', -- weapon_id
     PLAYER_DIED               = iota'',
-    FINAL_BOSS_KILLED         = iota'',
+    -- FINAL_BOSS_KILLED         = iota'',
     -- STOP_GAME_SESSION         = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S

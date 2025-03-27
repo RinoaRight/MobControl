@@ -96,6 +96,7 @@ export type PlayerState = {
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
     AddHp: (self: PlayerState, amount: num) -> (num, num),
     DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
+    ResetCountable: (self: PlayerState, id: id) -> (),
     DeductHp: (self: PlayerState, amount: num) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
@@ -250,6 +251,11 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
     self.state:set(countable_id, current - amount)
     return true
 end
+
+function PlayerState.ResetCountable(self: PlayerState, countable_id: id): ()
+    self.state:set(countable_id, 0)
+end
+
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
     self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, weapon_id)

@@ -91,19 +91,39 @@ m.Boost = {
 }
 
 m.Enemy = {
-    [Id.Enemy.BASIC] = { damage = 10, health = 10, speed = 30.0, meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_1") }, -- hp, hp, studs/sec, assetId
-    [Id.Enemy.CRAZY] = { damage = 15, health = 15, speed = 40.0, meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_3") }, -- hp, hp, studs/sec, assetId
-    [Id.Enemy.OCTOBOSS] = { damage = 30, health = 1000, speed = 20.0, meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss") }, -- hp, hp, studs/sec, assetId
+    [Id.Enemy.BASIC] = {
+        damage = 10,
+        health = 10,
+        speed = 30.0,
+        reward = 1,
+        meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_1"),
+    }, -- hp, hp, studs/sec, coins, assetId
+    [Id.Enemy.CRAZY] = {
+        damage = 15,
+        health = 15,
+        speed = 40.0,
+        reward = 1,
+        meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_3"),
+    }, 
+    [Id.Enemy.OCTOBOSS] = {
+        damage = 30,
+        health = 1000,
+        speed = 20.0,
+        reward = 10,
+        meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),
+    }, 
 }
 
 m.Sound = {
-    [Id.Sound.CLICK] = assert(SOUNDS_ROOT:WaitForChild("Click")),
-    [Id.Sound.ERROR] = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
-    [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
+    [Id.Sound.BELL]                  = assert(SOUNDS_ROOT:WaitForChild("Bell")),
+    [Id.Sound.CLICK]                 = assert(SOUNDS_ROOT:WaitForChild("Click")),
+    [Id.Sound.COIN_DROP]             = assert(SOUNDS_ROOT:WaitForChild("CoinDrop")),
+    [Id.Sound.ERROR]                 = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
+    [Id.Sound.FIRE_PISTOL]           = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
-    [Id.Sound.RELOAD] = assert(SOUNDS_ROOT:WaitForChild("Reload")),
-    [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
-    [Id.Sound.SCREAM_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Scream")),
+    [Id.Sound.RELOAD]                = assert(SOUNDS_ROOT:WaitForChild("Reload")),
+    [Id.Sound.SCREAM]                = assert(SOUNDS_ROOT:WaitForChild("Scream")),
+    [Id.Sound.SCREAM_LOCALIZED]      = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Scream")),
 }
 
 m.VFX = {

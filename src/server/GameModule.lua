@@ -126,7 +126,6 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
 end
 
 local function onBossArrival()
-    -- TODO: less abrupt thing than full stop of movement
     local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
     for _, unit in ipairs(unitsFolder) do
         unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
@@ -345,11 +344,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             local distToTarget
             local playerId
             local playerState
-            
-            -- TODO: FIXME: enemies keep accelerating instead of maintaining constant speed. 
-            -- if math.random() > .98 then
-            --     print("LLLLLLLLLL", (newPos.Z - currentPos.Z))
-            -- end
 
             if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
                 local players = game.Players:GetPlayers()
@@ -520,17 +514,21 @@ end
 
 m.DestroyEnemy = function(guid, playerId: num?)
     -- TODO: effects
-    local enemyRefId = WorldService.world:get(guid, W.RefId)
-    if enemyRefId == Id.Enemy.OCTOBOSS then
-        if WorldService.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then -- we are checking player_id, other checks are redundant
-            WorldService.SetBossFightOff()
-            if playerId then
-                -- boss was killed by a player's bullet
-                Signal.Fire(Id.S2S.FINAL_BOSS_KILLED, playerId)
-            end
-        end
+
+    -- NOTE: moved to init.server
+    -- local enemyRefId = WorldService.world:get(guid, W.RefId)
+    -- if enemyRefId == Id.Enemy.OCTOBOSS then
+    --     if WorldService.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then -- we are checking player_id, other checks are redundant
+    --         WorldService.SetBossFightOff()
+    --         if playerId then
+    --             -- boss was killed by a player's bullet
+    --             Signal.Fire(Id.S2S.FINAL_BOSS_KILLED, playerId)
+    --         end
+    --     end
+    -- end
+    if WorldService.world:has(guid) then
+        WorldService.RemoveEntity(guid)
     end
-    WorldService.RemoveEntity(guid)
     assert(typeof(guid) == "string") -- sanity check
     workerMaid[guid] = nil
 end

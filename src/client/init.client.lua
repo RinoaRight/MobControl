@@ -62,6 +62,7 @@ local UserInputService = game:GetService("UserInputService")
 local Clones = require(script.Clones)
 local Booster = require(script.Boosters)
 local EnemiesClient = require(script.EnemiesClient)
+local UICounters = require(script.UI_Counters)
 local NumFormat = require(shared.num_format)
 local Popup = require(script.UI_Popup)
 local TaskPool = require(shared.TaskPool)
@@ -106,10 +107,12 @@ local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 
 local POPUP_GUI = assert(PLAYER_GUI:WaitForChild("PopupGUI"))
+local SETTINGS_MENU_GUI = assert(PLAYER_GUI:WaitForChild("SettingsMenuGUI"))
 
 local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
-local SETTINGS_BTN_GUI = assert(MAIN_GUI.GearPanel)
-local SETTINGS_MENU_GUI = assert(PLAYER_GUI:WaitForChild("SettingsMenuGUI"))
+local SETTINGS_BTN_PANEL = assert(MAIN_GUI.GearPanel)
+local TOP_RIGHT_PANEL = assert(MAIN_GUI:WaitForChild("TopRightPanel"))
+
 -- forward declarations
 local playRunAnimTrack
 local startRunAnim
@@ -154,6 +157,10 @@ local function handleGunHoldingAnimation(character, weapon_id: int)
     end
 end
 
+local function onStateUpdate(playerState: state.Replica)
+    UICounters.OnStateUpdate(playerState)
+end
+
 -----------------------------
 -- Net handlers
 -----------------------------
@@ -162,6 +169,7 @@ local on = {} :: Remote.OnRemoteEvent<state.Replica>
 
 on[Id.S2C.UPDATE_STATE] = function(state: state.Replica, update_log)
     state:update(update_log)
+    onStateUpdate(state)
 end
 
 on[Id.S2C.INIT_WORLD] = function(state: state.Replica, world_snapshot)
@@ -366,8 +374,12 @@ local load = function(fire: FireServer, snapshot)
             fire(id, ...)
         end))
     end
-    Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_GUI, SETTINGS_MENU_GUI)
+    Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_PANEL, SETTINGS_MENU_GUI)
     Popup:Init(POPUP_GUI)
+    UICounters.Init(state, TOP_RIGHT_PANEL)
+
+    MAIN_GUI.Enabled = true
+    
     return state
 end
 
@@ -751,7 +763,6 @@ RunService.Heartbeat:Connect(function(dt)
             -- DEBUG: ZOON: FIXME: remove this
             if refId == Id.Enemy.OCTOBOSS and math.random() > 0.95 then
                 local e = enemyInstance
-                log:info("LLLLLLLLLL~~~> BOSS", e.Name, e.AssemblyLinearVelocity.Magnitude, e.AssemblyLinearVelocity)
             end
         end
     end

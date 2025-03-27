@@ -47,10 +47,9 @@ m.BULLET_BASE_DISTANCE = 240 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP = 100
 m.CONTROL_DISTANCE_TO_TARGET = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT = 2
--- TODO: revert to normal value
-m.BOSS_WAVE_NUMBER = 21
+m.BOSS_WAVE_NUMBER = 3--21
 m.MOVEMENT_LINEAR_VELOCITY_REG = 30
-m.MOVEMENT_LINEAR_VELOCITY_BOSS = 15
+m.MOVEMENT_LINEAR_VELOCITY_BOSS = 20
 m.BOOSTERS_IN_UNIT = 12
 m.MAX_PLAYERS_IN_SESSION = m.BOOSTERS_IN_UNIT
 m.ENEMY_WAVE_DELAY = 7
@@ -76,6 +75,8 @@ m.DRIVING_BOX_STARTING_POS = Vector3.new(0, 50, 255)
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
+-- Prices
+m.COINS_PER_BOOSTER = 1
 
 -----------------------------
 -- WorldState
@@ -152,6 +153,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     ClientWeaponId       = iota'', -- number
     ClientFlags          = iota'', -- bool
     ClientTTE            = iota'', -- sec (*1)
+    ValueView            = iota'', -- number
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).
 --     NOTE: W.TTL is a wall time

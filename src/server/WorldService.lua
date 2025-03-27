@@ -84,11 +84,9 @@ function m.RemovePlayer(uid: uid)
 end
 
 function m.RemoveEntity(uid: uid)
-    m.world:delete(uid)
     -- local refId = m.world:get(uid, W.RefId)
-    -- if refId and Id.kind(refId) == Id.Kind.Boost then
-        
-    -- end
+    -- print("Removing entity", Id.name(refId))
+    m.world:delete(uid)
 end
 
 local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance)
