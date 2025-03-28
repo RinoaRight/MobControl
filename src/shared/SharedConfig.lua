@@ -47,7 +47,7 @@ m.BULLET_BASE_DISTANCE = 240 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP = 100
 m.CONTROL_DISTANCE_TO_TARGET = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT = 2
-m.BOSS_WAVE_NUMBER = 3--21
+m.BOSS_WAVE_NUMBER = 15
 m.MOVEMENT_LINEAR_VELOCITY_REG = 30
 m.MOVEMENT_LINEAR_VELOCITY_BOSS = 20
 m.BOOSTERS_IN_UNIT = 12
@@ -147,6 +147,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     Value                = iota'', -- number
     Total                = iota'', -- number
     Bitset               = iota'', -- flag
+    BitsetNonPers        = iota'', -- flag
     Instance             = iota'', -- Instance(client)
     WorldGui             = iota'', -- any
     -- client-only
@@ -165,7 +166,7 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset, C.BitsetNonPers)
         -- :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
         :set_persistent_flag(C.Total, C.Bitset)
         :build_with_replica()

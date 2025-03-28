@@ -866,8 +866,8 @@ RunService.Heartbeat:Connect(function(dt)
 
     -- fire bullets for the local player
     if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION_PARAMS) then
-        local flags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-        if flags and Id.flag_test(flags, Id.PlayerF.READY) then
+        local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+        if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
             local weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
             if not weaponId or weaponId == Id.Weapon._NONE then
                 log:error("No bullet can be fired for this weapon_id", weaponId)
@@ -925,8 +925,8 @@ local infrequentLoop = supervisor.create(1, "client-infrequent")
 infrequentLoop:start(function(dt)
     -- player character animation check
     local isRunAnimActive
-    local flags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-    if flags and Id.flag_test(flags, Id.PlayerF.READY) then
+    local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
+    if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
         for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
             if v.Name == SharedConfig.RUN_ANIMATION_NAME then
                 isRunAnimActive = true

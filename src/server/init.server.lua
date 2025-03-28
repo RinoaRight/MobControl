@@ -133,9 +133,9 @@ local function onPlayerSessionFinishedWorld(player_state, playerId)
     for _, player in ipairs(total_players) do
         local thisPlayerState = get_state(player)
         if thisPlayerState then
-            local thisPlayerFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-            if thisPlayerFlags then
-                if Id.flag_test(thisPlayerFlags, Id.PlayerF.READY) then
+            local thisPlayerNonPersFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+            if thisPlayerNonPersFlags then
+                if Id.flag_test(thisPlayerNonPersFlags, Id.PlayerF.READY) then
                     isAnyOneInSession = true
                     break
                 end
@@ -151,8 +151,8 @@ end
 local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState)
     print("Player dead")
     -- check if the player is not already dead
-    local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-    if flags and not Id.flag_test(flags, Id.PlayerF.READY) then
+    local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    if nonPersFlags and not Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
         return
     end
     -- if player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId) == Id.Weapon._NONE then
@@ -170,7 +170,7 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, 0)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, 0)
-    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, Id.flag_set(flags, Id.PlayerF.READY, false))
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, Id.flag_set(nonPersFlags, Id.PlayerF.READY, false))
 
     onPlayerSessionFinishedWorld(player_state, player_state.player_id)
 end
@@ -195,11 +195,11 @@ local function startGameSession()
         repeat
             task.wait(0.1)
             for _, thisPlayerState in pairs(STATES) do
-                local flags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-                if not flags then
+                local nonPersFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+                if not nonPersFlags then
                     continue
                 end
-                isReady = Id.flag_test(flags, Id.PlayerF.READY)
+                isReady = Id.flag_test(nonPersFlags, Id.PlayerF.READY)
                 if isReady then
                     break
                 end
@@ -237,7 +237,7 @@ stopGameSession = function(exception_player_id: num?)
     end
     WorldService.SetGameSessionOff()
     WorldService.SetBossFightOff()
-    WorldService.ResetBoosterWaveCount()
+    -- WorldService.ResetBoosterWaveCount()
     WorldService.ResetEnemyWaveCount()
 
     -- kill remaining enemies
@@ -500,8 +500,8 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         for _, player in ipairs(total_players) do
             local thisPlayerState = get_state(player)
             if thisPlayerState then
-                local f = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-                local isReady = Id.flag_test(f, Id.PlayerF.READY)
+                local nonPersF = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+                local isReady = Id.flag_test(nonPersF, Id.PlayerF.READY)
                 if isReady then
                     players_already_in_session += 1
                 end
@@ -610,16 +610,20 @@ end
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
-        local _game_session_params = player_state.state:constructor(C.RefId, C.TTE, C.Value, C.Bitset) -- weapon_id, weapon_tte, hp, is_active
-        _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
+        local _game_session_params = player_state.state:constructor(C.RefId, C.TTE, C.Value, C.Bitset, C.BitsetNonPers) -- weapon_id, weapon_tte, hp, pers_flags, non_pers_flags
+        -- _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
         local _session_enemy_kills = player_state.state:constructor(C.Value)
         _session_enemy_kills(Id.PlayerSpecs.SESSION_ENEMY_KILLS, 0)
         local _session_damage_stats = player_state.state:constructor(C.Value)
         _session_damage_stats(Id.PlayerSpecs.SESSION_DAMAGE, 0)
-        local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-        flags = Id.flag_or(flags, Id.PlayerF.OTHER_BULLETS_ON)
-        flags = Id.flag_or(flags, Id.PlayerF.OTHER_CLONES_ON)
-        player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, flags)
+        -- TODO: FIXME: check with zoon on how to load save and initialize persistent flags correctly (instead of initializing
+        -- persistent flags with Id.PlayerF.NONE each time  - beats the purpose of saving them!)
+        _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE, Id.PlayerF.NONE)
+        local persFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
+        persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_BULLETS_ON)
+        persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_CLONES_ON)
+        -- _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, persFlags, Id.PlayerF.NONE)
+        -- player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, flags)
         -- NOTE: not needed currently, this is for future purposes
         player_state:ResetCountable(Id.Countable.COIN)
     end

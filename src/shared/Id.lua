@@ -53,11 +53,6 @@ local Kind = table.freeze {
     Struct          = enum.iota'',
     ServerError     = enum.iota'',
     Boost           = enum.iota'',
-    Pet             = enum.iota'',
-    Egg             = enum.iota'',
-    Area            = enum.iota'',
-    Effect          = enum.iota'',
-    Ability         = enum.iota'',
     Achievement     = enum.iota'',
     Animation       = enum.iota'',
     Product         = enum.iota'',
@@ -395,69 +390,6 @@ export type Boost = typeof(Id.Boost)
 
 -- stylua: ignore
 -----------------------------
--- Pet
------------------------------
-Id.Pet = enum.with_id "Id.Pet" {
-    NONE = iota(Id.Kind.Pet, 0)
-}
-KIND_TO_ENUM[Id.Kind.Pet] = Id.Pet
-export type Pet = typeof(Id.Pet)
-
--- stylua: ignore
------------------------------
--- Egg
------------------------------
-Id.Egg = enum.with_id "Id.Egg" {
-    NONE = iota(Id.Kind.Egg, 0),
-}
-KIND_TO_ENUM[Id.Kind.Egg] = Id.Egg
-export type Egg = typeof(Id.Egg)
-
-
--- stylua: ignore
------------------------------
--- Area
------------------------------
-Id.Area = enum.with_id "Id.Area" {
-    __HEAVEN = iota(Id.Kind.Area, 200),
-    STORE    = iota''
-}
-KIND_TO_ENUM[Id.Kind.Area] = Id.Area
-export type Area = typeof(Id.Area)
-
-
--- stylua: ignore
------------------------------
--- Effect
------------------------------
-Id.Effect = enum.with_id "Id.Effect" {
-    NONE           = iota(Id.Kind.Effect, 0),
-    GEM_DROP       = iota'',
-    GEM_DROP_TEAM  = iota'',
-    COIN_DROP      = iota'',
-    COIN_DROP_TEAM = iota'',
-    SPEED          = iota'',
-    SPEED_TEAM     = iota'',
-    HIT_SPEED      = iota'',
-    HIT_SPEED_TEAM = iota'',
-}
-KIND_TO_ENUM[Id.Kind.Effect] = Id.Effect
-export type Effect = typeof(Id.Effect)
-
--- stylua: ignore
------------------------------
--- Ability
------------------------------
-Id.Ability = enum.with_id "Id.Ability" {
-    NONE   = iota(Id.Kind.Ability, 0),
-    COIN_1 = iota'',
-    GEM_1  = iota'',
-}
-KIND_TO_ENUM[Id.Kind.Ability] = Id.Ability
-export type Ability = typeof(Id.Ability)
-
--- stylua: ignore
------------------------------
 -- Pass
 -----------------------------
 Id.Pass = enum.with_id "Id.Pass" {
@@ -486,9 +418,12 @@ export type PassF = typeof(Id.PassF)
 -----------------------------
 Id.PlayerF = enum.with_id "Id.PlayerF" {
     NONE               = flag(Id.Kind.PlayerF),
+    _PERSISTENT        = flag'', 
     OTHER_BULLETS_ON   = flag'',
     OTHER_CLONES_ON    = flag'',
+    _NON_PERSISTENT    = flag'', 
     READY              = flag'',
+    FIREPOWER_1        = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
@@ -815,9 +750,10 @@ logger.set_global_level(logger.LOG_LEVELS.DEBUG)
 local logger = require(script.Parent.logger)
 local lg = logger.create("Flags"):set_prettifier(Id.pp):set_delimiter(" ")
 local flags = Id.PlayerF.NONE
+local nonPersFlags = Id.PlayerF.NONE
 -- lg:trace(flags, "-- flags = Id.PlayerF.NONE")
-flags = Id.flag_or(flags, Id.PlayerF.READY)
--- lg:trace(flags, "-- Id.flag_or(flags, Id.PlayerF.READY)")
+flags = Id.flag_or(nonPersFlags, Id.PlayerF.READY)
+-- lg:trace(flags, "-- Id.flag_or(nonPersFlags, Id.PlayerF.READY)")
 flags = Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true)
 -- lg:trace(flags, "-- Id.flag_set(flags, Id.PlayerF.OTHER_BULLETS_ON, true)")
 flags = Id.flag_set(flags, Id.PlayerF.READY, false)

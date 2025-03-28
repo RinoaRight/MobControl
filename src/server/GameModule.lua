@@ -503,8 +503,8 @@ end
 function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
     return function(dt)
         -- weapon cooldown
-        local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-        if Id.flag_test(flags, Id.PlayerF.READY) then
+        local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+        if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
             local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
             shot_tte -= dt
             player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
@@ -589,8 +589,8 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session
     -- NOTE: players_already_in_session includes this player_state.player
 
     -- define spawning position
-    local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, Id.flag_or(flags, Id.PlayerF.READY))
+    local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.flag_or(nonPersFlags, Id.PlayerF.READY))
 
     local driver_pos = DRIVING_BOX_BACK_PART.Position
     local ground_folder = workspace:FindFirstChild("GroundUnits")
