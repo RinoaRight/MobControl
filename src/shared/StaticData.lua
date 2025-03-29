@@ -114,6 +114,14 @@ m.Enemy = {
     }, 
 }
 
+m.PlayerUpgrade = {
+    [Id.PlayerF.FIREPOWER_1] = {value = 1.1, price = 50,  currency = Id.Countable.COIN, name = "Firepower 1"}, -- value is in %
+    [Id.PlayerF.FIREPOWER_2] = {value = 1.2, price = 120, currency = Id.Countable.COIN, name = "Firepower 2"}, 
+    [Id.PlayerF.FIREPOWER_3] = {value = 1.3, price = 250, currency = Id.Countable.COIN, name = "Firepower 3"}, 
+    [Id.PlayerF.FIREPOWER_4] = {value = 1.4, price = 500, currency = Id.Countable.COIN, name = "Firepower 4"}, 
+    [Id.PlayerF.FIREPOWER_5] = {value = 1.5, price = 800, currency = Id.Countable.COIN, name = "Firepower 5"}, 
+}
+
 m.Sound = {
     [Id.Sound.BELL]                  = assert(SOUNDS_ROOT:WaitForChild("Bell")),
     [Id.Sound.CLICK]                 = assert(SOUNDS_ROOT:WaitForChild("Click")),

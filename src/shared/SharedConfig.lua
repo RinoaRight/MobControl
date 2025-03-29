@@ -144,6 +144,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     TTL                  = iota'', -- epoch
     TTE                  = iota'', -- sec (*1)
     -- values
+    ValuePers            = iota'', -- number
     Value                = iota'', -- number
     Total                = iota'', -- number
     Bitset               = iota'', -- flag
@@ -168,7 +169,7 @@ do
         :set_pretty_printer(Id.pp)
         :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset, C.BitsetNonPers)
         -- :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
-        :set_persistent_flag(C.Total, C.Bitset)
+        :set_persistent_flag(C.ValuePers, C.Total, C.Bitset)
         :build_with_replica()
 
     PlayerState.main_config = main_config

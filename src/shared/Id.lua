@@ -59,6 +59,7 @@ local Kind = table.freeze {
     Pass            = enum.iota'',
     PassF           = enum.iota'',
     PlayerF         = enum.iota'',
+    WorldF          = enum.iota'',
     EnemyF          = enum.iota'',
     Countable       = enum.iota'',
     Clone           = enum.iota'',
@@ -424,6 +425,10 @@ Id.PlayerF = enum.with_id "Id.PlayerF" {
     _NON_PERSISTENT    = flag'', 
     READY              = flag'',
     FIREPOWER_1        = flag'',
+    FIREPOWER_2        = flag'',
+    FIREPOWER_3        = flag'',
+    FIREPOWER_4        = flag'',
+    FIREPOWER_5        = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
@@ -448,6 +453,17 @@ export type EnemyF = typeof(Id.EnemyF)
 
 -- stylua: ignore
 -----------------------------
+-- WorldF
+-----------------------------
+Id.WorldF = enum.with_id "Id.WorldF" {
+    NONE                     = flag(Id.Kind.WorldF),
+    -- SEEK_ACTIVATED           = flag'',
+}
+KIND_TO_ENUM[Id.Kind.WorldF] = Id.WorldF
+export type WorldF = typeof(Id.WorldF)
+
+-- stylua: ignore
+-----------------------------
 -- Product
 -----------------------------
 Id.Product = enum.with_id "Id.Product" {
@@ -462,8 +478,11 @@ export type Product = typeof(Id.Product)
 -----------------------------
 Id.Countable = enum.with_id "Id.Countable" {
     _NONE = iota(Id.Kind.Countable, 0),
-    COIN = iota'',
     CLONE = iota'',
+    COIN = iota'',
+    TOKEN = iota'',
+    _PERSISTENT = iota'',
+    XP    = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Countable] = Id.Countable
 export type Countable = typeof(Id.Countable)

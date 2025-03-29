@@ -299,6 +299,35 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     end
 end
 
+local function isFirepowerUpgrade(nonPersFlags: num): id | nil
+    local id
+    local isFirepowerUpgrade = Id.flag_test(nonPersFlags, Id.PlayerF.FIREPOWER_5)
+    if isFirepowerUpgrade then
+        id = Id.PlayerF.FIREPOWER_5
+    else
+        isFirepowerUpgrade = Id.flag_test(nonPersFlags, Id.PlayerF.FIREPOWER_4)
+        if isFirepowerUpgrade then
+            id = Id.PlayerF.FIREPOWER_4
+        else
+            isFirepowerUpgrade = Id.flag_test(nonPersFlags, Id.PlayerF.FIREPOWER_3)
+            if isFirepowerUpgrade then
+                id = Id.PlayerF.FIREPOWER_3
+            else
+                isFirepowerUpgrade = Id.flag_test(nonPersFlags, Id.PlayerF.FIREPOWER_2)
+                if isFirepowerUpgrade then
+                    id = Id.PlayerF.FIREPOWER_2
+                else
+                    isFirepowerUpgrade = Id.flag_test(nonPersFlags, Id.PlayerF.FIREPOWER_1)
+                    if isFirepowerUpgrade then
+                        id = Id.PlayerF.FIREPOWER_1
+                    end
+                end
+            end
+        end
+    end
+    return id
+end
+
 ----------------------------
 -- Event Handling
 -----------------------------
@@ -394,11 +423,19 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                 return
             end
 
+            -- check for firepower upgrades
+            local nonPersFlags = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+            local firepowerId = isFirepowerUpgrade(nonPersFlags)
+            local firepowerBonus = 0
+            if firepowerId then
+                firepowerBonus = assert(S.PlayerUpgrade[firepowerId].value)
+            end
+
             if Id.kind(targetRefId) == Id.Kind.Enemy then
                 local enemyHP = WorldService.world:get(targetGuid, W.HP)
                 local dmg = 0
                 if bulletWeaponDataEntry and bulletWeaponDataEntry.damage then
-                    dmg = bulletWeaponDataEntry.damage
+                    dmg = math.floor(bulletWeaponDataEntry.damage + firepowerBonus)
                 end
                 local newHP = enemyHP - dmg
 
@@ -427,7 +464,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                     WorldService.world:set(targetGuid, W.HP, newHP)
                 end
             elseif Id.kind(targetRefId) == Id.Kind.Boost then
-                local dmg = S.Weapon[bulletWeaponId].damage
+                local dmg = math.floor(S.Weapon[bulletWeaponId].damage + firepowerBonus)
                 local booster_hp = WorldService.world:get(targetGuid, W.HP)
                 local new_hp = booster_hp - dmg
                 local boosterGui = serverInstance:FindFirstChildWhichIsA("SurfaceGui")
@@ -562,68 +599,20 @@ s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
     onPlayerSessionFinishedPlayerState(player_state)
 end
 
--- s2s[Id.S2S.FINAL_BOSS_KILLED] = function(boss_killer_player_state, ...)
---     stopGameSession()
-
---     -- boss killer leaderboard
---     Leaderboards.SpawnWinner(boss_killer_player_state, Id.Achievement.BOSS_KILLER)
---     local total_players = Players:GetPlayers()
-
---     -- most damage leaderboard
---     local playerWithMostDamageState
---     local mostDamageInflicted = 0
---     for _, player in ipairs(total_players) do
---         local thisPlayerState = get_state(player.UserId)
---         if thisPlayerState then
---             local damage = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
---             if damage and (damage > mostDamageInflicted) then
---                 mostDamageInflicted = damage
---                 playerWithMostDamageState = thisPlayerState
---             end
---         end
---     end
---     if playerWithMostDamageState then
---         Leaderboards.SpawnWinner(playerWithMostDamageState, Id.Achievement.MOST_DAMAGE)
---     end
-
---     -- most enemies leaderboard
---     local playerWithMostKillsState
---     local mostKills = 0
---     for _, player in ipairs(total_players) do
---         local thisPlayerState = get_state(player.UserId)
---         if thisPlayerState then
---             local kills = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
---             if kills and (kills > mostKills) then
---                 mostKills = kills
---                 playerWithMostKillsState = thisPlayerState
---             end
---         end
---     end
---     if playerWithMostKillsState then
---         Leaderboards.SpawnWinner(playerWithMostKillsState, Id.Achievement.MOST_ENEMIES)
---     end
--- end
-
 -----------------------------
 -- Player Connect
 -----------------------------
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
-        local _game_session_params = player_state.state:constructor(C.RefId, C.TTE, C.Value, C.Bitset, C.BitsetNonPers) -- weapon_id, weapon_tte, hp, pers_flags, non_pers_flags
-        -- _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE)
         local _session_enemy_kills = player_state.state:constructor(C.Value)
         _session_enemy_kills(Id.PlayerSpecs.SESSION_ENEMY_KILLS, 0)
         local _session_damage_stats = player_state.state:constructor(C.Value)
         _session_damage_stats(Id.PlayerSpecs.SESSION_DAMAGE, 0)
-        -- TODO: FIXME: check with zoon on how to load save and initialize persistent flags correctly (instead of initializing
-        -- persistent flags with Id.PlayerF.NONE each time  - beats the purpose of saving them!)
-        _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE, Id.PlayerF.NONE)
         local persFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_BULLETS_ON)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_CLONES_ON)
-        -- _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, persFlags, Id.PlayerF.NONE)
-        -- player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, flags)
+        player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, persFlags)
         -- NOTE: not needed currently, this is for future purposes
         player_state:ResetCountable(Id.Countable.COIN)
     end
