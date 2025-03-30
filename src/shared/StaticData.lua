@@ -90,6 +90,12 @@ m.Boost = {
     -- [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}},
 }
 
+m.Countable = {
+    [Id.Countable.COIN] = {
+        name = "Token",
+    },
+}
+
 m.Enemy = {
     [Id.Enemy.BASIC] = {
         damage = 10,
@@ -104,34 +110,69 @@ m.Enemy = {
         speed = 40.0,
         reward = 1,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_3"),
-    }, 
+    },
     [Id.Enemy.OCTOBOSS] = {
         damage = 30,
         health = 1000,
         speed = 20.0,
         reward = 10,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),
-    }, 
+    },
 }
 
+local function getFirepowerValuePercent(val: num)
+    local percent = (val * 100 - 100) 
+    return percent
+end
+
 m.PlayerUpgrade = {
-    [Id.PlayerF.FIREPOWER_1] = {value = 1.1, price = 50,  currency = Id.Countable.COIN, name = "Firepower 1"}, -- value is in %
-    [Id.PlayerF.FIREPOWER_2] = {value = 1.2, price = 120, currency = Id.Countable.COIN, name = "Firepower 2"}, 
-    [Id.PlayerF.FIREPOWER_3] = {value = 1.3, price = 250, currency = Id.Countable.COIN, name = "Firepower 3"}, 
-    [Id.PlayerF.FIREPOWER_4] = {value = 1.4, price = 500, currency = Id.Countable.COIN, name = "Firepower 4"}, 
-    [Id.PlayerF.FIREPOWER_5] = {value = 1.5, price = 800, currency = Id.Countable.COIN, name = "Firepower 5"}, 
+    [Id.PlayerUpgrade.FIREPOWER_1] = {
+        value = 1.1,
+        price = 0,
+        currency = Id.Countable.COIN,
+        name = "Firepower I",
+        descr = string.format("+%d%% firepower", getFirepowerValuePercent(1.1)),
+    }, -- value is in %
+    [Id.PlayerUpgrade.FIREPOWER_2] = {
+        value = 1.2,
+        price = 120,
+        currency = Id.Countable.COIN,
+        name = "Firepower II",
+        descr = string.format("+%d%% firepower", getFirepowerValuePercent(1.2)),
+    },
+    [Id.PlayerUpgrade.FIREPOWER_3] = {
+        value = 1.3,
+        price = 250,
+        currency = Id.Countable.COIN,
+        name = "Firepower III",
+        descr = string.format("+%d%% firepower", getFirepowerValuePercent(1.3)),
+    },
+    [Id.PlayerUpgrade.FIREPOWER_4] = {
+        value = 1.4,
+        price = 500,
+        currency = Id.Countable.COIN,
+        name = "Firepower IV",
+        descr = string.format("+%d%% firepower", getFirepowerValuePercent(1.4)),
+    },
+    [Id.PlayerUpgrade.FIREPOWER_5] = {
+        value = 1.5,
+        price = 800,
+        currency = Id.Countable.COIN,
+        name = "Firepower V",
+        descr = string.format("+%d%% firepower", getFirepowerValuePercent(1.5)),
+    },
 }
 
 m.Sound = {
-    [Id.Sound.BELL]                  = assert(SOUNDS_ROOT:WaitForChild("Bell")),
-    [Id.Sound.CLICK]                 = assert(SOUNDS_ROOT:WaitForChild("Click")),
-    [Id.Sound.COIN_DROP]             = assert(SOUNDS_ROOT:WaitForChild("CoinDrop")),
-    [Id.Sound.ERROR]                 = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
-    [Id.Sound.FIRE_PISTOL]           = assert(SOUNDS_ROOT:WaitForChild("Fired")),
+    [Id.Sound.BELL] = assert(SOUNDS_ROOT:WaitForChild("Bell")),
+    [Id.Sound.CLICK] = assert(SOUNDS_ROOT:WaitForChild("Click")),
+    [Id.Sound.COIN_DROP] = assert(SOUNDS_ROOT:WaitForChild("CoinDrop")),
+    [Id.Sound.ERROR] = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
+    [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
-    [Id.Sound.RELOAD]                = assert(SOUNDS_ROOT:WaitForChild("Reload")),
-    [Id.Sound.SCREAM]                = assert(SOUNDS_ROOT:WaitForChild("Scream")),
-    [Id.Sound.SCREAM_LOCALIZED]      = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Scream")),
+    [Id.Sound.RELOAD] = assert(SOUNDS_ROOT:WaitForChild("Reload")),
+    [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
+    [Id.Sound.SCREAM_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Scream")),
 }
 
 m.VFX = {

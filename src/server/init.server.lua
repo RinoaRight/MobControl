@@ -299,30 +299,11 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     end
 end
 
-local function isFirepowerUpgrade(nonPersFlags: num): id | nil
+local function isFirepowerUpgrade(playerState: PSS.PlayerState): id | nil
     local id
-    local isFirepowerUpgrade = Id.flag_test(nonPersFlags, Id.PlayerF.FIREPOWER_5)
-    if isFirepowerUpgrade then
-        id = Id.PlayerF.FIREPOWER_5
-    else
-        isFirepowerUpgrade = Id.flag_test(nonPersFlags, Id.PlayerF.FIREPOWER_4)
-        if isFirepowerUpgrade then
-            id = Id.PlayerF.FIREPOWER_4
-        else
-            isFirepowerUpgrade = Id.flag_test(nonPersFlags, Id.PlayerF.FIREPOWER_3)
-            if isFirepowerUpgrade then
-                id = Id.PlayerF.FIREPOWER_3
-            else
-                isFirepowerUpgrade = Id.flag_test(nonPersFlags, Id.PlayerF.FIREPOWER_2)
-                if isFirepowerUpgrade then
-                    id = Id.PlayerF.FIREPOWER_2
-                else
-                    isFirepowerUpgrade = Id.flag_test(nonPersFlags, Id.PlayerF.FIREPOWER_1)
-                    if isFirepowerUpgrade then
-                        id = Id.PlayerF.FIREPOWER_1
-                    end
-                end
-            end
+    for i = Id.PlayerUpgrade.FIREPOWER_1, Id.PlayerUpgrade.FIREPOWER_5 do
+        if playerState.state:get(i, C.Value) then
+            id = i
         end
     end
     return id
@@ -371,6 +352,52 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
     end
 
     -- preiousWeaponsInfo[playerId] = current_weapon_id
+end
+
+on[Id.C2S.BUY_PLAYER_UPGRADE] = function(player_state, upgrade_id: id, ...)
+    -- check if it is a valid upgrade id
+    if Id.kind(upgrade_id) ~= Id.Kind.PlayerUpgrade then
+        log:error("Not a player upgrade", upgrade_id, debug.traceback())
+        return
+    end
+
+    local itemPrice = assert(S.PlayerUpgrade[upgrade_id].price)
+    local currencyId = assert(S.PlayerUpgrade[upgrade_id].currency)
+
+    -- check if the previous upgrade of the same kind has been bought
+    local previousUpgradeId
+    -- TODO: others
+    if upgrade_id == Id.PlayerUpgrade.FIREPOWER_5 then
+        previousUpgradeId = Id.PlayerUpgrade.FIREPOWER_4
+    elseif upgrade_id == Id.PlayerUpgrade.FIREPOWER_4 then
+        previousUpgradeId = Id.PlayerUpgrade.FIREPOWER_3
+    elseif upgrade_id == Id.PlayerUpgrade.FIREPOWER_3 then
+        previousUpgradeId = Id.PlayerUpgrade.FIREPOWER_2
+    elseif upgrade_id == Id.PlayerUpgrade.FIREPOWER_2 then
+        previousUpgradeId = Id.PlayerUpgrade.FIREPOWER_1
+    end
+    if previousUpgradeId then
+        local isBoughtPrevious = player_state.state:get(previousUpgradeId, C.Value)
+        if not isBoughtPrevious then
+            log:error("Previous upgrade not bought", previousUpgradeId, debug.traceback())
+            return
+        end
+    end
+
+    -- check if the player already has this upgrade
+    if player_state.state:get(upgrade_id, C.Value) then
+        return
+    end
+
+    -- check if there is enough funds
+    if not Misc.IsEnoughFunds(player_state.state, itemPrice, currencyId) then
+        player_state:NotifyClient(Id.S2C.SHOW_POPUP_SERVER, Id.C2S.BUY_PLAYER_UPGRADE)
+        return
+    end
+
+    -- all checks done, buy upgrade
+    player_state:DeductCountable(currencyId, itemPrice)
+    player_state.state:set(upgrade_id, C.Value, true)
 end
 
 on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
@@ -424,8 +451,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
             end
 
             -- check for firepower upgrades
-            local nonPersFlags = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-            local firepowerId = isFirepowerUpgrade(nonPersFlags)
+            local firepowerId = isFirepowerUpgrade(playerState)
             local firepowerBonus = 0
             if firepowerId then
                 firepowerBonus = assert(S.PlayerUpgrade[firepowerId].value)

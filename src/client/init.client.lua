@@ -63,6 +63,7 @@ local Clones = require(script.Clones)
 local Booster = require(script.Boosters)
 local EnemiesClient = require(script.EnemiesClient)
 local UICounters = require(script.UI_Counters)
+local UIPlayerUpgrades = require(script.UI_PlayerUpgrades)
 local NumFormat = require(shared.num_format)
 local Popup = require(script.UI_Popup)
 local TaskPool = require(shared.TaskPool)
@@ -108,6 +109,7 @@ local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 
 local POPUP_GUI = assert(PLAYER_GUI:WaitForChild("PopupGUI"))
 local SETTINGS_MENU_GUI = assert(PLAYER_GUI:WaitForChild("SettingsMenuGUI"))
+local TOKEN_SHOP_GUI = assert(PLAYER_GUI:WaitForChild("TokenShopGUI"))
 
 local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
 local SETTINGS_BTN_PANEL = assert(MAIN_GUI.GearPanel)
@@ -216,6 +218,11 @@ on[Id.S2C.SHOW_POPUP_SERVER] = function(state: state.Replica, event_id: id)
     if event_id == Id.C2S.PLAYER_READY_TO_START then
         Signal.Broadcast(Id.C2C.SHOW_POPUP_CLIENT, {
             text = "Max number of players reached =(\nWait for the next round!",
+            ok = function() end,
+        })
+    elseif event_id == Id.C2S.BUY_PLAYER_UPGRADE then
+        Signal.Broadcast(Id.C2C.SHOW_POPUP_CLIENT, {
+            text = "You can't buy this upgrade :(\n\n",
             ok = function() end,
         })
     end
@@ -377,6 +384,7 @@ local load = function(fire: FireServer, snapshot)
     Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_PANEL, SETTINGS_MENU_GUI)
     Popup:Init(POPUP_GUI)
     UICounters.Init(state, TOP_RIGHT_PANEL)
+    UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, LOCAL_HUMANOID_ROOT_PART)
 
     MAIN_GUI.Enabled = true
     

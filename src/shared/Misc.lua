@@ -29,6 +29,7 @@ local rand = require(shared.rand)
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local W = SharedConfig.World.CId
+local C = SharedConfig.PlayerState.CId
 
 local m = {}
 m.__index = m
@@ -330,6 +331,14 @@ end
 
 function m.OnUIElementClickedDo(input, playerGui: StarterGui, ui_element: GuiObject, func)
     onClickEvent(input, playerGui, ui_element, func, true)
+end
+
+function m.IsEnoughFunds(playerState, itemPrice: num, currencyId: int)
+    local playerFunds = playerState:get(currencyId, C.Value)
+    if playerFunds >= itemPrice then
+        return true
+    end
+    return false
 end
 
 return m

@@ -136,6 +136,11 @@ local function update_ids(main: state.Main)
     merge(Id.Countable, function(id)
         _countable_persistent(id, 0, 0)
     end)
+
+    local _player_upgrade_non_persistent = main:constructor(C.Value)
+    merge(Id.PlayerUpgrade, function(id)
+        _player_upgrade_non_persistent(id, false)
+    end)
 end
 
 local function create_state(player_state: PlayerState)
@@ -252,7 +257,7 @@ function PlayerState.AddCountable(self: PlayerState, countable_id: id, amount: i
 end
 
 function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount: int): (bool, id?, id?)
-    log:assert(Id.kind(countable_id) ~= Id.Kind.Countable, "not a countable id", countable_id)
+    log:assert(Id.kind(countable_id) == Id.Kind.Countable, "not a countable id", countable_id)
     log:assert(type(amount) == "number", "count must be a number")
     if amount == 0 then
         return true

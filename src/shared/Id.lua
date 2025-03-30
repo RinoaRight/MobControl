@@ -61,6 +61,7 @@ local Kind = table.freeze {
     PlayerF         = enum.iota'',
     WorldF          = enum.iota'',
     EnemyF          = enum.iota'',
+    PlayerUpgrade   = enum.iota'',
     Countable       = enum.iota'',
     Clone           = enum.iota'',
     Weapon          = enum.iota'',
@@ -391,6 +392,21 @@ export type Boost = typeof(Id.Boost)
 
 -- stylua: ignore
 -----------------------------
+-- PlayerUpgrade
+-----------------------------
+Id.PlayerUpgrade = enum.with_id "Id.PlayerUpgrade" {
+    NONE               = iota(Id.Kind.PlayerUpgrade, 0),
+    FIREPOWER_1        = iota'',
+    FIREPOWER_2        = iota'',
+    FIREPOWER_3        = iota'',
+    FIREPOWER_4        = iota'',
+    FIREPOWER_5        = iota'',
+}
+KIND_TO_ENUM[Id.Kind.PlayerUpgrade] = Id.PlayerUpgrade
+export type PlayerUpgrade = typeof(Id.PlayerUpgrade)
+
+-- stylua: ignore
+-----------------------------
 -- Pass
 -----------------------------
 Id.Pass = enum.with_id "Id.Pass" {
@@ -424,11 +440,6 @@ Id.PlayerF = enum.with_id "Id.PlayerF" {
     OTHER_CLONES_ON    = flag'',
     _NON_PERSISTENT    = flag'', 
     READY              = flag'',
-    FIREPOWER_1        = flag'',
-    FIREPOWER_2        = flag'',
-    FIREPOWER_3        = flag'',
-    FIREPOWER_4        = flag'',
-    FIREPOWER_5        = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
@@ -696,6 +707,7 @@ export type C2C = typeof(Id.C2C)
 Id.C2S = enum.with_id "Id.C2S" {
     _NONE                     = iota(Id.Kind.C2S, 0),
     BULLET_SHOT               = iota'', -- {bullet_guids}, bullet_weapon_id
+    BUY_PLAYER_UPGRADE        = iota'', -- upgrade_id           
     TARGET_HIT                = iota'', -- {enemy_guids}, bullet_guid
     TOGGLE_PLAYER_FLAG        = iota'', -- bool, flag_id
     PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
