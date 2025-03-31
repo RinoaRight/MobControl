@@ -84,9 +84,9 @@ m.Weapon = {
 -- stylua: ignore
 m.Boost = {
     -- TODO: real values
-    [Id.Boost.ADD_CLONE]         = {valueRange = {2,2}, hpRange = {50, 100}},
-    [Id.Boost.CHANGE_WEAPON]     = {valueRange = {0, 0}, hpRange = {50, 100}, contentsRange = {Id.Weapon.SMG, Id.Weapon.ROCKET}},
-    [Id.Boost.FIRST_AID_KIT]     = {valueRange = {20, 50}, hpRange = {50, 100}},
+    [Id.Boost.ADD_CLONE]         = {valueRange = {2, 2}, baseReward = 1, hpRange = {50, 100}},
+    [Id.Boost.CHANGE_WEAPON]     = {valueRange = {0, 0}, baseReward = 1, hpRange = {50, 100}, contentsRange = {Id.Weapon.SMG, Id.Weapon.ROCKET}},
+    [Id.Boost.FIRST_AID_KIT]     = {valueRange = {20, 50}, baseReward = 1, hpRange = {50, 100}},
     -- [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}},
 }
 
@@ -104,12 +104,19 @@ m.Enemy = {
         reward = 1,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_1"),
     }, -- hp, hp, studs/sec, coins, assetId
-    [Id.Enemy.CRAZY] = {
+    [Id.Enemy.CRAZOMBIE] = {
         damage = 15,
         health = 15,
         speed = 40.0,
         reward = 1,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_3"),
+    },
+    [Id.Enemy.ZOMBALLOON] = {
+        damage = 20,
+        health = 10,
+        speed = 30.0,
+        reward = 3, 
+        meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_9"),
     },
     [Id.Enemy.OCTOBOSS] = {
         damage = 30,
@@ -120,46 +127,102 @@ m.Enemy = {
     },
 }
 
-local function getFirepowerValuePercent(val: num)
+local function getValuePercent(val: num)
     local percent = (val * 100 - 100) 
     return percent
 end
 
 m.PlayerUpgrade = {
     [Id.PlayerUpgrade.FIREPOWER_1] = {
-        value = 1.1,
-        price = 0,
+        value = 1.1, -- %
+        price = 50,
         currency = Id.Countable.COIN,
         name = "Firepower I",
-        descr = string.format("+%d%% firepower", getFirepowerValuePercent(1.1)),
-    }, -- value is in %
+        descr = string.format("+%d%% firepower", getValuePercent(1.1)),
+    }, 
     [Id.PlayerUpgrade.FIREPOWER_2] = {
-        value = 1.2,
+        value = 1.2, -- %
         price = 120,
         currency = Id.Countable.COIN,
         name = "Firepower II",
-        descr = string.format("+%d%% firepower", getFirepowerValuePercent(1.2)),
+        descr = string.format("+%d%% firepower", getValuePercent(1.2)),
     },
     [Id.PlayerUpgrade.FIREPOWER_3] = {
-        value = 1.3,
+        value = 1.3, -- %
         price = 250,
         currency = Id.Countable.COIN,
         name = "Firepower III",
-        descr = string.format("+%d%% firepower", getFirepowerValuePercent(1.3)),
+        descr = string.format("+%d%% firepower", getValuePercent(1.3)),
     },
     [Id.PlayerUpgrade.FIREPOWER_4] = {
-        value = 1.4,
+        value = 1.4, -- %
         price = 500,
         currency = Id.Countable.COIN,
         name = "Firepower IV",
-        descr = string.format("+%d%% firepower", getFirepowerValuePercent(1.4)),
+        descr = string.format("+%d%% firepower", getValuePercent(1.4)),
     },
     [Id.PlayerUpgrade.FIREPOWER_5] = {
-        value = 1.5,
+        value = 1.5, -- %
         price = 800,
         currency = Id.Countable.COIN,
         name = "Firepower V",
-        descr = string.format("+%d%% firepower", getFirepowerValuePercent(1.5)),
+        descr = string.format("+%d%% firepower", getValuePercent(1.5)),
+    },
+    [Id.PlayerUpgrade.HITPOINTS_1] = {
+        value = 1.1, -- %
+        price = 40,
+        currency = Id.Countable.COIN,
+        name = "Hitpoints I",
+        descr = string.format("+%d%% hitpoints", getValuePercent(1.1)),
+    },
+    [Id.PlayerUpgrade.HITPOINTS_2] = {
+        value = 1.2, -- %
+        price = 100,
+        currency = Id.Countable.COIN,
+        name = "Hitpoints II",
+        descr = string.format("+%d%% hitpoints", getValuePercent(1.2)),
+    },
+    [Id.PlayerUpgrade.HITPOINTS_3] = {
+        value = 1.3, -- %
+        price = 200,
+        currency = Id.Countable.COIN,
+        name = "Hitpoints III",
+        descr = string.format("+%d%% hitpoints", getValuePercent(1.3)),
+    },
+    [Id.PlayerUpgrade.HITPOINTS_4] = {
+        value = 1.4, -- %
+        price = 400,
+        currency = Id.Countable.COIN,
+        name = "Hitpoints IV",
+        descr = string.format("+%d%% hitpoints", getValuePercent(1.4)),
+    },
+    [Id.PlayerUpgrade.HITPOINTS_5] = {
+        value = 1.5, -- %
+        price = 700,
+        currency = Id.Countable.COIN,
+        name = "Hitpoints V",
+        descr = string.format("+%d%% hitpoints", getValuePercent(1.5)),
+    },
+    [Id.PlayerUpgrade.INIT_CLONE_1] = {
+        value = 1, -- unit
+        price = 100,
+        currency = Id.Countable.COIN,
+        name = "Clones I",
+        descr = string.format("1 clone at the start"),
+    },
+    [Id.PlayerUpgrade.INIT_CLONE_2] = {
+        value = 2, -- unit
+        price = 300,
+        currency = Id.Countable.COIN,
+        name = "Clones II",
+        descr = string.format("2 clones at the start"),
+    },
+    [Id.PlayerUpgrade.INIT_CLONE_3] = {
+        value = 3, -- unit
+        price = 600,
+        currency = Id.Countable.COIN,
+        name = "Clones III",
+        descr = string.format("3 clones at the start"),
     },
 }
 

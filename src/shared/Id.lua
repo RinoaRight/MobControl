@@ -401,7 +401,16 @@ Id.PlayerUpgrade = enum.with_id "Id.PlayerUpgrade" {
     FIREPOWER_3        = iota'',
     FIREPOWER_4        = iota'',
     FIREPOWER_5        = iota'',
+    HITPOINTS_1        = iota'',
+    HITPOINTS_2        = iota'',
+    HITPOINTS_3        = iota'',
+    HITPOINTS_4        = iota'',
+    HITPOINTS_5        = iota'',
+    INIT_CLONE_1       = iota'',
+    INIT_CLONE_2       = iota'',
+    INIT_CLONE_3       = iota'',
 }
+-- TODO: add all-players upgrades? weapon unlocks? drones?
 KIND_TO_ENUM[Id.Kind.PlayerUpgrade] = Id.PlayerUpgrade
 export type PlayerUpgrade = typeof(Id.PlayerUpgrade)
 
@@ -544,7 +553,8 @@ export type Weapon = typeof(Id.Weapon)
 Id.Enemy = enum.with_id "Id.Enemy" {
     _NONE      = iota(Id.Kind.Enemy, 0),
     BASIC      = iota'',
-    CRAZY      = iota'',
+    CRAZOMBIE  = iota'',
+    ZOMBALLOON = iota'',
     OCTOBOSS   = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Enemy] = Id.Enemy

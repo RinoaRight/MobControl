@@ -94,23 +94,13 @@ local function onPurchaseBtnPressed(playerState, upgradeId)
     if Misc.IsEnoughFunds(playerState, itemPrice, currencyId) then
         Signal.Fire(Id.C2S.BUY_PLAYER_UPGRADE, upgradeId)
 
-        -- hide the one player bought, show the next one
-        -- TODO: others
-        if upgradeId == Id.PlayerUpgrade.FIREPOWER_1 then
-            upgradesData[upgradeId].slot.Visible = false
-            upgradesData[Id.PlayerUpgrade.FIREPOWER_2].slot.Visible = true
-        elseif upgradeId == Id.PlayerUpgrade.FIREPOWER_2 then
-            upgradesData[upgradeId].slot.Visible = false
-            upgradesData[Id.PlayerUpgrade.FIREPOWER_3].slot.Visible = true
-        elseif upgradeId == Id.PlayerUpgrade.FIREPOWER_3 then
-            upgradesData[upgradeId].slot.Visible = false
-            upgradesData[Id.PlayerUpgrade.FIREPOWER_4].slot.Visible = true
-        elseif upgradeId == Id.PlayerUpgrade.FIREPOWER_4 then
-            upgradesData[upgradeId].slot.Visible = false
-            upgradesData[Id.PlayerUpgrade.FIREPOWER_5].slot.Visible = true
-        elseif upgradeId == Id.PlayerUpgrade.FIREPOWER_5 then
-            upgradesData[upgradeId].slot.Visible = false
+        -- hide the slot for the tier player bought, show the next one, if any
+        local nextTierId = Misc.IsUpgradeNextTier(upgradeId)
+        upgradesData[upgradeId].slot.Visible = false
+        if nextTierId then
+            upgradesData[nextTierId].slot.Visible = true
         end
+
     else
         SFX.PLAY_SOUND(Id.Sound.ERROR)
         local currencyName = assert(S.Countable[currencyId].name)
@@ -160,6 +150,54 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
         [Id.PlayerUpgrade.FIREPOWER_5] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_5_Firepower", true)),
+            isName = true,
+            isDescription = true,
+        },
+        [Id.PlayerUpgrade.HITPOINTS_1] = {
+            panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
+            slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_1_Hitpoints", true)),
+            isName = true,
+            isDescription = true,
+        },
+        [Id.PlayerUpgrade.HITPOINTS_2] = {
+            panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
+            slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_2_Hitpoints", true)),
+            isName = true,
+            isDescription = true,
+        },
+        [Id.PlayerUpgrade.HITPOINTS_3] = {
+            panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
+            slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_3_Hitpoints", true)),
+            isName = true,
+            isDescription = true,
+        },
+        [Id.PlayerUpgrade.HITPOINTS_4] = {
+            panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
+            slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_4_Hitpoints", true)),
+            isName = true,
+            isDescription = true,
+        },
+        [Id.PlayerUpgrade.HITPOINTS_5] = {
+            panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
+            slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_5_Hitpoints", true)),
+            isName = true,
+            isDescription = true,
+        },
+        [Id.PlayerUpgrade.INIT_CLONE_1] = {
+            panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
+            slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_1_Clones", true)),
+            isName = true,
+            isDescription = true,
+        },
+        [Id.PlayerUpgrade.INIT_CLONE_2] = {
+            panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
+            slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_2_Clones", true)),
+            isName = true,
+            isDescription = true,
+        },
+        [Id.PlayerUpgrade.INIT_CLONE_3] = {
+            panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
+            slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_3_Clones", true)),
             isName = true,
             isDescription = true,
         },

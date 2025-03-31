@@ -106,7 +106,15 @@ local function changeWeapon(player_state, weapon_id: id)
 end
 
 local function resetHp(player_state)
-    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, SharedConfig.PLAYER_BASE_HP)
+    local hp = SharedConfig.PLAYER_BASE_HP
+
+    -- check for hp upgrades
+    local hpUpgrade = Misc.IsHpUpgrade(player_state)
+    if hpUpgrade and S.PlayerUpgrade[hpUpgrade].value then
+        hp *= S.PlayerUpgrade[hpUpgrade].value
+    end
+
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, hp)
     WorldService.world:set(player_state.player_id, W.HP, SharedConfig.PLAYER_BASE_HP)
 end
 
@@ -299,16 +307,6 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     end
 end
 
-local function isFirepowerUpgrade(playerState: PSS.PlayerState): id | nil
-    local id
-    for i = Id.PlayerUpgrade.FIREPOWER_1, Id.PlayerUpgrade.FIREPOWER_5 do
-        if playerState.state:get(i, C.Value) then
-            id = i
-        end
-    end
-    return id
-end
-
 ----------------------------
 -- Event Handling
 -----------------------------
@@ -365,17 +363,7 @@ on[Id.C2S.BUY_PLAYER_UPGRADE] = function(player_state, upgrade_id: id, ...)
     local currencyId = assert(S.PlayerUpgrade[upgrade_id].currency)
 
     -- check if the previous upgrade of the same kind has been bought
-    local previousUpgradeId
-    -- TODO: others
-    if upgrade_id == Id.PlayerUpgrade.FIREPOWER_5 then
-        previousUpgradeId = Id.PlayerUpgrade.FIREPOWER_4
-    elseif upgrade_id == Id.PlayerUpgrade.FIREPOWER_4 then
-        previousUpgradeId = Id.PlayerUpgrade.FIREPOWER_3
-    elseif upgrade_id == Id.PlayerUpgrade.FIREPOWER_3 then
-        previousUpgradeId = Id.PlayerUpgrade.FIREPOWER_2
-    elseif upgrade_id == Id.PlayerUpgrade.FIREPOWER_2 then
-        previousUpgradeId = Id.PlayerUpgrade.FIREPOWER_1
-    end
+    local previousUpgradeId = Misc.IsUpgradePreviousTier(upgrade_id)
     if previousUpgradeId then
         local isBoughtPrevious = player_state.state:get(previousUpgradeId, C.Value)
         if not isBoughtPrevious then
@@ -451,8 +439,8 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
             end
 
             -- check for firepower upgrades
-            local firepowerId = isFirepowerUpgrade(playerState)
-            local firepowerBonus = 0
+            local firepowerId = Misc.IsFirepowerUpgrade(playerState)
+            local firepowerBonus = 1
             if firepowerId then
                 firepowerBonus = assert(S.PlayerUpgrade[firepowerId].value)
             end
@@ -461,7 +449,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                 local enemyHP = WorldService.world:get(targetGuid, W.HP)
                 local dmg = 0
                 if bulletWeaponDataEntry and bulletWeaponDataEntry.damage then
-                    dmg = math.floor(bulletWeaponDataEntry.damage + firepowerBonus)
+                    dmg = math.floor(bulletWeaponDataEntry.damage * firepowerBonus)
                 end
                 local newHP = enemyHP - dmg
 
@@ -508,7 +496,8 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                     local _ = playerState:UpdateSessionDamageStats(booster_hp)
 
                     -- give reward for killing booster
-                    playerState:AddCountable(Id.Countable.COIN, SharedConfig.COINS_PER_BOOSTER)
+                    local reward = S.Boost[targetRefId].baseReward or 0
+                    playerState:AddCountable(Id.Countable.COIN, reward)
 
                     GameModule.HandleBoosterDeath(playerState, targetGuid, targetRefId, value, boostContentId)
                 else
@@ -557,6 +546,7 @@ on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num |
 end
 
 on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
+    local playerId = player_state.player_id
     local total_players = Players:GetPlayers()
     local players_already_in_session = 1 -- including this player
     if #total_players > 1 then
@@ -596,6 +586,17 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     end
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
+
+    -- initialize player clones if any
+    local cloneUpgradeId = Misc.IsCloneUpgrade(player_state)
+    if cloneUpgradeId then
+        local value = S.PlayerUpgrade[cloneUpgradeId].value
+        if value then
+            for i = 1, value do
+                local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
+            end
+        end
+    end
 end
 
 on[Id.C2S.TOGGLE_PLAYER_FLAG] = function(player_state, isToSwitchOn, flag_id, ...)

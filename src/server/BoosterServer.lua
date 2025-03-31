@@ -43,16 +43,18 @@ local NumFormat = require(shared.num_format)
 local SharedUtils = require(shared.util)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Rand = require(shared.rand)
+local BASE_HP_MULT = .1
 
 local m = {}
 
+-- TODO: others
 m.BOOSTER_DATA_TABLE = {
     {
         boost_gacha = { [Id.Boost.ADD_CLONE] = 65, [Id.Boost.CHANGE_WEAPON] = 35 },
         weapon_gacha = { [Id.Weapon.SMG] = 55, [Id.Weapon.SPRAYGUN] = 40, [Id.Weapon.ROCKET] = 5 },
     },
     {
-        boost_gacha = { [Id.Boost.ADD_CLONE] = 50, [Id.Boost.CHANGE_WEAPON] = 35, [Id.Boost.FIRST_AID_KIT] = 15 },
+        boost_gacha = { [Id.Boost.ADD_CLONE] = 55, [Id.Boost.CHANGE_WEAPON] = 35, [Id.Boost.FIRST_AID_KIT] = 10 },
         weapon_gacha = { [Id.Weapon.SMG] = 55, [Id.Weapon.SPRAYGUN] = 40, [Id.Weapon.ROCKET] = 5 },
     },
 }
@@ -83,9 +85,9 @@ function m.GetCurrentBoosterHpMult(worldState: state.Main)
     if currentBoosterWaveNum > #m.BOOSTER_DATA_TABLE then
         currentBoosterWaveNum = #m.BOOSTER_DATA_TABLE
     end
-    local mult = 1 + .1 * currentBoosterWaveNum
+    local mult = 1 + BASE_HP_MULT * currentBoosterWaveNum
     return mult
 end
 
 return m
--- TODO: clone bosster hp should be dependent on the number of clones
+-- TODO: clone booster hp should be dependent on the number of clones

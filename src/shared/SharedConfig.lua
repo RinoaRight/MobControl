@@ -75,8 +75,6 @@ m.DRIVING_BOX_STARTING_POS = Vector3.new(0, 50, 255)
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
--- Prices
-m.COINS_PER_BOOSTER = 1
 
 -----------------------------
 -- WorldState
