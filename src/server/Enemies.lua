@@ -110,8 +110,8 @@ local m = {}
 m.ENEMIES_DATA_TABLE = {
     { count = 20, gacha = {[Id.Enemy.BASIC] = 1}},
     { count = 20, gacha = {[Id.Enemy.BASIC] = 1}},
-    { count = 20, gacha = {[Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZY] = .3}},
-    { count = 20, gacha = {[Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZY] = .3}},
+    { count = 20, gacha = {[Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = .3}},
+    { count = 20, gacha = {[Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = .3}},
 }
 
 function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, waveNumber :int)

@@ -38,20 +38,23 @@ local Misc = require(shared.Misc)
 local Sounds = require(script.Parent.SFX)
 local S = require(shared.StaticData)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
-local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
+
 local COIN_TEXTBOX
+local COIN_IMG
 
 local _maid = disposer.new()
 
-local DEFAULT_SCALE = UDim2.fromScale(1, 1)
-local TARGET_SCALE = UDim2.fromScale(DEFAULT_SCALE.X.Scale, DEFAULT_SCALE.Y.Scale * 1.5)
+local DEFAULT_SCALE_MONEY_TEXTBOX = UDim2.fromScale(1, 1)
+local DEFAULT_SCALE_MONEY_IMG = UDim2.fromScale(.7, .7)
+local TARGET_SCALE = UDim2.fromScale(DEFAULT_SCALE_MONEY_TEXTBOX.X.Scale, DEFAULT_SCALE_MONEY_TEXTBOX.Y.Scale * 1.5)
 
 local m = {}
 m.__index = m
 
 m.Init = function(playerState: state.Replica, guiPanel)
-    COIN_TEXTBOX = assert(guiPanel:WaitForChild("MoneyFrame").BG.TextLabel)
+    local coinFrame = assert(guiPanel:WaitForChild("MoneyFrame"))
+    COIN_TEXTBOX = assert(coinFrame.BG.TextLabel)
+    COIN_IMG = assert(coinFrame.MoneyIcon)
     local coinsValue = playerState:get(Id.Countable.COIN, C.Value)
     COIN_TEXTBOX.Text = NumFormat.format_ectos(coinsValue)
 
@@ -76,13 +79,15 @@ m.OnStateUpdate = function(playerState: state.Replica)
             Sounds.PLAY_SOUND(Id.Sound.BELL)
         end
 
-        -- flick textbox's scale
+        -- flicker textbox's scale
         local currency = Id.name(refId)
         if not _maid[currency] and value ~= valueView then
             _maid[currency] = task.spawn(function()
                 COIN_TEXTBOX:TweenSize(TARGET_SCALE, Enum.EasingDirection.In, Enum.EasingStyle.Sine, 0.1)
+                COIN_IMG:TweenSize(TARGET_SCALE, Enum.EasingDirection.In, Enum.EasingStyle.Sine, 0.1)
                 task.wait(0.15)
-                COIN_TEXTBOX:TweenSize(DEFAULT_SCALE, Enum.EasingDirection.In, Enum.EasingStyle.Sine, 0.1)
+                COIN_TEXTBOX:TweenSize(DEFAULT_SCALE_MONEY_TEXTBOX, Enum.EasingDirection.In, Enum.EasingStyle.Sine, 0.1)
+                COIN_IMG:TweenSize(DEFAULT_SCALE_MONEY_IMG, Enum.EasingDirection.In, Enum.EasingStyle.Sine, 0.1)
                 task.wait(0.15)
                 _maid[currency] = nil
             end)

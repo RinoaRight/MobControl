@@ -231,7 +231,7 @@ end
 -- Server Broadcasts
 local on_cc = {} :: { [id]: (...any) -> () }
 
-on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
+on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
     local weapon_id = SharedConfig.DEFAULT_WEAPON_ID
     local player = game.Players:GetPlayerByUserId(player_id)
 
@@ -257,8 +257,7 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
         -- start running animation
         startRunAnim(LOCAL_CHARACTER)
 
-        local hp = SharedConfig.PLAYER_BASE_HP
-        Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, hp)
+        Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, player_hp)
         return
     else
         local player = Players:GetPlayerByUserId(player_id)
@@ -878,7 +877,7 @@ RunService.Heartbeat:Connect(function(dt)
         if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
             local weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
             if not weaponId or weaponId == Id.Weapon._NONE then
-                log:error("No bullet can be fired for this weapon_id", weaponId)
+                return
             end
             local shot_tte = PLAYER_STATE:get(LOCAL_PLAYER.UserId, C.ClientTTE) :: num
             if shot_tte then

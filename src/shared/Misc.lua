@@ -30,6 +30,7 @@ local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local W = SharedConfig.World.CId
 local C = SharedConfig.PlayerState.CId
+local state = require(shared.state)
 
 local m = {}
 m.__index = m
@@ -360,7 +361,7 @@ function m.IsUpgradeNextTier(upgradeId: int)
     if
         upgradeId < Id.PlayerUpgrade.FIREPOWER_5 and upgradeId >= Id.PlayerUpgrade.FIREPOWER_1
         or upgradeId < Id.PlayerUpgrade.HITPOINTS_5 and upgradeId >= Id.PlayerUpgrade.HITPOINTS_1
-        or upgradeId < Id.PlayerUpgrade.INIT_CLONE_3 and upgradeId >= Id.PlayerUpgrade.INIT_CLONE_2
+        or upgradeId < Id.PlayerUpgrade.INIT_CLONE_3 and upgradeId >= Id.PlayerUpgrade.INIT_CLONE_1
     then
         nextTierId = upgradeId + 1
     end
@@ -380,7 +381,7 @@ end
 function m.IsHpUpgrade(playerState): int | nil
     local id
     for i = Id.PlayerUpgrade.HITPOINTS_1, Id.PlayerUpgrade.HITPOINTS_5 do
-        if playerState.state:get(i, C.Value) then
+        if playerState:get(i, C.Value) then
             id = i
         end
     end

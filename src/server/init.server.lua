@@ -109,13 +109,15 @@ local function resetHp(player_state)
     local hp = SharedConfig.PLAYER_BASE_HP
 
     -- check for hp upgrades
-    local hpUpgrade = Misc.IsHpUpgrade(player_state)
+    local hpUpgrade = Misc.IsHpUpgrade(player_state.state):: num
     if hpUpgrade and S.PlayerUpgrade[hpUpgrade].value then
         hp *= S.PlayerUpgrade[hpUpgrade].value
     end
 
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, hp)
     WorldService.world:set(player_state.player_id, W.HP, SharedConfig.PLAYER_BASE_HP)
+
+    return hp
 end
 
 local function cleanUpWorldState(player_state, this_player_id: int)
@@ -567,7 +569,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         return
     end
 
-    resetHp(player_state)
+    local playerHp = resetHp(player_state)
     changeWeapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
 
     -- initialize main game loop if it is not initialized yet
@@ -585,7 +587,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         log:trace("player's loop canceled")
     end
     GameModule.SpawnPlayer(player_state, players_already_in_session)
-    Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id)
+    Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id, playerHp)
 
     -- initialize player clones if any
     local cloneUpgradeId = Misc.IsCloneUpgrade(player_state)

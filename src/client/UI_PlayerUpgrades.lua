@@ -100,7 +100,6 @@ local function onPurchaseBtnPressed(playerState, upgradeId)
         if nextTierId then
             upgradesData[nextTierId].slot.Visible = true
         end
-
     else
         SFX.PLAY_SOUND(Id.Sound.ERROR)
         local currencyName = assert(S.Countable[currencyId].name)
@@ -242,15 +241,9 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
 
         -- define which upgrades to show
         -- TODO: others
-        if id == Id.PlayerUpgrade.FIREPOWER_1 then
+        if id == Id.PlayerUpgrade.FIREPOWER_1 or id == Id.PlayerUpgrade.HITPOINTS_1 or id == Id.PlayerUpgrade.INIT_CLONE_1 then
             upgradesData[id].slot.Visible = true
-        elseif id == Id.PlayerUpgrade.FIREPOWER_2 then
-            upgradesData[id].slot.Visible = false
-        elseif id == Id.PlayerUpgrade.FIREPOWER_3 then
-            upgradesData[id].slot.Visible = false
-        elseif id == Id.PlayerUpgrade.FIREPOWER_4 then
-            upgradesData[id].slot.Visible = false
-        elseif id == Id.PlayerUpgrade.FIREPOWER_5 then
+        else
             upgradesData[id].slot.Visible = false
         end
     end
