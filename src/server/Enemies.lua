@@ -51,50 +51,15 @@ local GROUND_UNIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
 local GROUND_UNIT_LENGTH_HALF = GROUND_UNIT_LENGTH / 2
 local X_MARGIN = 40
 local SPAWN_SPACE_WIDTH = GROUND_UNIT_TEMPLATE.Size.X - X_MARGIN * 2
-local X_INTERVAL = 5 --20
+local X_INTERVAL = 5
 local Z_INTERVAL = 20
-local ENEMY_CELL_SIZE = Vector3.new(2, 6, 2)
+local ENEMY_CELL_SIZE = Vector3.new(4, 6, 4)
 local MAX_ROW, MAX_COLS = 16, 16
 local DISTANCE_FROM_MID_TO_BOOSTER = SharedConfig.DISTANCE_FROM_MID_TO_BOOSTER
 local START_ZONE_GAP = 70
 local FIRST_HALF_Z_OFFSET = -DISTANCE_FROM_MID_TO_BOOSTER + START_ZONE_GAP
 local SECOND_HALF_Z_OFFSET = -DISTANCE_FROM_MID_TO_BOOSTER - SharedConfig.BOOSTER_DEPTH
 local NUM_OF_COLUMNS = math.floor((GROUND_UNIT_LENGTH - X_MARGIN * 2) / X_INTERVAL)
-
--- origin is a center-top
--- +-----O-----+ -Z   `O` is origin
--- |  1  |  2  |  ^
--- +-----+-----+  |
--- |  3  |  4  |  o---> X
--- +-----+-----+
-local function create_grid(cell_w: int, cell_h: int, cols: int, rows: int, origin: Vector3)
-    -- TODO: shift on X axis for each new row
-    -- spawns from top left corner
-    local grid = table.create(cols * rows)
-    local bitmap = table.create(#grid, false)
-    local x_offset = origin.X - (cols * cell_w) // 2 + cell_w // 2
-    local z_offset = origin.Z + cell_h // 2
-    local X_SHIFT = cell_w // 4
-    for ri = 1, rows do
-        local dx = ri % 2 ~= 0 and X_SHIFT or -X_SHIFT
-        for ci = 1, cols do
-            local x = x_offset + (ci - 1) * cell_w + dx
-            local z = z_offset + (ri - 1) * cell_h
-            local pos = Vector3.new(x, origin.Y, z)
-            grid[(ci - 1) * rows + ri] = pos
-            bitmap[(ci - 1) * cell_h + ri] = false
-        end
-    end
-    local rc2idx = function(row: int, col: int)
-        return (row - 1) * cols + col
-    end
-    local idx2rc = function(idx: int)
-        local row = math.floor((idx - 1) / cols) + 1
-        local col = idx - (row - 1) * cols
-        return row, col
-    end
-    return grid, bitmap, rc2idx, idx2rc
-end
 
 local function spawnBoss(enemyId, unitPos)
     local bossTemplate = S.Enemy[enemyId].meshTemplate
@@ -104,15 +69,16 @@ local function spawnBoss(enemyId, unitPos)
     return bossGuid
 end
 
-local m = {}
-
--- Every odd wave spawns in the current ground unit in front of the boosters, every even - after some time, behind the boosters
-m.ENEMIES_DATA_TABLE = {
+local ENEMIES_DATA_TABLE = {
     { count = 20, gacha = {[Id.Enemy.BASIC] = 1}},
     { count = 20, gacha = {[Id.Enemy.BASIC] = 1}},
     { count = 20, gacha = {[Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = .3}},
     { count = 20, gacha = {[Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = .3}},
 }
+local m = {}
+
+-- NOTE: Every odd wave spawns in the current ground unit in front of the boosters, 
+-- every even - after some time, behind the boosters
 
 function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, waveNumber :int)
     local enemiesGuids = {}
@@ -120,10 +86,10 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         local bossGuid = spawnBoss(Id.Enemy.OCTOBOSS, groundUnit.Position)
         table.insert(enemiesGuids, bossGuid)
         return enemiesGuids 
-    elseif waveNumber > #m.ENEMIES_DATA_TABLE then
-        waveNumber = #m.ENEMIES_DATA_TABLE
+    elseif waveNumber > #ENEMIES_DATA_TABLE then
+        waveNumber = #ENEMIES_DATA_TABLE
     end
-    local numberOfEnemies = m.ENEMIES_DATA_TABLE[waveNumber].count
+    local numberOfEnemies = ENEMIES_DATA_TABLE[waveNumber].count
     if numberOfEnemies <= 0 then
         return enemiesGuids
     end
@@ -141,15 +107,12 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
     local cols = math.floor(SPAWN_SPACE_WIDTH / cell_w)
     local rows = 3
 
-    -- TODO: make sure that the number of columns correspond with cell_width
-
-
     -- make sure the grid fits all the required enemies
     while numberOfEnemies > cols * rows do
         rows += 1
     end
 
-    local grid, bitmap, _rc2idx, _idx2rc = create_grid(cell_w, cell_h, cols, rows, origin)
+    local grid, bitmap, _rc2idx, _idx2rc = Misc.CreateGrid(cell_w, cell_h, cols, rows, origin)
 
     for i = 1, numberOfEnemies do
         local idx: int
@@ -162,7 +125,7 @@ function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf:
         enemyPos = Vector3.new(enemyPos.X, enemyPos.Y + yOffset, enemyPos.Z)
 
         -- define enemy id
-        local gacha = m.ENEMIES_DATA_TABLE[waveNumber].gacha
+        local gacha = ENEMIES_DATA_TABLE[waveNumber].gacha
         local enemyId = Rand.weighted_choice(gacha)
 
         local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyPos)

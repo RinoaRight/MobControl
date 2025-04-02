@@ -66,6 +66,7 @@ local Kind = table.freeze {
     Clone           = enum.iota'',
     Weapon          = enum.iota'',
     Enemy           = enum.iota'',
+    Obstacle        = enum.iota'',
     PlayerSpecs     = enum.iota'',
     WorldSpecs      = enum.iota'',
     TimedEvent      = enum.iota'',
@@ -562,6 +563,17 @@ export type Enemy = typeof(Id.Enemy)
 
 -- stylua: ignore
 -----------------------------
+-- Obstacle
+-----------------------------
+Id.Obstacle = enum.with_id "Id.Obstacle" {
+    _NONE      = iota(Id.Kind.Obstacle, 0),
+    GRAVE      = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Obstacle] = Id.Obstacle
+export type Obstacle = typeof(Id.Obstacle)
+
+-- stylua: ignore
+-----------------------------
 -- Timed event
 -----------------------------
 Id.TimedEvent = enum.with_id "Id.TimedEvent" {
@@ -715,14 +727,14 @@ export type C2C = typeof(Id.C2C)
 -- C2S
 -----------------------------
 Id.C2S = enum.with_id "Id.C2S" {
-    _NONE                     = iota(Id.Kind.C2S, 0),
-    BULLET_SHOT               = iota'', -- {bullet_guids}, bullet_weapon_id
-    BUY_PLAYER_UPGRADE        = iota'', -- upgrade_id           
-    TARGET_HIT                = iota'', -- {enemy_guids}, bullet_guid
-    TOGGLE_PLAYER_FLAG        = iota'', -- bool, flag_id
-    PLAYER_COLLIDED_W_BOOSTER = iota'', -- booster_guid, triggerer_guid (or player_id)
-    PLAYER_HIT_BY_OWN_ROCKET  = iota'', -- triggerer_guid (or player_id)
-    PLAYER_READY_TO_START     = iota'',               
+    _NONE                             = iota(Id.Kind.C2S, 0),
+    BULLET_SHOT                       = iota'', -- {bullet_guids}, bullet_weapon_id
+    BUY_PLAYER_UPGRADE                = iota'', -- upgrade_id           
+    TARGET_HIT                        = iota'', -- {enemy_guids}, bullet_guid
+    TOGGLE_PLAYER_FLAG                = iota'', -- bool, flag_id
+    PLAYER_COLLIDED_W_SERVER_INSTANCE = iota'', -- instance_guid, triggerer_guid (or player_id)
+    PLAYER_HIT_BY_OWN_ROCKET          = iota'', -- triggerer_guid (or player_id)
+    PLAYER_READY_TO_START             = iota'',               
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
 export type C2S = typeof(Id.C2S)

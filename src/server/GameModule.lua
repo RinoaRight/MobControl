@@ -44,6 +44,7 @@ local PlayerService = game:GetService("Players")
 local SharedUtil = require(shared.util)
 local rand = require(shared.rand)
 local BoosterServer = require(server.BoosterServer)
+local Obstacles = require(server.Obstacles)
 
 local CLONES = {}
 
@@ -191,12 +192,16 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     local trigger = assert(groundUnit:FindFirstChild("EndZoneTrigger") :: BasePart)
     trigger.CFrame = CFrame.new(9, 20.5, unitPos.Z - 245)
     groundUnit.AssemblyLinearVelocity = groundUnit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_REG
+
     for i = 1, SharedConfig.BOOSTERS_IN_UNIT do --12 boosters
         local booster = BOOSTER_TEMPLATE:Clone()
         booster.CFrame = CFrame.new(BOOSTER_OFFSET_X - BOOSTER_GAP * (i - 1), BOOSTER_OFFSET_Y, unitPos.Z + BOOSTER_OFFSET_Z)
         booster.Parent = groundUnit
         setBooster(worldState, booster, m.get_state)
     end
+
+    local waveNum = worldState:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value) or 1
+    Obstacles.AddObstacles(worldState, groundUnit, true, waveNum)
 end
 
 local function generateEnemies(worldState: state.Main)

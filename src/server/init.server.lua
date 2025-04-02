@@ -48,6 +48,7 @@ local NumFormat = require(shared.num_format)
 local Signal = require(shared.signal)
 local disposer = require(shared.disposer)
 local Leaderboards = require(server.Leaderboards)
+local Obstacles = require(server.Obstacles)
 local workerMaid = disposer.new()
 
 if game.PhysicsService then
@@ -109,7 +110,7 @@ local function resetHp(player_state)
     local hp = SharedConfig.PLAYER_BASE_HP
 
     -- check for hp upgrades
-    local hpUpgrade = Misc.IsHpUpgrade(player_state.state):: num
+    local hpUpgrade = Misc.IsHpUpgrade(player_state.state) :: num
     if hpUpgrade and S.PlayerUpgrade[hpUpgrade].value then
         hp *= S.PlayerUpgrade[hpUpgrade].value
     end
@@ -516,16 +517,47 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
     WorldService.RemoveEntity(bulletGuid)
 end
 
-on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, booster_guid: str, triggerer_id: num | str, ...)
+on[Id.C2S.PLAYER_COLLIDED_W_SERVER_INSTANCE] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
     if not triggerer_id then
         log:error("Collision triggerer id is not defined")
     end
-    local isPlayer = type(triggerer_id) == "number"
+    local is_player = type(triggerer_id) == "number"
+    
+    local instance_ref_id = WorldService.world:get(instance_guid, W.RefId)
+    local dmg = 0
+    if Id.kind(instance_ref_id) == Id.Kind.Boost then
+        -- booster collision
+        dmg = WorldService.world:get(instance_guid, W.HP)
+    elseif Id.kind(instance_ref_id) == Id.Kind.Obstacle then
+        -- obstacle collision
+        dmg = assert(S.Obstacle[instance_ref_id].damage)
+        local current_mesh = WorldService.world:get(instance_guid, W.ServerInstance)
+        if current_mesh then
+            -- change the model of the obstacle
+            local current_mesh_stage = WorldService.world:get(instance_guid, W.Value)
+            if current_mesh_stage and current_mesh_stage == 3 then
+                WorldService.world:delete(instance_guid)
+            elseif current_mesh_stage and current_mesh_stage ~= 0 then
+                local new_mesh_stage = current_mesh_stage + 1
+                local new_mesh_template
+                if current_mesh_stage == 1 then
+                    new_mesh_template = S.Obstacle[instance_ref_id].meshTemplateHalf
+                elseif current_mesh_stage == 2 then
+                    new_mesh_template = S.Obstacle[instance_ref_id].meshTemplateLast
+                end
+                WorldService.world:set(instance_guid, W.Value, new_mesh_stage)
+                local pos = current_mesh.Position
+                local parent = current_mesh.Parent
+                disposer.dispose(current_mesh)
+                if new_mesh_template then
+                    Obstacles.ChangeMesh(WorldService.world, instance_guid, new_mesh_template, pos, parent)
+                end
+            end
+        end
+    end
 
-    local booster_hp = WorldService.world:get(booster_guid, W.HP)
-
-    if isPlayer then
-        player_state:DeductHp(booster_hp)
+    if is_player then
+        player_state:DeductHp(dmg)
     else
         -- delete clone
         WorldService.world:delete(triggerer_id)

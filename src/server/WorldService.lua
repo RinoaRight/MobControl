@@ -166,6 +166,11 @@ function m.AddEnemyToState(id: id, pos)
     return guid
 end
 
+local _obstacle = m.world:constructor(W.RefId, W.Value, W.ServerInstance) -- refId, stage of mesh, instance
+function m.AddObstacleToState(guid, id: id, instance: any)
+    _obstacle(guid, id, 1, instance)
+end
+
 local _bullet = m.world:constructor(W.Position, W.PlayerId, W.WeaponId, W.TTL) -- starting pos, owner's id, weapon_id
 function m.AddBulletToState(guid, weaponId, startingPos, playerId)
     local range = SharedConfig.BULLET_BASE_DISTANCE

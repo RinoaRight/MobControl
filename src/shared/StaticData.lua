@@ -24,6 +24,7 @@ local SoundService = game:GetService("SoundService")
 local SOUNDS_ROOT = assert(SoundService:WaitForChild("SFX"))
 local LOCALIZED_SOUNDS_ROOT = assert(ReplicatedStorage:WaitForChild("Sounds"))
 local ENEMIES_TEMPLATE_FOLDER = ReplicatedStorage:WaitForChild("Enemies")
+local GRAVES_TEMPLATE_FOLDER = ReplicatedStorage:WaitForChild("Graves")
 local WEAPONS_ROOT = ReplicatedStorage:WaitForChild("Weapons")
 local VFX_ROOT = ReplicatedStorage:WaitForChild("VFX")
 -----------------------------
@@ -131,6 +132,15 @@ local function getValuePercent(val: num)
     local percent = (val * 100 - 100) 
     return percent
 end
+
+m.Obstacle = {
+    [Id.Obstacle.GRAVE] = {
+        damage = 20,
+        meshTemplateFull = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall1"),
+        meshTemplateHalf = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall2"),
+        meshTemplateLast = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall3"),
+    },
+}
 
 m.PlayerUpgrade = {
     [Id.PlayerUpgrade.FIREPOWER_1] = {

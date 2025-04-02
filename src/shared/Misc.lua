@@ -156,7 +156,7 @@ m.GetBulletCollidablesInRadius = function(cFrame, size)
     return bulletCollidables
 end
 
-m.CloneOrLocalPlayer = function(world_state, character: Model)
+m.CloneOrPlayer = function(world_state, character: Model)
     local isClone, playerId
     assert(character.Parent)
     if character.Parent.Name == SharedConfig.CLONES_FOLDER_NAME then
@@ -270,7 +270,7 @@ m.IsPlayerHitByExplosion = function(worldState, explosionInstance: Explosion)
             local humanoid = parentModel:FindFirstChild("Humanoid")
             if humanoid then
                 assert(parentModel:IsA("Model"))
-                local isClone, playerId = m.CloneOrLocalPlayer(worldState, parentModel)
+                local isClone, playerId = m.CloneOrPlayer(worldState, parentModel)
                 if playerId and playerId == LOCAL_PLAYER.UserId then
                     if isClone then
                         -- player's clone was hit
@@ -396,6 +396,40 @@ function m.IsCloneUpgrade(playerState): int | nil
         end
     end
     return id
+end
+
+-- origin is a center-top
+-- +-----O-----+ -Z   `O` is origin
+-- |  1  |  2  |  ^
+-- +-----+-----+  |
+-- |  3  |  4  |  o---> X
+-- +-----+-----+
+function m.CreateGrid(cell_w: int, cell_h: int, cols: int, rows: int, origin: Vector3)
+    -- spawns from top left corner
+    local grid = table.create(cols * rows)
+    local bitmap = table.create(#grid, false)
+    local x_offset = origin.X - (cols * cell_w) // 2 + cell_w // 2
+    local z_offset = origin.Z + cell_h // 2
+    local X_SHIFT = cell_w // 4
+    for ri = 1, rows do
+        local dx = ri % 2 ~= 0 and X_SHIFT or -X_SHIFT
+        for ci = 1, cols do
+            local x = x_offset + (ci - 1) * cell_w + dx
+            local z = z_offset + (ri - 1) * cell_h
+            local pos = Vector3.new(x, origin.Y, z)
+            grid[(ci - 1) * rows + ri] = pos
+            bitmap[(ci - 1) * cell_h + ri] = false
+        end
+    end
+    local rc2idx = function(row: int, col: int)
+        return (row - 1) * cols + col
+    end
+    local idx2rc = function(idx: int)
+        local row = math.floor((idx - 1) / cols) + 1
+        local col = idx - (row - 1) * cols
+        return row, col
+    end
+    return grid, bitmap, rc2idx, idx2rc
 end
 
 return m

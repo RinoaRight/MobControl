@@ -44,63 +44,62 @@ local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 local SFX = require(script.Parent.SFX)
 local TaskPool = require(shared.TaskPool)
 
-local function subscribeBooster(playerState, worldState: state.Replica, boosterGuid: string, instance)
-    workerMaid[boosterGuid] = instance.Touched:Connect(function(triggerer)
+local function subscribeInstance(playerState, worldState: state.Replica, instanceGuid: string, instance)
+    workerMaid[instanceGuid] = instance.Touched:Connect(function(triggerer)
         if triggerer.Name ~= "HumanoidRootPart" then
             return
         end
         local character = triggerer.Parent
         assert(character:IsA("Model")) -- sanity check
-        -- check if this player already collided with this booster.
+        -- check if this player already collided with this instance
         if not playerState then
             return
         end
-        if not playerState:has(boosterGuid) then
-            log:error("playerState is nil for booster %s", boosterGuid)
+        if not playerState:has(instanceGuid) then
+            log:error("playerState is nil for this guid %s", instanceGuid)
             return
         end
-        -- if the player already collided with this booster, do nothing
-        if playerState:get(boosterGuid, C.ClientFlags) then
+        -- if the player already collided with this instance, do nothing
+        if playerState:get(instanceGuid, C.ClientFlags) then
             return
         end
 
-        -- local player has not yet collided with this booster, do the checks
+        -- local player has not yet collided with this instance, do the checks
         local triggererId
-        local isClone, playerId = Misc.CloneOrLocalPlayer(worldState, character)
+        local isClone, playerId = Misc.CloneOrPlayer(worldState, character)
         if playerId and playerId == LOCAL_PLAYER.UserId then
             if isClone then
-                -- player's clone collided with the booster
+                -- player's clone collided with the instance
                 Misc.DestroyClientClone(character)
                 triggererId = character.Name
             else
-                -- player themselves collided with the booster for the first time, set the flag for the check above
-                playerState:set(boosterGuid, C.ClientFlags, true)
+                -- player themselves collided with the instance for the first time, set the flag for the check above
+                playerState:set(instanceGuid, C.ClientFlags, true)
                 triggererId = LOCAL_PLAYER.UserId
             end
-            Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, boosterGuid, triggererId)
+            Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_SERVER_INSTANCE, instanceGuid, triggererId)
         end
     end)
 end
 
 local m = {}
 
-local _BOOSTER_GUID_TO_ADD = {} :: { guid }
-m.onBoosterAdded = function(worldState: state.Replica, playerState: state.Replica, boosterGuid)
+m.onServerInstanceAdded = function(worldState: state.Replica, playerState: state.Replica, instanceGuid)
     TaskPool.spawn(function()
         -- wait for instance to be created
         local instance
         local countdown = 3
         while not instance do
             if countdown <= 0 then
-                log:error("Booster instance not found for guid %s", boosterGuid)
+                log:error("Instance not found for guid %s", instanceGuid)
                 return
             end
             local t = .1
             task.wait(t)
             countdown -= t
-            instance = workspace:FindFirstChild(boosterGuid, true)
+            instance = workspace:FindFirstChild(instanceGuid, true)
         end
-        subscribeBooster(playerState, worldState, boosterGuid, instance)
+        subscribeInstance(playerState, worldState, instanceGuid, instance)
     end)
 end
 
@@ -109,7 +108,5 @@ m.CancelSubscription = function(guid)
         workerMaid[guid] = nil
     end
 end
-
--- workerMaid.sub = Signal.Connect(Id.C2C.NEW_BOOSTER_ADDED, onBoosterAdded)
 
 return m
