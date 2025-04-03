@@ -523,7 +523,7 @@ on[Id.C2S.PLAYER_COLLIDED_W_SERVER_INSTANCE] = function(player_state, instance_g
         log:error("Collision triggerer id is not defined")
     end
     local is_player = type(triggerer_id) == "number"
-    
+
     local instance_ref_id = WorldService.world:get(instance_guid, W.RefId)
     local dmg = 0
     if Id.kind(instance_ref_id) == Id.Kind.Boost then
@@ -552,6 +552,8 @@ on[Id.C2S.PLAYER_COLLIDED_W_SERVER_INSTANCE] = function(player_state, instance_g
                 disposer.dispose(current_mesh)
                 if new_mesh_template then
                     Obstacles.ChangeMesh(WorldService.world, instance_guid, new_mesh_template, pos, parent)
+                else
+                    WorldService.RemoveEntity(instance_guid)
                 end
             end
         end

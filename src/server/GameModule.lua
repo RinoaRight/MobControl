@@ -123,6 +123,13 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
             WorldService.RemoveEntity(booster.Name)
         end
     end
+    -- dlete obstacles
+    local obstacles = groundUnit:GetChildren()
+    for i, obstacle in ipairs(obstacles) do
+        if WorldService.world:has(obstacle.Name) then
+            WorldService.RemoveEntity(obstacle.Name)
+        end
+    end
     groundUnit:Destroy()
 end
 

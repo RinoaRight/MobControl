@@ -196,4 +196,3 @@ m.ChangeMesh = function(worldState: state.Main, instanceGuid: guid, newMeshTempl
 end
 
 return m
--- TODO: move all this logic to client?
