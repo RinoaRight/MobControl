@@ -29,6 +29,8 @@ local rand = require(shared.rand)
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local W = SharedConfig.World.CId
+local C = SharedConfig.PlayerState.CId
+local state = require(shared.state)
 
 local m = {}
 m.__index = m
@@ -61,7 +63,7 @@ local function playFlickerAnim(textBox, mult, value, isToDestroy)
         task.wait(0.4)
         tweenOut:Play()
         task.wait(0.4)
-        textBox.Text = ""
+        textBox.Text = SharedConfig.DEFAULT_HP_GUI_TEXT
         if isToDestroy then
             local gui = assert(textBox.Parent)
             gui:Destroy()
@@ -72,7 +74,7 @@ end
 m.FlickerPlayerHPGui = function(originalTextBox: TextLabel, mult: num, hp: num)
     local currentTextBox = originalTextBox
     local isToDestroy = false
-    if currentTextBox.Text ~= "" then
+    if currentTextBox.Text ~= SharedConfig.DEFAULT_HP_GUI_TEXT then
         local oldGiu = assert(currentTextBox.Parent)
         local newGuiIntance = oldGiu:Clone() :: BillboardGui
         newGuiIntance.Parent = oldGiu.Parent
@@ -83,6 +85,34 @@ m.FlickerPlayerHPGui = function(originalTextBox: TextLabel, mult: num, hp: num)
         isToDestroy = true
     end
     playFlickerAnim(currentTextBox, mult, hp, isToDestroy)
+end
+
+m.PlayCharacterAnim = function(character: Model, animId: str, isLooped: bool?)
+    local humanoid = assert(character:WaitForChild("Humanoid"))
+    local animator = humanoid:FindFirstChild("Animator") :: Animator
+    local activeAnimTrack
+    for _, animTrack in ipairs(animator:GetPlayingAnimationTracks()) do
+        if animTrack.Animation.AnimationId == animId then
+            activeAnimTrack = animTrack
+            break
+        end
+    end
+
+    if not activeAnimTrack then
+        local animation = Instance.new("Animation")
+        animation.AnimationId = animId
+        local newHoldAnimTrack = animator:LoadAnimation(animation)
+        activeAnimTrack = newHoldAnimTrack
+    end
+
+    if isLooped then
+        activeAnimTrack.Looped = true
+    end
+
+    activeAnimTrack.Priority = Enum.AnimationPriority.Action4
+    activeAnimTrack:Play(0.100000001, 1, 2)
+
+    return activeAnimTrack
 end
 
 m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
@@ -126,7 +156,7 @@ m.GetBulletCollidablesInRadius = function(cFrame, size)
     return bulletCollidables
 end
 
-m.CloneOrLocalPlayer = function(world_state, character: Model)
+m.CloneOrPlayer = function(world_state, character: Model)
     local isClone, playerId
     assert(character.Parent)
     if character.Parent.Name == SharedConfig.CLONES_FOLDER_NAME then
@@ -240,7 +270,7 @@ m.IsPlayerHitByExplosion = function(worldState, explosionInstance: Explosion)
             local humanoid = parentModel:FindFirstChild("Humanoid")
             if humanoid then
                 assert(parentModel:IsA("Model"))
-                local isClone, playerId = m.CloneOrLocalPlayer(worldState, parentModel)
+                local isClone, playerId = m.CloneOrPlayer(worldState, parentModel)
                 if playerId and playerId == LOCAL_PLAYER.UserId then
                     if isClone then
                         -- player's clone was hit
@@ -302,6 +332,104 @@ end
 
 function m.OnUIElementClickedDo(input, playerGui: StarterGui, ui_element: GuiObject, func)
     onClickEvent(input, playerGui, ui_element, func, true)
+end
+
+function m.IsEnoughFunds(playerState, itemPrice: num, currencyId: int)
+    local playerFunds = playerState:get(currencyId, C.Value)
+    if playerFunds >= itemPrice then
+        return true
+    end
+    return false
+end
+
+function m.IsUpgradePreviousTier(upgradeId: int)
+    -- TODO: other multi-tiered upgrades
+    local previousTierId
+    if
+        upgradeId <= Id.PlayerUpgrade.FIREPOWER_5 and upgradeId > Id.PlayerUpgrade.FIREPOWER_1
+        or upgradeId <= Id.PlayerUpgrade.HITPOINTS_5 and upgradeId > Id.PlayerUpgrade.HITPOINTS_1
+        or upgradeId <= Id.PlayerUpgrade.INIT_CLONE_3 and upgradeId > Id.PlayerUpgrade.INIT_CLONE_2
+    then
+        previousTierId = upgradeId - 1
+    end
+    return previousTierId
+end
+
+function m.IsUpgradeNextTier(upgradeId: int)
+    -- TODO: other multi-tiered upgrades
+    local nextTierId
+    if
+        upgradeId < Id.PlayerUpgrade.FIREPOWER_5 and upgradeId >= Id.PlayerUpgrade.FIREPOWER_1
+        or upgradeId < Id.PlayerUpgrade.HITPOINTS_5 and upgradeId >= Id.PlayerUpgrade.HITPOINTS_1
+        or upgradeId < Id.PlayerUpgrade.INIT_CLONE_3 and upgradeId >= Id.PlayerUpgrade.INIT_CLONE_1
+    then
+        nextTierId = upgradeId + 1
+    end
+    return nextTierId
+end
+
+function m.IsFirepowerUpgrade(playerState): int | nil
+    local id
+    for i = Id.PlayerUpgrade.FIREPOWER_1, Id.PlayerUpgrade.FIREPOWER_5 do
+        if playerState.state:get(i, C.Value) then
+            id = i
+        end
+    end
+    return id
+end
+
+function m.IsHpUpgrade(playerState): int | nil
+    local id
+    for i = Id.PlayerUpgrade.HITPOINTS_1, Id.PlayerUpgrade.HITPOINTS_5 do
+        if playerState:get(i, C.Value) then
+            id = i
+        end
+    end
+    return id
+end
+
+function m.IsCloneUpgrade(playerState): int | nil
+    local id
+    for i = Id.PlayerUpgrade.INIT_CLONE_1, Id.PlayerUpgrade.INIT_CLONE_3 do
+        if playerState.state:get(i, C.Value) then
+            id = i
+        end
+    end
+    return id
+end
+
+-- origin is a center-top
+-- +-----O-----+ -Z   `O` is origin
+-- |  1  |  2  |  ^
+-- +-----+-----+  |
+-- |  3  |  4  |  o---> X
+-- +-----+-----+
+function m.CreateGrid(cell_w: int, cell_h: int, cols: int, rows: int, origin: Vector3)
+    -- spawns from top left corner
+    local grid = table.create(cols * rows)
+    local bitmap = table.create(#grid, false)
+    local x_offset = origin.X - (cols * cell_w) // 2 + cell_w // 2
+    local z_offset = origin.Z + cell_h // 2
+    local X_SHIFT = cell_w // 4
+    for ri = 1, rows do
+        local dx = ri % 2 ~= 0 and X_SHIFT or -X_SHIFT
+        for ci = 1, cols do
+            local x = x_offset + (ci - 1) * cell_w + dx
+            local z = z_offset + (ri - 1) * cell_h
+            local pos = Vector3.new(x, origin.Y, z)
+            grid[(ci - 1) * rows + ri] = pos
+            bitmap[(ci - 1) * cell_h + ri] = false
+        end
+    end
+    local rc2idx = function(row: int, col: int)
+        return (row - 1) * cols + col
+    end
+    local idx2rc = function(idx: int)
+        local row = math.floor((idx - 1) / cols) + 1
+        local col = idx - (row - 1) * cols
+        return row, col
+    end
+    return grid, bitmap, rc2idx, idx2rc
 end
 
 return m

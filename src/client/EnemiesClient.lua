@@ -37,12 +37,45 @@ local PlayerService = game:GetService("Players")
 local Misc = require(shared.Misc)
 local S = require(shared.StaticData)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local TaskPool = require(shared.TaskPool)
 local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local ENEMIES_FOLDER = assert(workspace:WaitForChild("Enemies"))
 local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 
+local _maid = disposer.new()
+
+local function flickerEnemy(guid: string, part: BasePart)
+    local colorDark = Color3.fromHex("246b34")
+    local colorBright = Color3.fromHex("37a24e")
+
+    -- Start flickering
+    local period = 5
+    _maid[guid] = TaskPool.spawn(function()
+        while true do
+            -- Forward transition
+            for i = 0, 1, 0.01 do
+                part.Color = colorDark:Lerp(colorBright, i)
+                task.wait(period / 200) -- period/2 divided by 100 steps
+            end
+
+            -- Backward transition
+            for i = 1, 0, -0.01 do
+                part.Color = colorDark:Lerp(colorBright, i)
+                task.wait(period / 200) -- period/2 divided by 100 steps
+            end
+        end
+    end)
+
+    part.Destroying:Connect(function()
+        _maid[guid] = nil
+    end)
+end
+
+-- local part = game.workspace:WaitForChild("Part")
+-- flickerEnemy("Part", part)
 
 local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: string)
     local enemyId = worldState:get(enemyGuid, W.RefId)

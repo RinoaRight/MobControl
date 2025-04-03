@@ -61,8 +61,11 @@ local ContentProvider = game:GetService("ContentProvider")
 local UserInputService = game:GetService("UserInputService")
 
 local m = {}
-m.PLAY_SOUND = function(sound)
-    sound:Play()
+m.PLAY_SOUND = function(sound_id: id)
+    local audio = S.Sound[sound_id]
+    if audio then
+        audio:Play()
+    end
 end
 
 return m

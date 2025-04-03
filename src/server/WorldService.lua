@@ -84,21 +84,24 @@ function m.RemovePlayer(uid: uid)
 end
 
 function m.RemoveEntity(uid: uid)
+    -- local refId = m.world:get(uid, W.RefId)
+    -- print("Removing entity", Id.name(refId))
     m.world:delete(uid)
 end
 
 local _booster = m.world:constructor(W.RefId, W.Value, W.HP, W.BoostContentId, W.ServerInstance)
 function m.AddBooster(serverInstance: any, boostRefid: id, value: num, hp: num, boostContentId: id | bool)
-    local guid = _booster(_roflake.uida(), boostRefid, value, hp, boostContentId, serverInstance) :: str
+    local guid = _roflake.uida()
     serverInstance.Name = guid
+    local _ = _booster(guid, boostRefid, value, hp, boostContentId, serverInstance) :: str
     return guid
 end
 
-local _booster_wave_count = m.world:constructor(W.RefId, W.Value)
+local _booster_wave_count = m.world:constructor(W.Value)
 function m.UpdateBoosterWaveCount()
     local wavesTotal = m.world:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
     if not wavesTotal then
-        local _ = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 1)
+        local _ = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, 1)
     else
         m.world:set(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, wavesTotal + 1)
     end
@@ -106,7 +109,7 @@ end
 function m.ResetBoosterWaveCount()
     local wavesTotal = m.world:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value)
     if not wavesTotal then
-        local _ = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 0)
+        local _ = _booster_wave_count(Id.WorldSpecs.BOOST_WAVE_COUNT, 0)
     else
         m.world:set(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value, 0)
     end
@@ -130,11 +133,11 @@ function m.SetBossFightOff()
     end
 end
 
-local _start_game_session = m.world:constructor(W.Value)
+local _game_session = m.world:constructor(W.Value)
 function m.SetGameSessionOn()
     local value = m.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
     if value == nil then
-        _start_game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, true)
+        _game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, true)
     else
         m.world:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value, true)
     end
@@ -142,7 +145,7 @@ end
 function m.SetGameSessionOff()
     local value = m.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
     if value == nil then
-        _start_game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, false)
+        _game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, false)
     else
         m.world:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value, false)
     end
@@ -161,6 +164,29 @@ function m.AddEnemyToState(id: id, pos)
     local guid = _roflake.uida()
     _enemy(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
     return guid
+end
+
+local _obstacle = m.world:constructor(W.RefId, W.Value, W.ServerInstance) -- refId, stage of mesh, instance
+function m.AddObstacleToState(guid, id: id, instance: any)
+    _obstacle(guid, id, 1, instance)
+end
+
+local _obstacle_wave_count = m.world:constructor(W.Value)
+function m.UpdateObstacleWaveCount()
+    local wavesTotal = m.world:get(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, W.Value)
+    if not wavesTotal then
+        local _ = _obstacle_wave_count(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, 1)
+    else
+        m.world:set(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, W.Value, wavesTotal + 1)
+    end
+end
+function m.ResetObstacleWaveCount()
+    local wavesTotal = m.world:get(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, W.Value)
+    if not wavesTotal then
+        local _ = _obstacle_wave_count(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, 0)
+    else
+        m.world:set(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, W.Value, 0)
+    end
 end
 
 local _bullet = m.world:constructor(W.Position, W.PlayerId, W.WeaponId, W.TTL) -- starting pos, owner's id, weapon_id

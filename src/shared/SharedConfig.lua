@@ -47,15 +47,18 @@ m.BULLET_BASE_DISTANCE = 240 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP = 100
 m.CONTROL_DISTANCE_TO_TARGET = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT = 2
--- TODO: revert to normal value
-m.BOSS_WAVE_NUMBER = 4--21
-m.MOVEMENT_LINEAR_VELOCITY = 30
+m.BOSS_WAVE_NUMBER = 15
+m.MOVEMENT_LINEAR_VELOCITY_REG = 30
+m.MOVEMENT_LINEAR_VELOCITY_BOSS = 20
+m.BOOSTERS_IN_UNIT = 12
+m.MAX_PLAYERS_IN_SESSION = m.BOOSTERS_IN_UNIT
 m.ENEMY_WAVE_DELAY = 7
 m.REGULAR_ENEMY_HITBOX_RADIUS = 2
 m.BOOSTER_DEPTH = 10 -- units
 m.CLONES_IN_A_ROW = 5
 m.INTERCLONES_DISTANCE = 5
 m.ROCKET_SELF_HARM_MULT = .2
+m.DEFAULT_HP_GUI_TEXT = " "
 m.CLONES_FOLDER_NAME = "Clones"
 m.PLAYER_HITBOX_NAME = "Hitbox"
 m.PLAYER_ALIGN_CONSTR_NAME = "PlayerAlignConstraint"
@@ -98,7 +101,7 @@ World.CId = En.with_id("World.CId") {
     WeaponId       = iota'',   -- id
     TTL            = iota'',   -- epoch
     Bitset         = iota'',   -- flag
-    Total          = iota'', -- number
+    Total          = iota'',   -- number
     -- non-replicated
     ClientInstance = iota'',   -- Instance, not replicated
 }
@@ -134,20 +137,23 @@ m.PlayerState = PlayerState
 -- Components
 -------------------
 PlayerState.CId = En.with_id("PlayerState.Cid") {
-    RefId           = iota(0, 1, 31),
+    RefId                = iota(0, 1, 31),
     -- timers
-    TTL             = iota'', -- epoch
-    TTE             = iota'', -- sec (*1)
+    TTL                  = iota'', -- epoch
+    TTE                  = iota'', -- sec (*1)
     -- values
-    Value           = iota'', -- number
-    Total           = iota'', -- number
-    Bitset          = iota'', -- flag
-    Instance        = iota'', -- Instance(client)
-    WorldGui        = iota'', -- any
+    ValuePers            = iota'', -- number
+    Value                = iota'', -- number
+    Total                = iota'', -- number
+    Bitset               = iota'', -- flag
+    BitsetNonPers        = iota'', -- flag
+    Instance             = iota'', -- Instance(client)
+    WorldGui             = iota'', -- any
     -- client-only
-    ClientWeaponId  = iota'', -- number
-    ClientFlags     = iota'', -- flag
-    ClientTTE       = iota'', -- sec (*1)
+    ClientWeaponId       = iota'', -- number
+    ClientFlags          = iota'', -- bool
+    ClientTTE            = iota'', -- sec (*1)
+    ValueView            = iota'', -- number
 }
 -- *1) TTL(sec) decremented by dt until 0 only during game session. For wall clock TTL, use expiration TTE(epoch).
 --     NOTE: W.TTL is a wall time
@@ -159,9 +165,9 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset, C.BitsetNonPers)
         -- :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
-        :set_persistent_flag(C.Total, C.Bitset)
+        :set_persistent_flag(C.ValuePers, C.Total, C.Bitset)
         :build_with_replica()
 
     PlayerState.main_config = main_config

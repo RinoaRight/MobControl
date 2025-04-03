@@ -60,9 +60,12 @@ local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
 local UserInputService = game:GetService("UserInputService")
 local Clones = require(script.Clones)
-local Booster = require(script.Boosters)
+local BoostObst = require(script.Boosters_Obstacles)
 local EnemiesClient = require(script.EnemiesClient)
+local UICounters = require(script.UI_Counters)
+local UIPlayerUpgrades = require(script.UI_PlayerUpgrades)
 local NumFormat = require(shared.num_format)
+local Popup = require(script.UI_Popup)
 local TaskPool = require(shared.TaskPool)
 local SFX = require(script.SFX)
 local Settings = require(script.Settings)
@@ -104,9 +107,14 @@ local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 
-local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
-local SETTINGS_BTN_GUI = assert(MAIN_GUI.GearPanel)
+local POPUP_GUI = assert(PLAYER_GUI:WaitForChild("PopupGUI"))
 local SETTINGS_MENU_GUI = assert(PLAYER_GUI:WaitForChild("SettingsMenuGUI"))
+local TOKEN_SHOP_GUI = assert(PLAYER_GUI:WaitForChild("TokenShopGUI"))
+
+local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
+local SETTINGS_BTN_PANEL = assert(MAIN_GUI.GearPanel)
+local TOP_RIGHT_PANEL = assert(MAIN_GUI:WaitForChild("TopRightPanel"))
+
 -- forward declarations
 local playRunAnimTrack
 local startRunAnim
@@ -127,28 +135,32 @@ local function setPlayerToClientState(player_id, weapon_id)
 end
 
 local function handleGunHoldingAnimation(character, weapon_id: int)
-    local humanoid = assert(character:WaitForChild("Humanoid"))
+    -- local humanoid = assert(character:WaitForChild("Humanoid"))
     local animId = S.Animation[Id.Animation.HOLD]
-    local activeHoldAnimTrack
-    for _, animTrack in ipairs(humanoid:GetPlayingAnimationTracks()) do
-        if animTrack.Animation.AnimationId == animId then
-            activeHoldAnimTrack = animTrack
-            break
-        end
-    end
+    local activeHoldAnimTrack = Misc.PlayCharacterAnim(character, animId, false)
+    -- for _, animTrack in ipairs(humanoid:GetPlayingAnimationTracks()) do
+    --     if animTrack.Animation.AnimationId == animId then
+    --         activeHoldAnimTrack = animTrack
+    --         break
+    --     end
+    -- end
 
     if weapon_id == Id.Weapon._NONE and activeHoldAnimTrack then
         activeHoldAnimTrack:Stop()
-    else
-        if not activeHoldAnimTrack then
-            local holdAnimation = Instance.new("Animation")
-            holdAnimation.AnimationId = animId
-            local newHoldAnimTrack = character.Humanoid:LoadAnimation(holdAnimation)
-            activeHoldAnimTrack = newHoldAnimTrack
-        end
-        activeHoldAnimTrack.Priority = Enum.AnimationPriority.Action4
-        activeHoldAnimTrack:Play(0.100000001, 1, 2)
+        -- else
+        --     if not activeHoldAnimTrack then
+        --         local holdAnimation = Instance.new("Animation")
+        --         holdAnimation.AnimationId = animId
+        --         local newHoldAnimTrack = character.Humanoid:LoadAnimation(holdAnimation)
+        --         activeHoldAnimTrack = newHoldAnimTrack
+        --     end
+        --     activeHoldAnimTrack.Priority = Enum.AnimationPriority.Action4
+        --     activeHoldAnimTrack:Play(0.100000001, 1, 2)
     end
+end
+
+local function onStateUpdate(playerState: state.Replica)
+    UICounters.OnStateUpdate(playerState)
 end
 
 -----------------------------
@@ -159,6 +171,7 @@ local on = {} :: Remote.OnRemoteEvent<state.Replica>
 
 on[Id.S2C.UPDATE_STATE] = function(state: state.Replica, update_log)
     state:update(update_log)
+    onStateUpdate(state)
 end
 
 on[Id.S2C.INIT_WORLD] = function(state: state.Replica, world_snapshot)
@@ -173,10 +186,7 @@ end
 
 on[Id.S2C.PLAYER_DAMAGED] = function(state: state.Replica, deducted_hp: int)
     Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, deducted_hp)
-    local audio = S.Sound[Id.Sound.SCREAM]
-    if audio then
-        SFX.PLAY_SOUND(audio)
-    end
+    SFX.PLAY_SOUND(Id.Sound.SCREAM)
 end
 
 on[Id.S2C.BOOSTER_DESTROYED] = function(state: state.Replica, boost_ref_id: id, value: num, boost_content_id: id)
@@ -204,15 +214,29 @@ on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
     end
 end
 
+on[Id.S2C.SHOW_POPUP_SERVER] = function(state: state.Replica, event_id: id)
+    if event_id == Id.C2S.PLAYER_READY_TO_START then
+        Signal.Broadcast(Id.C2C.SHOW_POPUP_CLIENT, {
+            text = "Max number of players reached =(\nWait for the next round!",
+            ok = function() end,
+        })
+    elseif event_id == Id.C2S.BUY_PLAYER_UPGRADE then
+        Signal.Broadcast(Id.C2C.SHOW_POPUP_CLIENT, {
+            text = "You can't buy this upgrade :(\n\n",
+            ok = function() end,
+        })
+    end
+end
+
 -- Server Broadcasts
 local on_cc = {} :: { [id]: (...any) -> () }
 
-on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
+on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
     local weapon_id = SharedConfig.DEFAULT_WEAPON_ID
     local player = game.Players:GetPlayerByUserId(player_id)
 
     if player == LOCAL_PLAYER then
-        weapon_id = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.RefId)
+        weapon_id = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
     else
         weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
     end
@@ -221,9 +245,19 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id)
     end
 
     if player_id == LOCAL_PLAYER.UserId then
-        local hp = SharedConfig.PLAYER_BASE_HP
-        Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, hp)
-        -- the rest of the logic is already done in subscribeStartCollider
+        -- disable jumping
+        LOCAL_HUMANOID.JumpPower = 0
+
+        -- create attachement for clones
+        local playerAtt = Instance.new("Attachment") :: Attachment
+        playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
+        playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
+        playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
+
+        -- start running animation
+        startRunAnim(LOCAL_CHARACTER)
+
+        Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, player_hp)
         return
     else
         local player = Players:GetPlayerByUserId(player_id)
@@ -312,10 +346,7 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
     -- SFX and initial bullet TTE
     if player_id == LOCAL_PLAYER.UserId then
         if weapon_id ~= Id.Weapon._NONE then
-            local audio = S.Sound[Id.Sound.RELOAD]
-            if audio then
-                SFX.PLAY_SOUND(audio)
-            end
+            SFX.PLAY_SOUND(Id.Sound.RELOAD)
         end
     else
         local tte = S.Weapon[Id.Weapon.BASIC].cooldown
@@ -349,20 +380,27 @@ local load = function(fire: FireServer, snapshot)
             fire(id, ...)
         end))
     end
-    Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_GUI, SETTINGS_MENU_GUI)
+    Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_PANEL, SETTINGS_MENU_GUI)
+    Popup:Init(POPUP_GUI)
+    UICounters.Init(state, TOP_RIGHT_PANEL)
+    UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, LOCAL_HUMANOID_ROOT_PART)
+
+    MAIN_GUI.Enabled = true
+    
     return state
 end
 
 local fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
 
-local DRIVING_BOX_INSTANCE = workspace:FindFirstChild("DrivingBox")
+local DRIVING_BOX_INSTANCE = workspace:WaitForChild("DrivingBoxModel")
 repeat
     wait()
 until DRIVING_BOX_INSTANCE
-Misc.AddInstanceToRaycastFilter(DRIVING_BOX_INSTANCE)
+local DRIVING_BOX_BACK_PART = DRIVING_BOX_INSTANCE:FindFirstChild("DrivingBoxBackPart")
+Misc.AddInstanceToRaycastFilter(DRIVING_BOX_BACK_PART)
 local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
 local LOCAL_PLAYER = game.Players.LocalPlayer
-local DRIVING_BOX_ATT = workspace:WaitForChild("DrivingBox", 10):FindFirstChild("Attachment")
+local DRIVING_BOX_ATT = DRIVING_BOX_FRONT.Attachment
 
 -- load run animation
 local animateScript = LOCAL_CHARACTER:WaitForChild("Animate")
@@ -374,7 +412,7 @@ playRunAnimTrack = function(runAnimTrack)
 end
 
 startRunAnim = function(character)
-    local runAnimTrack = character.Humanoid:LoadAnimation(RUN_ANIM)
+    local runAnimTrack = character.Humanoid.Animator:LoadAnimation(RUN_ANIM)
     runAnimTrack.Priority = Enum.AnimationPriority.Action3
     playRunAnimTrack(runAnimTrack)
     return runAnimTrack
@@ -390,15 +428,8 @@ local function subscribeStartCollider()
                 -- interaction with the button is possible only when the boss fight is off
                 START_GUI.Enabled = true
                 maid.StartBtn = START_BTN.MouseButton1Click:Connect(function()
-                    -- diable jumping
-                    LOCAL_HUMANOID.JumpPower = 0
-                    local playerAtt = Instance.new("Attachment") :: Attachment
-                    playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
-                    playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
-                    playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
                     START_GUI.Enabled = false
                     fire_server(Id.C2S.PLAYER_READY_TO_START)
-                    startRunAnim(LOCAL_CHARACTER)
                     maid.StartBtn = nil
                 end)
             end
@@ -414,7 +445,7 @@ end
 
 -- TODO: test out clones and bullets visibility on/off
 local function createCloneInstance(playerId, guid)
-    local newInstance = Clones.CreateCloneInstance(playerId, guid)
+    local newInstance = Clones.CreateCloneInstance(WORLD, playerId, guid)
     local weaponId = PLAYER_STATE:get(playerId, C.ClientWeaponId)
     handleGunHoldingAnimation(newInstance, weaponId)
     if not newInstance then
@@ -481,7 +512,7 @@ do
         end
         -- initialize player's hp GUI
         PLAYER_HP_GUI.Adornee = LOCAL_HUMANOID_HEAD
-        PLAYER_HP_TEXT_BOX.Text = ""
+        PLAYER_HP_TEXT_BOX.Text = SharedConfig.DEFAULT_HP_GUI_TEXT
     end)
 end
 
@@ -566,7 +597,7 @@ local function fireBullet(player)
     local weapon_id
 
     if player == LOCAL_PLAYER then
-        weapon_id = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.RefId)
+        weapon_id = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
     else
         weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
     end
@@ -610,14 +641,11 @@ local function fireBullet(player)
     -- reset ttl for fake fire on the client for all and send to change it on server for the local client
     local weapon_id
     if player == LOCAL_PLAYER then
-        weapon_id = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.RefId)
+        weapon_id = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
         -- reset tte server-side
         fire_server(Id.C2S.BULLET_SHOT, bulletGuids, weapon_id)
         -- TODO: change sound for each type of weapon
-        local audio = S.Sound[Id.Sound.FIRE_PISTOL]
-        if audio then
-            SFX.PLAY_SOUND(audio)
-        end
+        SFX.PLAY_SOUND(Id.Sound.FIRE_PISTOL)
     else
         weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
         -- TODO: change sound for each type of weapon
@@ -670,7 +698,13 @@ RunService.Heartbeat:Connect(function(dt)
     local playerRootPart
     for _, player in ipairs(players) do
         local char = player.Character
+        if not char then
+            return
+        end
         playerRootPart = assert(char.HumanoidRootPart) :: Part
+        if not playerRootPart then
+            return
+        end
         local clonesFolder = char:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
         if not clonesFolder then
             continue
@@ -712,7 +746,11 @@ RunService.Heartbeat:Connect(function(dt)
     local enemyTargets = {}
     for enemyGuid, refId, _hp, newPos, _playerId, _bitset in WORLD:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
         if Id.kind(refId) == Id.Kind.Enemy then
-            local enemyInstance = ENEMIES_FOLDER:FindFirstChild(enemyGuid)
+            -- local enemyInstance = ENEMIES_FOLDER:FindFirstChild(enemyGuid)
+            local enemyInstance = WORLD:get(enemyGuid, W.ClientInstance)
+            if not enemyInstance then
+                continue
+            end
             local currentPos: Vector3 = enemyInstance.Position
             table.insert(enemies, enemyInstance)
             local lookAt = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + 5)
@@ -830,12 +868,12 @@ RunService.Heartbeat:Connect(function(dt)
     workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player
-    if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION) then
-        local flags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
-        if flags and Id.flag_test(flags, Id.PlayerF.READY) then
-            local weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.RefId)
+    if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION_PARAMS) then
+        local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+        if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+            local weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
             if not weaponId or weaponId == Id.Weapon._NONE then
-                log:error("No bullet can be fired for this weapon_id", weaponId)
+                return
             end
             local shot_tte = PLAYER_STATE:get(LOCAL_PLAYER.UserId, C.ClientTTE) :: num
             if shot_tte then
@@ -852,7 +890,7 @@ RunService.Heartbeat:Connect(function(dt)
     end
 
     -- fake bullets' animation for other players (if the options to others' bullets is on)
-    local currentFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+    local currentFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
     if currentFlags then
         local bulletsFlag = Id.flag_test(currentFlags, Id.PlayerF.OTHER_BULLETS_ON)
         if bulletsFlag then
@@ -890,8 +928,8 @@ local infrequentLoop = supervisor.create(1, "client-infrequent")
 infrequentLoop:start(function(dt)
     -- player character animation check
     local isRunAnimActive
-    local flags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
-    if flags and Id.flag_test(flags, Id.PlayerF.READY) then
+    local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
+    if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
         for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
             if v.Name == SharedConfig.RUN_ANIMATION_NAME then
                 isRunAnimActive = true
@@ -909,16 +947,19 @@ infrequentLoop:start(function(dt)
     end
 end, 1, "test")
 
-local _booster = PLAYER_STATE:constructor(C.ClientFlags)
+local _serverInstance = PLAYER_STATE:constructor(C.ClientFlags)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
-    log:debug("~~~>", guid)
+    -- log:trace("~~~>", guid, newValue)
+    if not Id.is(newValue) then
+        log:error("Invalid value for RefId", newValue, WORLD:format_row(guid))
+    end
     -- check if it was a booster that has been added
-    if Id.kind(newValue) == Id.Kind.Boost then
-        -- subscribe boosters to collisions
-        _booster(guid, false)
-        Signal.Broadcast(Id.C2C.NEW_BOOSTER_ADDED, WORLD, PLAYER_STATE, guid)
+    if Id.kind(newValue) == Id.Kind.Boost or Id.kind(newValue) == Id.Kind.Obstacle then
+        -- subscribe boosters and obstacles to collisions
+        _serverInstance(guid, false)
+        local boosterGuid = guid :: string
+        BoostObst.onServerInstanceAdded(WORLD, PLAYER_STATE, boosterGuid)
     elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
-        -- check if it was an enemy that has been added
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
     elseif Id.kind(newValue) == Id.Kind.Clone and WORLD:get(guid, W.PlayerId) then
         -- create clones if any new clones appeared (if the option for others' clones is turned off, for local player only)
@@ -930,7 +971,7 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
             clientInstance = cloneFolder:FindFirstChild(guid, true)
         end
         if not clientInstance then
-            local currentFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION, C.Bitset)
+            local currentFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
             if currentFlags then
                 local clonesFlag = Id.flag_test(currentFlags, Id.PlayerF.OTHER_CLONES_ON)
                 if clonesFlag or playerId == LOCAL_PLAYER.UserId then
@@ -952,21 +993,24 @@ WORLD:set_on_attach(W.WeaponId, function(guid: guid, newValue: num)
     end
 end)
 
--- remove clone
 WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
     if Id.kind(oldValue) == Id.Kind.Clone then
-        local clientInstance = workspace:FindFirstChild(guid, true)
+        -- remove clone instance
+        -- local clientInstance = WORLD:get(guid, W.ClientInstance)
+        local cloneInstance = workspace:FindFirstChild(guid, true)
+        if cloneInstance then
+            cloneInstance:Destroy()
+        end
+    elseif Id.kind(oldValue) == Id.Kind.Boost or Id.kind(oldValue) == Id.Kind.Obstacle then
+        local instanceGuid = guid :: string
+        PLAYER_STATE:delete(instanceGuid)
+        BoostObst.CancelSubscription(instanceGuid)
+    elseif Id.kind(oldValue) == Id.Kind.Enemy then
+        -- local clientInstance = WORLD:get(guid, W.ClientInstance)
+        local clientInstance = ENEMIES_FOLDER:FindFirstChild(guid)
         if clientInstance then
             clientInstance:Destroy()
         end
-    end
-end)
-
-local _ = Players.PlayerRemoving:Connect(function(player)
-    -- player has left the server, delete them from playerState
-    local guid = player.UserId
-    if PLAYER_STATE:has(guid) then
-        PLAYER_STATE:delete(guid)
     end
 end)
 

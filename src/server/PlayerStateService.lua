@@ -96,12 +96,16 @@ export type PlayerState = {
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
     AddHp: (self: PlayerState, amount: num) -> (num, num),
     DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
+    ResetCountable: (self: PlayerState, id: id) -> (),
     DeductHp: (self: PlayerState, amount: num) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
+    UpdateSessionDamageStats: (self: PlayerState, dmg: num) -> int,
+    UpdateSessionEnemyKills: (self: PlayerState) -> int,
     nullary_local: (state.uid_or_gen) -> uid,
     nullary_transient: (state.uid_or_gen) -> uid,
     __index: any,
+    __tostring: (self: PlayerState) -> str,
 }
 
 -- note: was warm_up cache
@@ -111,27 +115,45 @@ local function update_ids(main: state.Main)
             if limit and id > limit then
                 break
             end
+            -- fill with default values if not set
             if not main:has(id) then
                 ctor(id)
             end
         end
     end
+
     local _countable = main:constructor(C.Value, C.Total)
     merge(Id.Countable, function(id)
         _countable(id, 0, 0)
     end)
-    log:debug(main:format_uid(Id.Countable.COIN))
+
+    local _game_session_params = main:constructor(C.RefId, C.TTE, C.Value, C.Bitset, C.BitsetNonPers) -- weapon_id, weapon_tte, hp, pers_flags, non_pers_flags
+    merge(Id.PlayerSpecs, function(id)
+        _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE, Id.PlayerF.NONE)
+    end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
+
+    local _countable_persistent = main:constructor(C.ValuePers, C.Total)
+    merge(Id.Countable, function(id)
+        _countable_persistent(id, 0, 0)
+    end)
+
+    local _player_upgrade_non_persistent = main:constructor(C.Value)
+    merge(Id.PlayerUpgrade, function(id)
+        _player_upgrade_non_persistent(id, false)
+    end)
 end
 
 local function create_state(player_state: PlayerState)
-    log:debug("~~ Making initial state for player:", player_state.player_id)
+    log:trace("~~ Making initial state for player:", player_state.player_id)
     update_ids(player_state.state)
 end
 
 local function fill_state(player_state: PlayerState)
     log:assert(not player_state.state:env("READY"), "already loaded")
     local data, info = STORE:GetAsync(player_state.state_store_key)
-    log:debug("store info-key", info)
+    if info then -- save found
+        log:trace("~~ store info-key ", info)
+    end
     if data then
         local ok, err0 = pcall(function()
             local ok, save_or_err: str? = pcall(lpack.unpack, data, "base64" :: any)
@@ -173,6 +195,9 @@ PlayerState.__index = PlayerState
 function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, array<any>)
     local state = state.main(SharedConfig.PlayerState.main_config)
     local char = player.Character or player.CharacterAdded:Wait()
+
+    char.Archivable = true
+
     local player_state: PlayerState = table.freeze(setmetatable({
         player_id = player.UserId,
         state_store_key = tostring(player.UserId),
@@ -186,6 +211,7 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
         nullary_transient = state:constructor("transient"),
     }, PlayerState)) :: any
     fill_state(player_state)
+    log:trace("~~~>\n", player_state, debug.traceback)
     local snapshot = state:snapshot("discard-log")
     return player_state, snapshot
 end
@@ -231,7 +257,7 @@ function PlayerState.AddCountable(self: PlayerState, countable_id: id, amount: i
 end
 
 function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount: int): (bool, id?, id?)
-    log:assert(Id.kind(countable_id) ~= Id.Kind.Countable, "not a countable id", countable_id)
+    log:assert(Id.kind(countable_id) == Id.Kind.Countable, "not a countable id", countable_id)
     log:assert(type(amount) == "number", "count must be a number")
     if amount == 0 then
         return true
@@ -245,33 +271,51 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
     return true
 end
 
+function PlayerState.ResetCountable(self: PlayerState, countable_id: id): ()
+    self.state:set(countable_id, 0)
+end
+
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION, C.RefId, weapon_id)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, weapon_id)
     local tte = 0
     if weapon_id ~= Id.Weapon._NONE then
         tte = S.Weapon[weapon_id].cooldown
-    elseif not self.state:get(Id.PlayerSpecs.GAME_SESSION, C.TTE) then
-        self.state:set(Id.PlayerSpecs.GAME_SESSION, C.TTE, tte)
+    elseif not self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) then
+        self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, tte)
     end
 end
 
 function PlayerState.AddHp(self: PlayerState, howMuch: num)
-    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION, C.Value)
+    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
     local new_hp = math.min(current + howMuch, SharedConfig.PLAYER_BASE_HP)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION, C.Value, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, new_hp)
     return current, new_hp
 end
 
 function PlayerState.DeductHp(self: PlayerState, howMuch: num)
-    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION, C.Value)
+    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
     local new_hp = math.max(current - howMuch, 0)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION, C.Value, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, new_hp)
     if new_hp <= 0 then
         Signal.Fire(Id.S2S.PLAYER_DIED, self.player_id)
     else
         self:NotifyClient(Id.S2C.PLAYER_DAMAGED, -howMuch)
     end
     return new_hp
+end
+
+function PlayerState.UpdateSessionDamageStats(self: PlayerState, dmg: num): int
+    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
+    local newVal = oldVal + dmg
+    self.state:set(Id.PlayerSpecs.SESSION_DAMAGE, C.Value, newVal)
+    return newVal
+end
+
+function PlayerState.UpdateSessionEnemyKills(self: PlayerState): int
+    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+    local newVal = oldVal + 1
+    self.state:set(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value, newVal)
+    return newVal
 end
 
 function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
@@ -282,6 +326,10 @@ function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
         end
     end
     return clonesAmount
+end
+
+function PlayerState.__tostring(self: PlayerState): str
+    return fmt("PlayerState(%*)\n=====\n%*\n====\n", self.player_id, self.state:format_state("*"))
 end
 -----------------------------
 -- Quick test
