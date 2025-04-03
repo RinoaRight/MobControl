@@ -171,6 +171,24 @@ function m.AddObstacleToState(guid, id: id, instance: any)
     _obstacle(guid, id, 1, instance)
 end
 
+local _obstacle_wave_count = m.world:constructor(W.Value)
+function m.UpdateObstacleWaveCount()
+    local wavesTotal = m.world:get(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, W.Value)
+    if not wavesTotal then
+        local _ = _obstacle_wave_count(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, 1)
+    else
+        m.world:set(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, W.Value, wavesTotal + 1)
+    end
+end
+function m.ResetObstacleWaveCount()
+    local wavesTotal = m.world:get(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, W.Value)
+    if not wavesTotal then
+        local _ = _obstacle_wave_count(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, 0)
+    else
+        m.world:set(Id.WorldSpecs.OBSTACLE_WAVE_COUNT, W.Value, 0)
+    end
+end
+
 local _bullet = m.world:constructor(W.Position, W.PlayerId, W.WeaponId, W.TTL) -- starting pos, owner's id, weapon_id
 function m.AddBulletToState(guid, weaponId, startingPos, playerId)
     local range = SharedConfig.BULLET_BASE_DISTANCE

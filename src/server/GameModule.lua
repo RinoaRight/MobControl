@@ -199,9 +199,6 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
         booster.Parent = groundUnit
         setBooster(worldState, booster, m.get_state)
     end
-
-    local waveNum = worldState:get(Id.WorldSpecs.BOOST_WAVE_COUNT, W.Value) or 1
-    Obstacles.AddObstacles(worldState, groundUnit, true, waveNum)
 end
 
 local function generateEnemies(worldState: state.Main)
@@ -224,6 +221,8 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
     workerMaid.trigger = trigger.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
             local fourth = GROUND_UNITS[FIELD_NAMES.FOURTH].unit :: Part
+            -- create obstacles on the next ground unit
+            Obstacles.AddObstacles(worldState, fourth, true)
             subscribeTrigger(worldState, get_state, FIELD_NAMES.FOURTH, fourth)
             trigger:Destroy()
             local first = GROUND_UNITS[FIELD_NAMES.FIRST].unit :: Part
@@ -302,11 +301,8 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
     spawnGroundUnit(worldState, middleUnit, FIELD_NAMES.MIDDLE, startingPos)
 
-    -- task.spawn(function()
-        local middle = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part)
-        -- task.wait(0.2) -- needed to make sure trigger is placed in the right spot
-        subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, middle)
-    -- end)
+    local middle = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part)
+    subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, middle)
 
     spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
     spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
@@ -325,10 +321,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         -- driving box movement
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
         if not isBossFightOn then
-            -- DRIVING_BOX_BACK_PART.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5)
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5))
         else
-            -- DRIVING_BOX_BACK_PART.CFrame = CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.3)
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.1))
         end
         oldPos = DRIVING_BOX_BACK_PART.Position

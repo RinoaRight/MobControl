@@ -240,6 +240,7 @@ m.Sound = {
     [Id.Sound.BELL] = assert(SOUNDS_ROOT:WaitForChild("Bell")),
     [Id.Sound.CLICK] = assert(SOUNDS_ROOT:WaitForChild("Click")),
     [Id.Sound.COIN_DROP] = assert(SOUNDS_ROOT:WaitForChild("CoinDrop")),
+    [Id.Sound.CREAK_METAL] = assert(SOUNDS_ROOT:WaitForChild("CreakMetalHeavy")),
     [Id.Sound.ERROR] = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
     [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),

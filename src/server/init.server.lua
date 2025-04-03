@@ -250,6 +250,7 @@ stopGameSession = function(exception_player_id: num?)
     WorldService.SetBossFightOff()
     -- WorldService.ResetBoosterWaveCount()
     WorldService.ResetEnemyWaveCount()
+    WorldService.ResetObstacleWaveCount()
 
     -- kill remaining enemies
     for guid, refId, _hp, _pos, _player_id, _bitset in WorldService.world:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do

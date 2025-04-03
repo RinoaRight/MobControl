@@ -767,10 +767,6 @@ RunService.Heartbeat:Connect(function(dt)
             lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
             local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
             table.insert(enemyTargets, newCframe)
-            -- DEBUG: ZOON: FIXME: remove this
-            if refId == Id.Enemy.OCTOBOSS and math.random() > 0.95 then
-                local e = enemyInstance
-            end
         end
     end
     if #enemies > 0 then

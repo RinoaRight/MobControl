@@ -604,6 +604,7 @@ Id.Sound = enum.with_id "Id.Sound" {
     BELL                  = iota'',
     CLICK                 = iota'',
     COIN_DROP             = iota'',
+    CREAK_METAL           = iota'',
     ERROR                 = iota'',
     FIRE_PISTOL           = iota'',
     FIRE_PISTOL_LOCALIZED = iota'',
@@ -646,6 +647,7 @@ Id.WorldSpecs = enum.with_id "Id.WorldSpecs" {
     _NONE                        = iota(Id.Kind.WorldSpecs, 0),
     GAME_SESSION_IN_PROGRESS     = iota'',
     BOOST_WAVE_COUNT             = iota'', -- number
+    OBSTACLE_WAVE_COUNT          = iota'', -- number
     ENEMY_WAVE_COUNT             = iota'', -- number
     BOSS_FIGHT_ON                = iota'', -- bool
 }
