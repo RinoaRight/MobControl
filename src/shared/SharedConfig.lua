@@ -66,12 +66,15 @@ m.CLONE_ATTACHMENT_NAME = "CloneGuideAtt"
 m.RUN_ANIMATION_NAME = "RunAnim"
 m.BULLET_ATTRIBUTE_NAME = "BulletOwner"
 m.BULLET_COLLIDABLE_COLLISION_GROUP_NAME = "BulletCollidable"
+m.OBSTACLE_FOLDER_NAME = "Obstacles"
 m.DEFAULT_WEAPON_ID = Id.Weapon.BASIC
 m.DISTANCE_FROM_MID_TO_BOOSTER = 50
 m.DEFAULT_PLAYER_ID = -100
 m.ENEMY_SIGHT_RADIUS = 100
 m.STARTING_CLONE_AMOUNT = 0
 m.DRIVING_BOX_STARTING_POS = Vector3.new(0, 50, 255)
+m.GRAVE_SIZE_MULT = 1.5
+m.GRAVE_Z_DISTRIBUTION_RANDOMNESS = Vector3.new(10, 20)
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
 }
@@ -103,7 +106,10 @@ World.CId = En.with_id("World.CId") {
     Bitset         = iota'',   -- flag
     Total          = iota'',   -- number
     -- non-replicated
-    ClientInstance = iota'',   -- Instance, not replicated
+    ClientInstance = iota'',   -- Instance, not replicated    
+    ClientFlags    = iota'', -- bool
+    ClientTTE      = iota'', -- sec (*1)
+    ValueView      = iota'', -- number
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId

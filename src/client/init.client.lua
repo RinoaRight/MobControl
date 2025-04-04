@@ -60,7 +60,8 @@ local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
 local UserInputService = game:GetService("UserInputService")
 local Clones = require(script.Clones)
-local BoostObst = require(script.Boosters_Obstacles)
+local Boosters = require(script.BoosterClient)
+local Obstacles = require(script.ObstaclesClient)
 local EnemiesClient = require(script.EnemiesClient)
 local UICounters = require(script.UI_Counters)
 local UIPlayerUpgrades = require(script.UI_PlayerUpgrades)
@@ -947,18 +948,46 @@ infrequentLoop:start(function(dt)
     end
 end, 1, "test")
 
-local _serverInstance = PLAYER_STATE:constructor(C.ClientFlags)
+-- PLAYER_STATE:set_on_attach(C.RefId, function(guid: guid, newValue: num)
+--     if Id.kind(newValue) == Id.Kind.Obstacle then
+--         -- initialize client values for obstacle
+--         PLAYER_STATE:set(guid, C.ClientFlags, false)
+--         PLAYER_STATE:set(guid, C.ValueView, 1)
+--         PLAYER_STATE:set(guid, C.Instance, nil)
+--         local obstacleGuid = guid :: string
+--         BoostObst.onObstacleAdded(WORLD, PLAYER_STATE, obstacleGuid)
+--     end
+-- end)
+
+-- PLAYER_STATE:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
+--     if Id.kind(oldValue) == Id.Kind.Obstacle then
+--         -- TODO: FIXMEdoesnt get destroyed??
+--         local instanceGuid = guid :: string
+--         BoostObst.CleanupClientObstacle(PLAYER_STATE, instanceGuid)
+--     end
+-- end)
+
+
+local _booster = PLAYER_STATE:constructor(C.ClientFlags)
+-- local _obstacle = PLAYER_STATE:constructor(C.Instance, C.ClientFlags, C.ValueView)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     -- log:trace("~~~>", guid, newValue)
     if not Id.is(newValue) then
         log:error("Invalid value for RefId", newValue, WORLD:format_row(guid))
     end
     -- check if it was a booster that has been added
-    if Id.kind(newValue) == Id.Kind.Boost or Id.kind(newValue) == Id.Kind.Obstacle then
-        -- subscribe boosters and obstacles to collisions
-        _serverInstance(guid, false)
+    if Id.kind(newValue) == Id.Kind.Boost then
+        -- subscribe boosters to collisions
+        _booster(guid, false) -- initialize client state for booster
         local boosterGuid = guid :: string
-        BoostObst.onServerInstanceAdded(WORLD, PLAYER_STATE, boosterGuid)
+        Boosters.onBoosterAdded(WORLD, PLAYER_STATE, boosterGuid)
+    elseif Id.kind(newValue) == Id.Kind.Obstacle then
+        -- initialize client values for obstacle
+        WORLD:set(guid, W.ClientFlags, false)
+        WORLD:set(guid, W.ValueView, 1)
+        WORLD:set(guid, W.ClientInstance, nil)
+        local obstacleGuid = guid :: string
+        Obstacles.onObstacleAdded(WORLD, obstacleGuid)
     elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
     elseif Id.kind(newValue) == Id.Kind.Clone and WORLD:get(guid, W.PlayerId) then
@@ -996,17 +1025,18 @@ end)
 WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
     if Id.kind(oldValue) == Id.Kind.Clone then
         -- remove clone instance
-        -- local clientInstance = WORLD:get(guid, W.ClientInstance)
         local cloneInstance = workspace:FindFirstChild(guid, true)
         if cloneInstance then
             cloneInstance:Destroy()
         end
-    elseif Id.kind(oldValue) == Id.Kind.Boost or Id.kind(oldValue) == Id.Kind.Obstacle then
+    elseif Id.kind(oldValue) == Id.Kind.Boost then
         local instanceGuid = guid :: string
         PLAYER_STATE:delete(instanceGuid)
-        BoostObst.CancelSubscription(instanceGuid)
+        Boosters.CancelBoosterSubscription(instanceGuid)
+    elseif Id.kind(oldValue) == Id.Kind.Obstacle then
+        local instanceGuid = guid :: string
+        Obstacles.CleanupClientObstacle(WORLD, instanceGuid)
     elseif Id.kind(oldValue) == Id.Kind.Enemy then
-        -- local clientInstance = WORLD:get(guid, W.ClientInstance)
         local clientInstance = ENEMIES_FOLDER:FindFirstChild(guid)
         if clientInstance then
             clientInstance:Destroy()

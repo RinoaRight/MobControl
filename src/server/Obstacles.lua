@@ -46,6 +46,7 @@ local Rand = require(shared.rand)
 local _roflake = require(shared.roflake)
 local Remote = require(shared.Remote)
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_UNIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
@@ -59,7 +60,6 @@ local X_INTERVAL = 40
 local Z_INTERVAL = 100
 local GRAVE_SIZE_MULT = 1.5
 local GRAVE_Z_DISTRIBUTION_RANDOMNESS = Vector2.new(10, 40)
-local GRAVE_Y = .9
 
 local maid = disposer.new()
 
@@ -67,34 +67,6 @@ local maid = disposer.new()
 local OBSTACLES_DATA_TABLE = {
     { count = 30, gacha = { [Id.Obstacle.GRAVE] = 1 } },
 }
-
-local function movePartsY(parts: {BasePart}, duration: number, targetYs: {num})
-    task.spawn(function()
-        -- local tweens = {}
-        
-        for i, part in parts do
-            if not part:IsA("BasePart") then continue end
-            
-            local tweenInfo = TweenInfo.new(
-                duration,
-                Enum.EasingStyle.Quad,
-                Enum.EasingDirection.Out
-            )
-            
-            local tween = TweenService:Create(part, tweenInfo, {
-                Position = Vector3.new(part.Position.X, targetYs[i], part.Position.Z)
-            })
-            
-            -- table.insert(tweens, tween)
-            tween:Play()
-        end
-        
-        -- Wait for all tweens to complete
-        -- for _, tween in tweens do
-        --     tween.Completed:Wait()
-        -- end
-    end)
-end
 
 local m = {}
 
@@ -139,15 +111,12 @@ function m.AddObstacles(worldState: state.Main, groundUnit: BasePart, isFirstHal
     end
 
     local grid, bitmap, _rc2idx, _idx2rc = Misc.CreateGrid(cell_w, cell_h, cols, rows, origin)
-    
-    local instances = {}
-    local targetYs = {}
-    
+
     for i = 1, numberOfObstacles do
         -- define enemy id
         local gacha = OBSTACLES_DATA_TABLE[waveNumber].gacha
-        local obstId = Rand.weighted_choice(gacha)
-        local mestTemplate = S.Obstacle[obstId].meshTemplateFull
+        local obstRefId = Rand.weighted_choice(gacha)
+        local mestTemplate = S.Obstacle[obstRefId].meshTemplateFull
         local oldSize = mestTemplate.Size
 
         local idx: int
@@ -156,43 +125,30 @@ function m.AddObstacles(worldState: state.Main, groundUnit: BasePart, isFirstHal
         until not bitmap[idx]
         bitmap[idx] = true
         local obstPos = grid[idx]
-        
-        local enemyGuid = _roflake.uida()
-        local obstInstance = mestTemplate:Clone()
-        table.insert(instances, obstInstance)
-        obstInstance.Size = Vector3.new(oldSize.X * GRAVE_SIZE_MULT, oldSize.Y * GRAVE_SIZE_MULT, oldSize.Z * GRAVE_SIZE_MULT)
-        -- local correctY = - obstInstance.Size.Y / 2
+
+        local newSize = Vector3.new(oldSize.X * GRAVE_SIZE_MULT, oldSize.Y * GRAVE_SIZE_MULT, oldSize.Z * GRAVE_SIZE_MULT)
+
+        -- adjust Y so that the mesh is under the ground
+        local correctY = -newSize.Y / 2
         local isForward = math.random(0, 1) == 0
         local randomZ = math.random(GRAVE_Z_DISTRIBUTION_RANDOMNESS.X, GRAVE_Z_DISTRIBUTION_RANDOMNESS.Y)
         if not isForward then
             randomZ = -randomZ
         end
         local correctZ = obstPos.Z + randomZ
-        obstPos = Vector3.new(obstPos.X, GRAVE_Y, correctZ)
-        
-        obstInstance.Name = enemyGuid
-        obstInstance.Position = obstPos
-        obstInstance.CFrame = CFrame.new(obstPos) * CFrame.Angles(0, math.pi, 0)
-        obstInstance.Parent = groundUnit
-        WorldService.AddObstacleToState(enemyGuid, obstId, obstInstance)
-        
-        local targetY = obstInstance.Size.Y / 2
-        table.insert(targetYs, targetY)
+        obstPos = Vector3.new(obstPos.X, correctY, correctZ)
 
-        movePartsY(instances, 4, targetYs)
+        local _worldGuid = WorldService.AddObstacleToWorldState(obstRefId, obstPos)
+
+        -- add obstacle to all players' states
+        -- local total_players = Players:GetPlayers()
+        -- for _, player in ipairs(total_players) do
+        --     local player_state = get_state(player.UserId)
+        --     if player_state then
+        --         local _playerStateGuid = player_state:AddObstacle(obstRefId, obstPos)
+        --     end
+        -- end
     end
-end
-
-m.ChangeMesh = function(worldState: state.Main, instanceGuid: guid, newMeshTemplate: BasePart, pos: Vector3, parent: Instance)
-    local oldSize = newMeshTemplate.Size
-    local new_nesh_instance = newMeshTemplate:Clone()
-    new_nesh_instance.Size = Vector3.new(oldSize.X * GRAVE_SIZE_MULT, oldSize.Y * GRAVE_SIZE_MULT, oldSize.Z * GRAVE_SIZE_MULT)
-    -- local correctY = new_nesh_instance.Size.Y / 2
-    new_nesh_instance.Position = Vector3.new(pos.X, GRAVE_Y, pos.Z)
-    new_nesh_instance.CFrame = CFrame.new(pos) * CFrame.Angles(0, math.pi, 0)
-    new_nesh_instance.Parent = parent
-    new_nesh_instance.Name = instanceGuid
-    worldState:set(instanceGuid, W.ServerInstance, new_nesh_instance)
 end
 
 return m

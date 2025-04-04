@@ -93,6 +93,7 @@ export type PlayerState = {
     Save: (self: PlayerState) -> (),
     Destroy: (self: PlayerState) -> (),
     NotifyClient: (self: PlayerState, event_id: id, ...any) -> (),
+    AddObstacle: (self: PlayerState, refId: id, pos: Vector3) -> uid,
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
     AddHp: (self: PlayerState, amount: num) -> (num, num),
     DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
@@ -305,7 +306,7 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num)
 end
 
 function PlayerState.UpdateSessionDamageStats(self: PlayerState, dmg: num): int
-    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
+    local oldVal = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
     local newVal = oldVal + dmg
     self.state:set(Id.PlayerSpecs.SESSION_DAMAGE, C.Value, newVal)
     return newVal
