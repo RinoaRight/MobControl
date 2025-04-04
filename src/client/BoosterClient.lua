@@ -43,8 +43,9 @@ local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 local SFX = require(script.Parent.SFX)
 local TaskPool = require(shared.TaskPool)
+local TweenService = game:GetService("TweenService")
 
-local function subscribeInstance(playerState, worldState: state.Replica, instanceGuid: string, instance)
+local function subscribeInstance(playerState, worldState: state.Replica, instanceGuid: string, refId: id, instance)
     workerMaid[instanceGuid] = instance.Touched:Connect(function(triggerer)
         if triggerer.Name ~= "HumanoidRootPart" then
             return
@@ -77,14 +78,16 @@ local function subscribeInstance(playerState, worldState: state.Replica, instanc
                 playerState:set(instanceGuid, C.ClientFlags, true)
                 triggererId = LOCAL_PLAYER.UserId
             end
-            Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_SERVER_INSTANCE, instanceGuid, triggererId)
+
+            -- signal to server to handle server instance
+            Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_BOOSTER, instanceGuid, triggererId)
         end
     end)
 end
 
 local m = {}
 
-m.onServerInstanceAdded = function(worldState: state.Replica, playerState: state.Replica, instanceGuid)
+m.onBoosterAdded = function(worldState: state.Replica, playerState: state.Replica, instanceGuid)
     TaskPool.spawn(function()
         -- wait for instance to be created
         local instance
@@ -94,58 +97,20 @@ m.onServerInstanceAdded = function(worldState: state.Replica, playerState: state
                 log:error("Instance not found for guid %s", instanceGuid)
                 return
             end
-            local t = .1
+            local t = 0.1
             task.wait(t)
             countdown -= t
             instance = workspace:FindFirstChild(instanceGuid, true)
         end
-        subscribeInstance(playerState, worldState, instanceGuid, instance)
+        local refId = worldState:get(instanceGuid, W.RefId)
+        subscribeInstance(playerState, worldState, instanceGuid, refId, instance)
     end)
 end
 
-m.CancelSubscription = function(guid)
+m.CancelBoosterSubscription = function(guid)
     if workerMaid[guid] then
         workerMaid[guid] = nil
     end
 end
 
--- function m.ShakeCamera(intensity: number, duration: number, frequency: number)
---     local camera = workspace.Camera
---     if not camera then return end
-    
---     local originalCFrame = camera.CFrame
-    
---     TaskPool.spawn(function()
---         task.wait(.5)
---         SFX.PLAY_SOUND(Id.Sound.CREAK_METAL)
-
---         local startTime = os.clock()
-        
---         while os.clock() - startTime < duration do
---             local elapsed = os.clock() - startTime
---             local progress = elapsed / duration
-            
---             -- Calculate shake amount (decreases over time)
---             local currentIntensity = intensity * (1 - progress)
-            
---             -- Generate random Y offset and rotation
---             local yOffset = math.random(-currentIntensity, currentIntensity)
---             local rotation = math.rad(math.random(-currentIntensity * 5, currentIntensity * 5))
-            
---             -- Apply shake (only Y position and rotation)
---             camera.CFrame = originalCFrame * CFrame.new(0, yOffset, 0) * CFrame.fromOrientation(0, rotation, 0)
-            
---             -- Wait for next shake
---             task.wait(1/frequency)
---         end
-                
---         -- Reset camera
---         -- camera.CFrame = originalCFrame
---     end)
--- end
-
--- Example usage:
--- m.ShakeCamera(20, 10, 10) -- intensity: 0.5, duration: 2 seconds, frequency: 10 shakes per second
-
 return m
--- TODO: subscribe to collision with bullets and make them breakable?

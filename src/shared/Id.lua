@@ -734,7 +734,8 @@ Id.C2S = enum.with_id "Id.C2S" {
     BUY_PLAYER_UPGRADE                = iota'', -- upgrade_id           
     TARGET_HIT                        = iota'', -- {enemy_guids}, bullet_guid
     TOGGLE_PLAYER_FLAG                = iota'', -- bool, flag_id
-    PLAYER_COLLIDED_W_SERVER_INSTANCE = iota'', -- instance_guid, triggerer_guid (or player_id)
+    PLAYER_COLLIDED_W_BOOSTER         = iota'', -- booster_guid, triggerer_guid (or player_id)
+    PLAYER_COLLIDED_W_OBSTACLE        = iota'', -- obstacle_guid, triggerer_guid (or player_id)
     PLAYER_HIT_BY_OWN_ROCKET          = iota'', -- triggerer_guid (or player_id)
     PLAYER_READY_TO_START             = iota'',               
 }
@@ -764,9 +765,9 @@ export type S2C = typeof(Id.S2C)
 -----------------------------
 Id.S2CC = enum.with_id "Id.S2CC" {
     _NONE                   = iota(Id.Kind.S2CC, 0),
-    PLAYER_STARTED_SESSION  = iota'', -- player_id, player_hp
-    PLAYER_STOPPED_SESSION  = iota'', -- player_id
-    PLAYER_CHANGED_WEAPON   = iota'', -- player_id, weapon_id
+    PLAYER_STARTED_SESSION     = iota'', -- player_id, player_hp
+    PLAYER_STOPPED_SESSION     = iota'', -- player_id
+    PLAYER_CHANGED_WEAPON      = iota'', -- player_id, weapon_id
 }
 KIND_TO_ENUM[Id.Kind.S2CC] = Id.S2CC
 export type S2CC = typeof(Id.S2CC)

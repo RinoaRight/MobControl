@@ -252,11 +252,14 @@ stopGameSession = function(exception_player_id: num?)
     WorldService.ResetEnemyWaveCount()
     WorldService.ResetObstacleWaveCount()
 
-    -- kill remaining enemies
-    for guid, refId, _hp, _pos, _player_id, _bitset in WorldService.world:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
+    -- kill remaining enemies and obstacles
+    for guid, refId, _pos in WorldService.world:select(W.RefId, W.Position) do
         if Id.kind(refId) == Id.Kind.Enemy then
             local thisGuid = guid :: guid
             GameModule.DestroyEnemy(thisGuid)
+        elseif Id.kind(refId) == Id.Kind.Obstacle then
+            local thisGuid = guid :: guid
+            WorldService.RemoveEntity(thisGuid)
         end
     end
 
@@ -518,46 +521,46 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
     WorldService.RemoveEntity(bulletGuid)
 end
 
-on[Id.C2S.PLAYER_COLLIDED_W_SERVER_INSTANCE] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
+on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
     if not triggerer_id then
         log:error("Collision triggerer id is not defined")
     end
     local is_player = type(triggerer_id) == "number"
 
     local instance_ref_id = WorldService.world:get(instance_guid, W.RefId)
-    local dmg = 0
-    if Id.kind(instance_ref_id) == Id.Kind.Boost then
-        -- booster collision
-        dmg = WorldService.world:get(instance_guid, W.HP)
-    elseif Id.kind(instance_ref_id) == Id.Kind.Obstacle then
-        -- obstacle collision
-        dmg = assert(S.Obstacle[instance_ref_id].damage)
-        local current_mesh = WorldService.world:get(instance_guid, W.ServerInstance)
-        if current_mesh then
-            -- change the model of the obstacle
-            local current_mesh_stage = WorldService.world:get(instance_guid, W.Value)
-            if current_mesh_stage and current_mesh_stage == 3 then
-                WorldService.world:delete(instance_guid)
-            elseif current_mesh_stage and current_mesh_stage ~= 0 then
-                local new_mesh_stage = current_mesh_stage + 1
-                local new_mesh_template
-                if current_mesh_stage == 1 then
-                    new_mesh_template = S.Obstacle[instance_ref_id].meshTemplateHalf
-                elseif current_mesh_stage == 2 then
-                    new_mesh_template = S.Obstacle[instance_ref_id].meshTemplateLast
-                end
-                WorldService.world:set(instance_guid, W.Value, new_mesh_stage)
-                local pos = current_mesh.Position
-                local parent = current_mesh.Parent
-                disposer.dispose(current_mesh)
-                if new_mesh_template then
-                    Obstacles.ChangeMesh(WorldService.world, instance_guid, new_mesh_template, pos, parent)
-                else
-                    WorldService.RemoveEntity(instance_guid)
-                end
-            end
-        end
+    if not instance_ref_id then
+        log:error("Instance ref id is not defined")
     end
+    if Id.kind(instance_ref_id) ~= Id.Kind.Boost then
+        log:error("Instance ref id is not a booster")
+        return
+    end
+    
+    -- all checks done, do the logic
+    local hp = WorldService.world:get(instance_guid, W.HP)
+    if is_player then
+        player_state:DeductHp(hp)
+    else
+        -- delete booster
+        WorldService.world:delete(instance_guid)
+    end
+end
+
+on[Id.C2S.PLAYER_COLLIDED_W_OBSTACLE] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
+    if not triggerer_id then
+        log:error("Collision triggerer id is not defined")
+    end
+    local is_player = type(triggerer_id) == "number"
+
+    local instance_ref_id = WorldService.world:get(instance_guid, W.RefId)
+    if not instance_ref_id then
+        log:error("Instance ref id is not defined")
+    end
+    if Id.kind(instance_ref_id) ~= Id.Kind.Obstacle then
+        log:error("Instance ref id is not an obstacle")
+        return
+    end
+    local dmg = assert(S.Obstacle[instance_ref_id].damage)
 
     if is_player then
         player_state:DeductHp(dmg)
