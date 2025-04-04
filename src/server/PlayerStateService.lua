@@ -305,14 +305,6 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num)
     return new_hp
 end
 
--- function PlayerState.AddObstacle(self: PlayerState, refId: id, pos: Vector3): (uid)
---     local guid = _roflake.uida()
---     local _obstacle = self.state:constructor("transient", C.RefId, C.Position)
---     _obstacle(guid, refId, pos)
---     print("LLLLLLLL", self.state:get(guid, C.Position))
---     return guid
--- end
-
 function PlayerState.UpdateSessionDamageStats(self: PlayerState, dmg: num): int
     local oldVal = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
     local newVal = oldVal + dmg

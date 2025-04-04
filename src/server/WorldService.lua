@@ -166,13 +166,6 @@ function m.AddEnemyToState(id: id, pos)
     return guid
 end
 
--- local _ground_unit = m.world:constructor(W.Value) -- index (1 of 5 existing)
--- function m.AddGroundUnitToWorldState(index)
---     local guid = _roflake.uida()
---     _ground_unit(guid, index)
---     return guid
--- end
-
 local _obstacle = m.world:constructor(W.RefId, W.Position)
 function m.AddObstacleToWorldState(id: id, pos: v3)
     local guid = _roflake.uida()

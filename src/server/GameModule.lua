@@ -124,7 +124,6 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
         end
     end
     -- delete obstacles
-    -- TODO: FIXME:is not being destroyed on deleting the ground unit
     local groundUnitPos = groundUnit.Position
     local unitHalfLength = groundUnit.Size.Z / 2
     for guid, refId, pos in WorldService.world:select(W.RefId, W.Position) do
