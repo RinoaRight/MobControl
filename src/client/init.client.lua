@@ -948,26 +948,6 @@ infrequentLoop:start(function(dt)
     end
 end, 1, "test")
 
--- PLAYER_STATE:set_on_attach(C.RefId, function(guid: guid, newValue: num)
---     if Id.kind(newValue) == Id.Kind.Obstacle then
---         -- initialize client values for obstacle
---         PLAYER_STATE:set(guid, C.ClientFlags, false)
---         PLAYER_STATE:set(guid, C.ValueView, 1)
---         PLAYER_STATE:set(guid, C.Instance, nil)
---         local obstacleGuid = guid :: string
---         BoostObst.onObstacleAdded(WORLD, PLAYER_STATE, obstacleGuid)
---     end
--- end)
-
--- PLAYER_STATE:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
---     if Id.kind(oldValue) == Id.Kind.Obstacle then
---         -- TODO: FIXMEdoesnt get destroyed??
---         local instanceGuid = guid :: string
---         BoostObst.CleanupClientObstacle(PLAYER_STATE, instanceGuid)
---     end
--- end)
-
-
 local _booster = PLAYER_STATE:constructor(C.ClientFlags)
 -- local _obstacle = PLAYER_STATE:constructor(C.Instance, C.ClientFlags, C.ValueView)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
@@ -987,7 +967,7 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         WORLD:set(guid, W.ValueView, 1)
         WORLD:set(guid, W.ClientInstance, nil)
         local obstacleGuid = guid :: string
-        Obstacles.onObstacleAdded(WORLD, obstacleGuid)
+        Obstacles.onObstacleAdded(WORLD, obstacleGuid, LOCAL_HUMANOID_ROOT_PART)
     elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
     elseif Id.kind(newValue) == Id.Kind.Clone and WORLD:get(guid, W.PlayerId) then
