@@ -48,12 +48,78 @@ local _roflake = require(shared.roflake)
 local WARNING_SPOT_TEMPLATE = assert(ReplicatedStorage:WaitForChild("WarningSpot"))
 local COLOR_1 = Color3.fromHex("246b34")
 local COLOR_2 = Color3.fromHex("4fee00")
+local DEBRIS_TEMPLATE = assert(ReplicatedStorage:WaitForChild("Debris"))
 
-local doUpAndDown = function(tween: Tween, tween2: Tween, duration: number)
+local _doUpAndDown = function(tween: Tween, tween2: Tween, duration: number)
     tween:Play()
     task.wait(duration + 2)
     tween2:Play()
     task.wait(duration)
+end
+
+local function _animation(warningSpot, localRoot: BasePart, targetPos: Vector3, duration: number, tween1: Tween, tween2: Tween)
+    local period = math.random(0.5, 2)
+    local timesToFlickerSlow = 3
+    local timesToFlickerMed = 4
+    local timesToFlickerFast = 10
+    local periodFlickerSlow = period / 2 / timesToFlickerSlow
+    local halfPeriodFlickerSlow = periodFlickerSlow / 2
+    local periodFlickerMed = period / 4 / timesToFlickerMed
+    local halfPeriodFlickerMed = periodFlickerMed / 2
+    local periodFlickerFast = period / 4 / timesToFlickerFast
+    local halfPeriodFlickerFast = periodFlickerFast / 2
+
+    local tweenInfoFlickerSlow = TweenInfo.new(halfPeriodFlickerSlow, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tweenInfoFlickerMed = TweenInfo.new(halfPeriodFlickerMed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tweenInfoFlickerFast = TweenInfo.new(halfPeriodFlickerFast, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+    local tweenFlickerSlowIOut = TweenService:Create(warningSpot, tweenInfoFlickerSlow, {
+        Color = COLOR_2,
+    })
+    local tweenFlickerSlowIn = TweenService:Create(warningSpot, tweenInfoFlickerSlow, {
+        Color = COLOR_1,
+    })
+    local tweenFlickerMedOut = TweenService:Create(warningSpot, tweenInfoFlickerMed, {
+        Color = COLOR_2,
+    })
+    local tweenFlickerMedIn = TweenService:Create(warningSpot, tweenInfoFlickerMed, {
+        Color = COLOR_1,
+    })
+    local tweenFlickerFastOut = TweenService:Create(warningSpot, tweenInfoFlickerFast, {
+        Color = COLOR_2,
+    })
+    local tweenFlickerFastIn = TweenService:Create(warningSpot, tweenInfoFlickerFast, {
+        Color = COLOR_1,
+    })
+
+    if localRoot.Position.Z > targetPos.Z then -- obstacles are still ahead of the player
+        while true do
+            tween1:Play()
+            task.wait(duration + 2)
+            tween2:Play()
+            task.wait(duration)
+            for i = 1, timesToFlickerSlow do
+                tweenFlickerSlowIOut:Play()
+                task.wait(halfPeriodFlickerSlow)
+                tweenFlickerSlowIn:Play()
+                task.wait(halfPeriodFlickerSlow)
+            end
+
+            for i = 1, timesToFlickerMed do
+                tweenFlickerMedOut:Play()
+                task.wait(halfPeriodFlickerMed)
+                tweenFlickerMedIn:Play()
+                task.wait(halfPeriodFlickerMed)
+            end
+
+            for i = 1, timesToFlickerFast do
+                tweenFlickerFastOut:Play()
+                task.wait(halfPeriodFlickerFast)
+                tweenFlickerFastIn:Play()
+                task.wait(halfPeriodFlickerFast)
+            end
+        end
+    end
 end
 
 local function animateObstacle(
@@ -62,7 +128,6 @@ local function animateObstacle(
     duration: number,
     initPos: Vector3,
     targetPos: Vector3,
-    warningSpot: Instance,
     localRoot: BasePart
 )
     task.spawn(function()
@@ -79,70 +144,9 @@ local function animateObstacle(
         })
 
         task.wait(1)
-        doUpAndDown(tween1, tween2, duration)
+        tween1:Play()
 
-        local period = math.random(0.5, 2)
-        local timesToFlickerSlow = 3
-        local timesToFlickerMed = 4
-        local timesToFlickerFast = 10
-        local periodFlickerSlow = period / 2 / timesToFlickerSlow
-        local halfPeriodFlickerSlow = periodFlickerSlow / 2
-        local periodFlickerMed = period / 4 / timesToFlickerMed
-        local halfPeriodFlickerMed = periodFlickerMed / 2
-        local periodFlickerFast = period / 4 / timesToFlickerFast
-        local halfPeriodFlickerFast = periodFlickerFast / 2
-
-        local tweenInfoFlickerSlow = TweenInfo.new(halfPeriodFlickerSlow, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local tweenInfoFlickerMed = TweenInfo.new(halfPeriodFlickerMed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local tweenInfoFlickerFast = TweenInfo.new(halfPeriodFlickerFast, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
-        local tweenFlickerSlowIOut = TweenService:Create(warningSpot, tweenInfoFlickerSlow, {
-            Color = COLOR_2,
-        })
-        local tweenFlickerSlowIn = TweenService:Create(warningSpot, tweenInfoFlickerSlow, {
-            Color = COLOR_1,
-        })
-        local tweenFlickerMedOut = TweenService:Create(warningSpot, tweenInfoFlickerMed, {
-            Color = COLOR_2,
-        })
-        local tweenFlickerMedIn = TweenService:Create(warningSpot, tweenInfoFlickerMed, {
-            Color = COLOR_1,
-        })
-        local tweenFlickerFastOut = TweenService:Create(warningSpot, tweenInfoFlickerFast, {
-            Color = COLOR_2,
-        })
-        local tweenFlickerFastIn = TweenService:Create(warningSpot, tweenInfoFlickerFast, {
-            Color = COLOR_1,
-        })
-
-        if localRoot.Position.Z > targetPos.Z then -- obstacles are still ahead of the player
-            while true do
-                tween1:Play()
-                task.wait(duration + 2)
-                tween2:Play()
-                task.wait(duration)
-                for i = 1, timesToFlickerSlow do
-                    tweenFlickerSlowIOut:Play()
-                    task.wait(halfPeriodFlickerSlow)
-                    tweenFlickerSlowIn:Play()
-                    task.wait(halfPeriodFlickerSlow)
-                end
-
-                for i = 1, timesToFlickerMed do
-                    tweenFlickerMedOut:Play()
-                    task.wait(halfPeriodFlickerMed)
-                    tweenFlickerMedIn:Play()
-                    task.wait(halfPeriodFlickerMed)
-                end
-
-                for i = 1, timesToFlickerFast do
-                    tweenFlickerFastOut:Play()
-                    task.wait(halfPeriodFlickerFast)
-                    tweenFlickerFastIn:Play()
-                    task.wait(halfPeriodFlickerFast)
-                end
-            end
-        end
+        -- doUpAndDown(tween1, tween2, duration)
     end)
 end
 
@@ -173,6 +177,7 @@ local cleanupObstacle = function(worldState: state.Replica, instanceGuid: str)
 end
 
 local onPlayerCollisionWithObstacle = function(worldState: state.Replica, instanceGuid: str)
+    SFX.PLAY_SOUND(Id.Sound.THUMP)
     local instanceRefId = worldState:get(instanceGuid, W.RefId)
     local currentMesh = worldState:get(instanceGuid, W.ClientInstance)
     if currentMesh then
@@ -272,11 +277,11 @@ m.onObstacleAdded = function(worldState: state.Replica, instanceGuid: str, local
     local targetPos = Vector3.new(obstInstance.Position.X, targetY, obstInstance.Position.Z)
 
     -- spawn warning spot
-    local warningSpot = WARNING_SPOT_TEMPLATE:Clone()
-    warningSpot.Parent = obstInstance
-    warningSpot.Position = Vector3.new(obstInstance.Position.X, .01, obstInstance.Position.Z)
+    -- local warningSpot = WARNING_SPOT_TEMPLATE:Clone()
+    -- warningSpot.Parent = obstInstance
+    -- warningSpot.Position = Vector3.new(obstInstance.Position.X, 0.01, obstInstance.Position.Z)
 
-    animateObstacle(worldState, obstInstance, 2, obstPos, targetPos, warningSpot, localRoot)
+    animateObstacle(worldState, obstInstance, 2, obstPos, targetPos, localRoot)
 
     subscribeInstance(worldState, instanceGuid, refId, obstInstance)
 end

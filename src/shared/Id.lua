@@ -66,6 +66,7 @@ local Kind = table.freeze {
     Clone           = enum.iota'',
     Weapon          = enum.iota'',
     Enemy           = enum.iota'',
+    EnemyFlying     = enum.iota'',
     Obstacle        = enum.iota'',
     PlayerSpecs     = enum.iota'',
     WorldSpecs      = enum.iota'',
@@ -555,11 +556,21 @@ Id.Enemy = enum.with_id "Id.Enemy" {
     _NONE      = iota(Id.Kind.Enemy, 0),
     BASIC      = iota'',
     CRAZOMBIE  = iota'',
-    ZOMBALLOON = iota'',
     OCTOBOSS   = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Enemy] = Id.Enemy
 export type Enemy = typeof(Id.Enemy)
+
+-- stylua: ignore
+-----------------------------
+-- EnemyFlying
+-----------------------------
+Id.EnemyFlying = enum.with_id "Id.EnemyFlying" {
+    _NONE      = iota(Id.Kind.EnemyFlying, 0),
+    ZOMBALLOON = iota'',
+}
+KIND_TO_ENUM[Id.Kind.EnemyFlying] = Id.EnemyFlying
+export type EnemyFlying = typeof(Id.EnemyFlying)
 
 -- stylua: ignore
 -----------------------------
@@ -611,6 +622,7 @@ Id.Sound = enum.with_id "Id.Sound" {
     RELOAD                = iota'',
     SCREAM                = iota'',
     SCREAM_LOCALIZED      = iota'',
+    THUMP                 = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound
 export type Sound = typeof(Id.Sound)

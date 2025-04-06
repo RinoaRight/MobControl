@@ -112,13 +112,6 @@ m.Enemy = {
         reward = 1,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_3"),
     },
-    [Id.Enemy.ZOMBALLOON] = {
-        damage = 20,
-        health = 10,
-        speed = 30.0,
-        reward = 3, 
-        meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_9"),
-    },
     [Id.Enemy.OCTOBOSS] = {
         damage = 30,
         health = 1000,
@@ -128,8 +121,18 @@ m.Enemy = {
     },
 }
 
+m.EnemyFlying = {
+    [Id.EnemyFlying.ZOMBALLOON] = {
+        damage = 20,
+        health = 10,
+        speed = 30.0,
+        reward = 3,
+        meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_9"),
+    },
+}
+
 local function getValuePercent(val: num)
-    local percent = (val * 100 - 100) 
+    local percent = (val * 100 - 100)
     return percent
 end
 
@@ -149,7 +152,7 @@ m.PlayerUpgrade = {
         currency = Id.Countable.COIN,
         name = "Firepower I",
         descr = string.format("+%d%% firepower", getValuePercent(1.1)),
-    }, 
+    },
     [Id.PlayerUpgrade.FIREPOWER_2] = {
         value = 1.2, -- %
         price = 120,
@@ -243,9 +246,10 @@ m.Sound = {
     [Id.Sound.CREAK_METAL] = assert(SOUNDS_ROOT:WaitForChild("CreakMetalHeavy")),
     [Id.Sound.ERROR] = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
     [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
-    [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
     [Id.Sound.RELOAD] = assert(SOUNDS_ROOT:WaitForChild("Reload")),
     [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
+    [Id.Sound.THUMP] = assert(SOUNDS_ROOT:WaitForChild("Thump")),
+    [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
     [Id.Sound.SCREAM_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Scream")),
 }
 
