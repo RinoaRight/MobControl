@@ -139,7 +139,7 @@ local function animateObstacle(
         local tween1 = TweenService:Create(obstacle, tweenInfo, {
             Position = targetPos,
         })
-        local tween2 = TweenService:Create(obstacle, tweenInfo, {
+        local _tween2 = TweenService:Create(obstacle, tweenInfo, {
             Position = initPos,
         })
 
@@ -254,12 +254,6 @@ m.onObstacleAdded = function(worldState: state.Replica, instanceGuid: str, local
     local obstInstance = meshTemplate:Clone()
     local mult = SharedConfig.GRAVE_SIZE_MULT
     obstInstance.Size = Vector3.new(oldSize.X * mult, oldSize.Y * mult, oldSize.Z * mult)
-    -- local correctY = - obstInstance.Size.Y / 2
-    local isForward = math.random(0, 1) == 0
-    local randomZ = math.random(SharedConfig.GRAVE_Z_DISTRIBUTION_RANDOMNESS.X, SharedConfig.GRAVE_Z_DISTRIBUTION_RANDOMNESS.Y)
-    if not isForward then
-        randomZ = -randomZ
-    end
 
     obstInstance.Name = instanceGuid
     local parentFolder = workspace:FindFirstChild(SharedConfig.OBSTACLE_FOLDER_NAME)

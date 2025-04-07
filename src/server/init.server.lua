@@ -521,6 +521,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
     WorldService.RemoveEntity(bulletGuid)
 end
 
+-- TODO: refactor 3 next event. They should be registered server side
 on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
     if not triggerer_id then
         log:error("Collision triggerer id is not defined")
