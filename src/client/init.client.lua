@@ -948,7 +948,7 @@ infrequentLoop:start(function(dt)
     end
 end, 1, "test")
 
-local _booster = PLAYER_STATE:constructor(C.ClientFlags)
+-- local _booster = PLAYER_STATE:constructor(C.ClientFlags)
 -- local _obstacle = PLAYER_STATE:constructor(C.Instance, C.ClientFlags, C.ValueView)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     -- log:trace("~~~>", guid, newValue)
@@ -956,12 +956,12 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         log:error("Invalid value for RefId", newValue, WORLD:format_row(guid))
     end
     -- check if it was a booster that has been added
-    if Id.kind(newValue) == Id.Kind.Boost then
+    -- if Id.kind(newValue) == Id.Kind.Boost then
         -- subscribe boosters to collisions
-        _booster(guid, false) -- initialize client state for booster
-        local boosterGuid = guid :: string
-        Boosters.onBoosterAdded(WORLD, PLAYER_STATE, boosterGuid)
-    elseif Id.kind(newValue) == Id.Kind.Obstacle then
+        -- _booster(guid, false) -- initialize client state for booster
+        -- local boosterGuid = guid :: string
+        -- Boosters.onBoosterAdded(WORLD, PLAYER_STATE, boosterGuid)
+    if Id.kind(newValue) == Id.Kind.Obstacle then
         -- initialize client values for obstacle
         WORLD:set(guid, W.ClientFlags, false)
         WORLD:set(guid, W.ValueView, 1)
@@ -1009,10 +1009,10 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
         if cloneInstance then
             cloneInstance:Destroy()
         end
-    elseif Id.kind(oldValue) == Id.Kind.Boost then
-        local instanceGuid = guid :: string
-        PLAYER_STATE:delete(instanceGuid)
-        Boosters.CancelBoosterSubscription(instanceGuid)
+    -- elseif Id.kind(oldValue) == Id.Kind.Boost then
+    --     local instanceGuid = guid :: string
+    --     PLAYER_STATE:delete(instanceGuid)
+    --     Boosters.CancelBoosterSubscription(instanceGuid)
     elseif Id.kind(oldValue) == Id.Kind.Obstacle then
         local instanceGuid = guid :: string
         Obstacles.CleanupClientObstacle(WORLD, instanceGuid)

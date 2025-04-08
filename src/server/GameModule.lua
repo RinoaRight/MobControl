@@ -119,9 +119,7 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     -- delete boosters
     local boosters = groundUnit:GetChildren()
     for i, booster in ipairs(boosters) do
-        if WorldService.world:has(booster.Name) then
-            WorldService.RemoveEntity(booster.Name)
-        end
+        BoosterServer.DeleteBooster(WorldService.world, booster.Name, m.get_state)
     end
     -- delete obstacles
     local groundUnitPos = groundUnit.Position
@@ -188,7 +186,18 @@ local function setBooster(worldState: state.Main, instance: BasePart, get_state:
 
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
     instance.CollisionGroup = "BulletCollidable"
+    -- add booster to world state
     WorldService.AddBooster(instance, refID, value, hp, boostContentId)
+    -- add booster to player states
+    local players = game.Players:GetPlayers()
+    for _, player in ipairs(players) do
+        local playerState = get_state(player.UserId)
+        if playerState then
+            playerState:AddBooster(instance.Name)
+        end
+    end
+    -- subscribe booster to collision with player
+    BoosterServer.SubscribeBooster(worldState, get_state, instance.Name, refID, instance)
 end
 
 local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)

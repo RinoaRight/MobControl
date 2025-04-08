@@ -93,6 +93,7 @@ export type PlayerState = {
     Save: (self: PlayerState) -> (),
     Destroy: (self: PlayerState) -> (),
     NotifyClient: (self: PlayerState, event_id: id, ...any) -> (),
+    AddBooster: (self: PlayerState, instanceGuid: string) -> (),
     AddObstacle: (self: PlayerState, refId: id, pos: Vector3) -> uid,
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
     AddHp: (self: PlayerState, amount: num) -> (num, num),
@@ -141,6 +142,11 @@ local function update_ids(main: state.Main)
     local _player_upgrade_non_persistent = main:constructor(C.Value)
     merge(Id.PlayerUpgrade, function(id)
         _player_upgrade_non_persistent(id, false)
+    end)
+
+    local _booster = main:constructor(C.BitsetNonPers)
+    merge(Id.Boost, function(id)
+        _booster(id, Id.PlayerF.NONE)
     end)
 end
 
@@ -327,6 +333,11 @@ function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
         end
     end
     return clonesAmount
+end
+
+function PlayerState.AddBooster(self: PlayerState, instanceGuid: string): ()
+    local nonPersFlags = self.state:get(instanceGuid, C.BitsetNonPers)
+    self.state:set(instanceGuid, C.BitsetNonPers, Id.flag_set(nonPersFlags, Id.PlayerF.BOOSTER_TOUCHED, false))
 end
 
 function PlayerState.__tostring(self: PlayerState): str

@@ -49,6 +49,7 @@ local Signal = require(shared.signal)
 local disposer = require(shared.disposer)
 local Leaderboards = require(server.Leaderboards)
 local Obstacles = require(server.Obstacles)
+local BoosterServer = require(server.BoosterServer)
 local workerMaid = disposer.new()
 
 if game.PhysicsService then
@@ -496,10 +497,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                     -- give boost to the player who killed the booster
                     local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
                     local value = WorldService.world:get(targetGuid, W.Value)
-                    WorldService.world:delete(targetGuid)
-                    if playerState.state:has(targetGuid) then
-                        playerState.state:delete(targetGuid)
-                    end
+                    BoosterServer.DeleteBooster(WorldService.world, targetGuid, get_state)
                     local _ = playerState:UpdateSessionDamageStats(booster_hp)
 
                     -- give reward for killing booster

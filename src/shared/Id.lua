@@ -451,6 +451,7 @@ Id.PlayerF = enum.with_id "Id.PlayerF" {
     OTHER_CLONES_ON    = flag'',
     _NON_PERSISTENT    = flag'', 
     READY              = flag'',
+    BOOSTER_TOUCHED    = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
