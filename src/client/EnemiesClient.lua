@@ -44,6 +44,7 @@ local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local ENEMIES_FOLDER = assert(workspace:WaitForChild("Enemies"))
 local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
+local TARGET_SIGN_TEMPLATE = assert(ReplicatedStorage:WaitForChild("TargetSign"))
 
 local _maid = disposer.new()
 
@@ -74,6 +75,63 @@ local function flickerEnemy(guid: string, part: BasePart)
     end)
 end
 
+local function flickerTargetSign(pos: Vector3)
+    TaskPool.spawn(function()
+        local targetInstance = TARGET_SIGN_TEMPLATE:Clone()
+        local imageLabel = targetInstance:WaitForChild("TargetGui"):WaitForChild("ImageLabel")
+        imageLabel.ImageTransparency = 1
+        local origSize = UDim2.fromScale(1, 1)
+        local targetSize = UDim2.fromScale(0.7, 0.7)
+        local Y = 0.5
+        imageLabel.Size = origSize
+        targetInstance.Position = Vector3.new(pos.X, Y, pos.Z)
+        targetInstance.Parent = workspace
+        local duration1 = 0.3
+        local tweenInfo1 = TweenInfo.new(duration1, Enum.EasingStyle.Linear)
+        local tween1 = TweenService:Create(imageLabel, tweenInfo1, { ImageTransparency = 0.2, Size = targetSize })
+        local tween2 = TweenService:Create(imageLabel, tweenInfo1, { ImageTransparency = 0, Size = origSize })
+        for i = 1, 2 do
+            tween1:Play()
+            task.wait(duration1)
+            tween2:Play()
+            task.wait(duration1)
+        end
+        local duration2 = 0.2
+        local tweenInfo2 = TweenInfo.new(duration2, Enum.EasingStyle.Linear)
+        local tween3 = TweenService:Create(imageLabel, tweenInfo2, { ImageTransparency = 0.2, Size = targetSize })
+        local tween4 = TweenService:Create(imageLabel, tweenInfo2, { ImageTransparency = 0, Size = origSize })
+        for i = 1, 2 do
+            tween3:Play()
+            task.wait(duration2)
+            tween4:Play()
+            task.wait(duration2)
+        end
+        local duration3 = 0.1
+        local tweenInfo3 = TweenInfo.new(duration3, Enum.EasingStyle.Linear)
+        local tween5 = TweenService:Create(imageLabel, tweenInfo3, { ImageTransparency = 0.2, Size = targetSize })
+        local tween6 = TweenService:Create(imageLabel, tweenInfo3, { ImageTransparency = 0, Size = origSize })
+        for i = 1, 8 do
+            tween5:Play()
+            task.wait(duration3)
+            tween6:Play()
+            task.wait(duration3)
+        end
+        -- local duration4 = 0.05
+        -- local tweenInfo4 = TweenInfo.new(duration4, Enum.EasingStyle.Linear)
+        -- local tween7 = TweenService:Create(imageLabel, tweenInfo4, { ImageTransparency = 0.2, Size = targetSize })
+        -- local tween8 = TweenService:Create(imageLabel, tweenInfo4, { ImageTransparency = 0, Size = origSize })
+        -- for i = 1, 12 do
+        --     tween7:Play()
+        --     task.wait(duration4)
+        --     tween8:Play()
+        --     task.wait(duration4)
+        -- end
+        targetInstance:Destroy()
+        -- TODO: misslie SFX
+    end)
+end
+
+flickerTargetSign(Vector3.new(-280, 5.1, 91))
 -- local part = game.workspace:WaitForChild("Part")
 -- flickerEnemy("Part", part)
 
