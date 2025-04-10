@@ -143,11 +143,6 @@ local function update_ids(main: state.Main)
     merge(Id.PlayerUpgrade, function(id)
         _player_upgrade_non_persistent(id, false)
     end)
-
-    local _booster = main:constructor(C.BitsetNonPers)
-    merge(Id.Boost, function(id)
-        _booster(id, Id.PlayerF.NONE)
-    end)
 end
 
 local function create_state(player_state: PlayerState)
@@ -336,8 +331,8 @@ function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
 end
 
 function PlayerState.AddBooster(self: PlayerState, instanceGuid: string): ()
-    local nonPersFlags = self.state:get(instanceGuid, C.BitsetNonPers)
-    self.state:set(instanceGuid, C.BitsetNonPers, Id.flag_set(nonPersFlags, Id.PlayerF.BOOSTER_TOUCHED, false))
+    local _booster = self.state:constructor(C.BitsetNonPers)
+    _booster(instanceGuid, Id.PlayerF.NONE)
 end
 
 function PlayerState.__tostring(self: PlayerState): str

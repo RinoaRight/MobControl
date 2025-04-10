@@ -60,6 +60,7 @@ m.INTERCLONES_DISTANCE = 5
 m.ROCKET_SELF_HARM_MULT = .2
 m.DEFAULT_HP_GUI_TEXT = " "
 m.CLONES_FOLDER_NAME = "Clones"
+m.CLONES_DUMMY_FOLDER_NAME = "CloneDummies"
 m.PLAYER_HITBOX_NAME = "Hitbox"
 m.PLAYER_ALIGN_CONSTR_NAME = "PlayerAlignConstraint"
 m.CLONE_ATTACHMENT_NAME = "CloneGuideAtt"
@@ -78,6 +79,7 @@ m.GRAVE_SIZE_MULT = 1.5
 m.GRAVE_Z_DISTRIBUTION_RANDOMNESS = Vector3.new(10, 20)
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
+    [Id.Kind.Clone] = "PLAYER_ID",
 }
 
 -----------------------------

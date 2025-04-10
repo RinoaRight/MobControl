@@ -187,12 +187,29 @@ m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
     return new_pos
 end
 
+m.GetCloneDummyPos = function(pos: Vector3, alreadyInCol: int, row: int)
+    local dist = SharedConfig.INTERCLONES_DISTANCE
+    local new_pos = Vector3.new(pos.X, pos.Y, pos.Z)
+    local x = 0
+
+    if alreadyInCol == 1 then
+        x = -dist
+    elseif alreadyInCol == 2 then
+        x = dist
+    elseif alreadyInCol == 3 then
+        x = -dist * 2
+    elseif alreadyInCol == 4 then
+        x = dist * 2
+    end
+    new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z)
+    return new_pos
+end
+
 -- attach hitbox to the player == clones formation width
 m.AttachHitboxToPlayer = function(player_state)
     local player_character = player_state.character
     local humanoid_root_part = player_state.root
     local hitbox = Instance.new("Part")
-    hitbox.Size = Vector3.new(5, 5, 5)
     hitbox.Transparency = 1
     hitbox.CanCollide = false
     hitbox.Anchored = false
@@ -229,7 +246,7 @@ end
 
 m.DestroyClientClone = function(character: Model)
     local root = character:FindFirstChild("HumanoidRootPart") :: BasePart
-    m.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED], root.Position, 0)
+    m.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], root.Position, 0)
     character:Destroy()
 end
 

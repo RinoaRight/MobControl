@@ -60,7 +60,7 @@ local RunService = game:GetService("RunService")
 local ContentProvider = game:GetService("ContentProvider")
 local UserInputService = game:GetService("UserInputService")
 local Clones = require(script.Clones)
-local Boosters = require(script.BoosterClient)
+-- local Boosters = require(script.BoosterClient)
 local Obstacles = require(script.ObstaclesClient)
 local EnemiesClient = require(script.EnemiesClient)
 local UICounters = require(script.UI_Counters)
@@ -136,27 +136,11 @@ local function setPlayerToClientState(player_id, weapon_id)
 end
 
 local function handleGunHoldingAnimation(character, weapon_id: int)
-    -- local humanoid = assert(character:WaitForChild("Humanoid"))
     local animId = S.Animation[Id.Animation.HOLD]
     local activeHoldAnimTrack = Misc.PlayCharacterAnim(character, animId, false)
-    -- for _, animTrack in ipairs(humanoid:GetPlayingAnimationTracks()) do
-    --     if animTrack.Animation.AnimationId == animId then
-    --         activeHoldAnimTrack = animTrack
-    --         break
-    --     end
-    -- end
 
     if weapon_id == Id.Weapon._NONE and activeHoldAnimTrack then
         activeHoldAnimTrack:Stop()
-        -- else
-        --     if not activeHoldAnimTrack then
-        --         local holdAnimation = Instance.new("Animation")
-        --         holdAnimation.AnimationId = animId
-        --         local newHoldAnimTrack = character.Humanoid:LoadAnimation(holdAnimation)
-        --         activeHoldAnimTrack = newHoldAnimTrack
-        --     end
-        --     activeHoldAnimTrack.Priority = Enum.AnimationPriority.Action4
-        --     activeHoldAnimTrack:Play(0.100000001, 1, 2)
     end
 end
 
@@ -198,10 +182,11 @@ end
 
 on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
     LOCAL_HUMANOID.JumpPower = 50
-    local attachement = LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
-    if attachement then
-        attachement:Destroy()
-    end
+    -- NOTE: moved to server
+    -- local attachement = LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
+    -- if attachement then
+    --     attachement:Destroy()
+    -- end
     for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
         if v.Name == SharedConfig.RUN_ANIMATION_NAME then
             v:Stop()
@@ -249,11 +234,12 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
         -- disable jumping
         LOCAL_HUMANOID.JumpPower = 0
 
+        -- NOTE: moved to server
         -- create attachement for clones
-        local playerAtt = Instance.new("Attachment") :: Attachment
-        playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
-        playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
-        playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
+        -- local playerAtt = Instance.new("Attachment") :: Attachment
+        -- playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
+        -- playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
+        -- playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
 
         -- start running animation
         startRunAnim(LOCAL_CHARACTER)
@@ -320,8 +306,8 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
         local clones = clonesFolder:GetChildren()
         if clones and #clones > 1 then
             for i, clone in ipairs(clones) do
-                handleGunHoldingAnimation(clone, weapon_id)
                 -- handle weapon instance for clones
+                handleGunHoldingAnimation(clone, weapon_id)
                 local gunHand = clone:FindFirstChild("RightHand")
                 local weaponInstance = gunHand:FindFirstChildWhichIsA("Model")
                 if weapon_id == Id.Weapon._NONE then
@@ -447,7 +433,12 @@ end
 -- TODO: test out clones and bullets visibility on/off
 local function createCloneInstance(playerId, guid)
     local newInstance = Clones.CreateCloneInstance(WORLD, playerId, guid)
-    local weaponId = PLAYER_STATE:get(playerId, C.ClientWeaponId)
+    local weaponId
+    if playerId == LOCAL_PLAYER.UserId then
+        weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
+    else
+        weaponId = PLAYER_STATE:get(playerId, C.ClientWeaponId)
+    end
     handleGunHoldingAnimation(newInstance, weaponId)
     if not newInstance then
         log:error("failed to create clone for player " .. playerId)

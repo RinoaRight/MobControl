@@ -622,7 +622,8 @@ Id.Sound = enum.with_id "Id.Sound" {
     FIRE_PISTOL_LOCALIZED = iota'',
     RELOAD                = iota'',
     SCREAM                = iota'',
-    SCREAM_LOCALIZED      = iota'',
+    SCREAM_LOCALIZED_HIGH = iota'',
+    SCREAM_LOCALIZED_REG  = iota'',
     THUMP                 = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound

@@ -51,7 +51,7 @@ local Leaderboards = require(server.Leaderboards)
 local Obstacles = require(server.Obstacles)
 local BoosterServer = require(server.BoosterServer)
 local workerMaid = disposer.new()
-
+local ClonesServer = require(server.ClonesServer)
 if game.PhysicsService then
     local phys = game.PhysicsService
     log:debug("PhysicsService:IsCollisionGroupRegistered('Clones')", phys.IsCollisionGroupRegistered, phys, "Clones")
@@ -167,9 +167,13 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState)
     if nonPersFlags and not Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
         return
     end
-    -- if player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId) == Id.Weapon._NONE then
-    --     return
-    -- end
+
+    ClonesServer.RemovePlayerCloneDummies(player_state)
+
+    local attachement = player_state.root:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
+    if attachement then
+        attachement:Destroy()
+    end
 
     player_state:NotifyClient(Id.S2C.PLAYER_DIED)
     local lobby_spawn = assert(workspace:FindFirstChild("Lobby"):FindFirstChild("SpawnLocation"))
@@ -520,30 +524,31 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
 end
 
 -- TODO: refactor 3 next event. They should be registered server side
-on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
-    if not triggerer_id then
-        log:error("Collision triggerer id is not defined")
-    end
-    local is_player = type(triggerer_id) == "number"
+-- on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
+--     if not triggerer_id then
+--         log:error("Collision triggerer id is not defined")
+--     end
+--     local is_player = type(triggerer_id) == "number"
 
-    local instance_ref_id = WorldService.world:get(instance_guid, W.RefId)
-    if not instance_ref_id then
-        log:error("Instance ref id is not defined")
-    end
-    if Id.kind(instance_ref_id) ~= Id.Kind.Boost then
-        log:error("Instance ref id is not a booster")
-        return
-    end
+--     local instance_ref_id = WorldService.world:get(instance_guid, W.RefId)
+--     if not instance_ref_id then
+--         log:error("Instance ref id is not defined")
+--     end
+--     if Id.kind(instance_ref_id) ~= Id.Kind.Boost then
+--         log:error("Instance ref id is not a booster")
+--         return
+--     end
     
-    -- all checks done, do the logic
-    local hp = WorldService.world:get(instance_guid, W.HP)
-    if is_player then
-        player_state:DeductHp(hp)
-    else
-        -- delete booster
-        WorldService.world:delete(instance_guid)
-    end
-end
+--     -- all checks done, do the logic
+--     local hp = WorldService.world:get(instance_guid, W.HP)
+--     if is_player then
+--         player_state:DeductHp(hp)
+--     else
+--         -- TODO: "delete booster"??
+--         -- delete booster
+--         WorldService.world:delete(instance_guid)
+--     end
+-- end
 
 on[Id.C2S.PLAYER_COLLIDED_W_OBSTACLE] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
     if not triggerer_id then
@@ -625,6 +630,8 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     end
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id, playerHp)
+
+    ClonesServer.AttachCloneDummies(player_state)
 
     -- initialize player clones if any
     local cloneUpgradeId = Misc.IsCloneUpgrade(player_state)

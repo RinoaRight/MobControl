@@ -131,7 +131,8 @@ local function flickerTargetSign(pos: Vector3)
     end)
 end
 
-flickerTargetSign(Vector3.new(-280, 5.1, 91))
+-- TESTING
+-- flickerTargetSign(Vector3.new(-280, 5.1, 91))
 -- local part = game.workspace:WaitForChild("Part")
 -- flickerEnemy("Part", part)
 
