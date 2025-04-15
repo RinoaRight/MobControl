@@ -21,6 +21,7 @@ type array<a> = { a }
 type table = { [any]: any }
 type map<k, v> = { [k]: v }
 type fun = (...any) -> ...any
+type uid = str
 local fmt = string.format
 
 type base64 = str
@@ -148,6 +149,32 @@ local function onStateUpdate(playerState: state.Replica)
     UICounters.OnStateUpdate(playerState)
 end
 
+local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
+    Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, deducted_hp)
+    SFX.PLAY_SOUND(Id.Sound.SCREAM)
+    if cause then
+        local causeRefId
+        if type(cause) == "string" then
+            -- cause type is uid
+            if WORLD:has(cause) then
+                causeRefId = WORLD:get(cause, W.RefId)
+            elseif PLAYER_STATE:has(cause) then
+                causeRefId = PLAYER_STATE:get(cause, C.RefId)
+            else
+                log:error("cause is not a valid uid or id", cause)
+            end
+        else
+            -- cause type is refId
+            causeRefId = cause
+        end
+        if Id.kind(causeRefId) == Id.Kind.Obstacle then
+            -- TODO: change mesh of the obstacle
+            local obstacleGuid = assert(cause :: uid)
+            Obstacles.OnPlayerCollisionWithObstacle(WORLD, obstacleGuid)
+        end
+    end
+end
+
 -----------------------------
 -- Net handlers
 -----------------------------
@@ -169,9 +196,8 @@ on[Id.S2C.UPDATE_WORLD] = function(state: state.Replica, update_log)
     WORLD:update(update_log)
 end
 
-on[Id.S2C.PLAYER_DAMAGED] = function(state: state.Replica, deducted_hp: int)
-    Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, deducted_hp)
-    SFX.PLAY_SOUND(Id.Sound.SCREAM)
+on[Id.S2C.PLAYER_DAMAGED] = function(state: state.Replica, deducted_hp: int, cause: id?)
+    onPlayerDamaged(deducted_hp, cause)
 end
 
 on[Id.S2C.BOOSTER_DESTROYED] = function(state: state.Replica, boost_ref_id: id, value: num, boost_content_id: id)
@@ -180,7 +206,8 @@ on[Id.S2C.BOOSTER_DESTROYED] = function(state: state.Replica, boost_ref_id: id, 
     end
 end
 
-on[Id.S2C.PLAYER_DIED] = function(state: state.Replica)
+on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int, cause: id?)
+    onPlayerDamaged(deducted_hp, cause)
     LOCAL_HUMANOID.JumpPower = 50
     -- NOTE: moved to server
     -- local attachement = LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
@@ -373,7 +400,7 @@ local load = function(fire: FireServer, snapshot)
     UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, LOCAL_HUMANOID_ROOT_PART)
 
     MAIN_GUI.Enabled = true
-    
+
     return state
 end
 
@@ -948,10 +975,10 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     end
     -- check if it was a booster that has been added
     -- if Id.kind(newValue) == Id.Kind.Boost then
-        -- subscribe boosters to collisions
-        -- _booster(guid, false) -- initialize client state for booster
-        -- local boosterGuid = guid :: string
-        -- Boosters.onBoosterAdded(WORLD, PLAYER_STATE, boosterGuid)
+    -- subscribe boosters to collisions
+    -- _booster(guid, false) -- initialize client state for booster
+    -- local boosterGuid = guid :: string
+    -- Boosters.onBoosterAdded(WORLD, PLAYER_STATE, boosterGuid)
     if Id.kind(newValue) == Id.Kind.Obstacle then
         -- initialize client values for obstacle
         WORLD:set(guid, W.ClientFlags, false)

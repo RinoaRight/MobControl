@@ -429,7 +429,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                     if player and playerRoot and distToTarget then
                         -- local time_to_target = distToTarget / speed
-
+                        playerId = player.UserId :: int
+                        playerState = get_state(playerId)
                         if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
                             if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
                                 worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
@@ -469,6 +470,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     if enemyRefId ~= Id.Enemy.OCTOBOSS then
                         -- TODO: effects
                         m.DestroyEnemy(enemyGuid)
+                        print("LLLLLLL destroy enemy", enemyGuid)
+                        -- TODO: FIXIT. collisions stopped registering?
                     end
                 end
             end
@@ -500,12 +503,26 @@ end
 
 function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
     return function(dt)
-        -- weapon cooldown
         local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
         if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+            -- weapon cooldown
             local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
             shot_tte -= dt
             player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
+
+            -- check obstacle collision
+            local playerRootPart = player_state.root :: BasePart
+            for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
+                if Id.kind(refId) == Id.Kind.Obstacle then
+                    -- check if the player is colliding with the obstacle
+                    local dist = (playerRootPart.Position - obstPos).Magnitude
+                    local meshTemplate = S.Obstacle[refId].meshTemplateFull
+                    if dist < meshTemplate.Size.X / 2 then
+                        local dmg = assert(S.Obstacle[refId].damage)
+                        player_state:DeductHp(dmg, guid)
+                    end
+                end
+            end
         end
     end
 end

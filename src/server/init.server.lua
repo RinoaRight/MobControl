@@ -550,29 +550,29 @@ end
 --     end
 -- end
 
-on[Id.C2S.PLAYER_COLLIDED_W_OBSTACLE] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
-    if not triggerer_id then
-        log:error("Collision triggerer id is not defined")
-    end
-    local is_player = type(triggerer_id) == "number"
+-- on[Id.C2S.PLAYER_COLLIDED_W_OBSTACLE] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
+--     if not triggerer_id then
+--         log:error("Collision triggerer id is not defined")
+--     end
+--     local is_player = type(triggerer_id) == "number"
 
-    local instance_ref_id = WorldService.world:get(instance_guid, W.RefId)
-    if not instance_ref_id then
-        log:error("Instance ref id is not defined")
-    end
-    if Id.kind(instance_ref_id) ~= Id.Kind.Obstacle then
-        log:error("Instance ref id is not an obstacle")
-        return
-    end
-    local dmg = assert(S.Obstacle[instance_ref_id].damage)
+--     local instance_ref_id = WorldService.world:get(instance_guid, W.RefId)
+--     if not instance_ref_id then
+--         log:error("Instance ref id is not defined")
+--     end
+--     if Id.kind(instance_ref_id) ~= Id.Kind.Obstacle then
+--         log:error("Instance ref id is not an obstacle")
+--         return
+--     end
+--     local dmg = assert(S.Obstacle[instance_ref_id].damage)
 
-    if is_player then
-        player_state:DeductHp(dmg)
-    else
-        -- delete clone
-        WorldService.world:delete(triggerer_id)
-    end
-end
+--     if is_player then
+--         player_state:DeductHp(dmg)
+--     else
+--         -- delete clone
+--         WorldService.world:delete(triggerer_id)
+--     end
+-- end
 
 on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num | str, ...)
     if not triggerer_id then

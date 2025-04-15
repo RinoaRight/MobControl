@@ -767,8 +767,8 @@ Id.S2C = enum.with_id "Id.S2C" {
     BOOSTER_DESTROYED = iota'', -- boost_ref_id, value, boost_content_id
     INIT_WORLD        = iota'',
     UPDATE_WORLD      = iota'',
-    PLAYER_DAMAGED    = iota'', -- int (player damage)
-    PLAYER_DIED       = iota'', 
+    PLAYER_DAMAGED    = iota'', -- int (player damage), cause_id\uid?
+    PLAYER_DIED       = iota'', -- int (player damage), cause_id\uid?
     SHOW_POPUP_SERVER = iota'', -- event_id
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
