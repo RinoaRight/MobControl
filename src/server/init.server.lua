@@ -73,6 +73,10 @@ print(">>", _luapp.pp(data_table.load(_STMCSV.csv)))
 local STATES = {} :: { [number]: PlayerState }
 
 local function get_state(player_id: int): PlayerState?
+    if type(player_id) ~= "number" then
+        log:error("Parameter is not a player id", player_id, debug.traceback())
+        return nil
+    end
     return STATES[player_id]
 end
 
@@ -140,27 +144,26 @@ local function onPlayerSessionFinishedWorld(player_state, playerId)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STOPPED_SESSION, playerId)
 
     -- check if any player is still in the session. If not, stop the session altogether.
-    local isAnyOneInSession = false
+    local isAnyoneInSession = false
     local total_players = Players:GetPlayers()
     for _, player in ipairs(total_players) do
-        local thisPlayerState = get_state(player)
+        local thisPlayerState = get_state(player.UserId)
         if thisPlayerState then
             local thisPlayerNonPersFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
             if thisPlayerNonPersFlags then
                 if Id.flag_test(thisPlayerNonPersFlags, Id.PlayerF.READY) then
-                    isAnyOneInSession = true
+                    isAnyoneInSession = true
                     break
                 end
             end
         end
     end
-    if not isAnyOneInSession then
+    if not isAnyoneInSession then
         stopGameSession(playerId)
-        -- Signal.Fire(Id.S2S.STOP_GAME_SESSION, player_state.player_id)
     end
 end
 
-local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState)
+local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState, deducted_hp: int?, cause_id: id | uid?)
     print("Player dead")
     -- check if the player is not already dead
     local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
@@ -175,14 +178,14 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState)
         attachement:Destroy()
     end
 
-    player_state:NotifyClient(Id.S2C.PLAYER_DIED)
+    player_state:NotifyClient(Id.S2C.PLAYER_DIED, deducted_hp, cause_id)
     local lobby_spawn = assert(workspace:FindFirstChild("Lobby"):FindFirstChild("SpawnLocation"))
     player_state.root.CFrame = lobby_spawn.CFrame
     local constraint = player_state.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
     if constraint then
         constraint:Destroy()
     end
-    workerMaid.playerLoop = nil -- stop updating weapon ttl
+    -- workerMaid.playerLoop = nil -- stop updating weapon ttl
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, 0)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, 0)
@@ -241,11 +244,12 @@ stopGameSession = function(exception_player_id: num?)
     local total_players = Players:GetPlayers()
     for _, player in ipairs(total_players) do
         local userId = player.UserId
-        if userId ~= exception_player_id then
+        if exception_player_id and userId ~= exception_player_id then
             -- skip the player who ended the session to avoid recursion
             local thisPlayerState = get_state(userId)
             if thisPlayerState then
-                onPlayerSessionFinishedPlayerState(thisPlayerState)
+                thisPlayerState:DeductHp(thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value))
+                -- onPlayerSessionFinishedPlayerState(thisPlayerState)
             else
                 log:error("Player state not found", debug.traceback())
             end
@@ -622,12 +626,15 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     end
 
     -- initialize player's loop
-    local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
+    -- local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
+    ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
     log:trace("player's session started")
-    workerMaid.playerLoop = function()
-        ServerSupervisor:cancel(_main_loop_player_handler)
-        log:trace("player's loop canceled")
-    end
+    -- workerMaid.playerLoop = function()
+    --     TaskPool.defer(function()
+    --         ServerSupervisor:cancel(_main_loop_player_handler)
+    --         log:trace("player's loop canceled")
+    --     end)
+    -- end
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id, playerHp)
 
@@ -668,7 +675,7 @@ s2s[Id.S2S.CHANGE_WEAPON] = function(player_state, weapon_id, ...)
     changeWeapon(player_state, weapon_id)
 end
 
-s2s[Id.S2S.PLAYER_DIED] = function(player_state, ...)
+s2s[Id.S2S.PLAYER_DIED] = function(player_state, deducted_hp: int, cause_id: id | uid?, ...)
     onPlayerSessionFinishedPlayerState(player_state)
 end
 

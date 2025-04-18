@@ -206,8 +206,12 @@ on[Id.S2C.BOOSTER_DESTROYED] = function(state: state.Replica, boost_ref_id: id, 
     end
 end
 
-on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int, cause: id?)
-    onPlayerDamaged(deducted_hp, cause)
+on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause: id?)
+    if deducted_hp then
+        -- player died because they were damaged, otherwise it's the session finished
+        onPlayerDamaged(deducted_hp, cause)
+    end
+
     LOCAL_HUMANOID.JumpPower = 50
     -- NOTE: moved to server
     -- local attachement = LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
@@ -292,6 +296,9 @@ on_cc[Id.S2CC.PLAYER_STOPPED_SESSION] = function(player_id: id)
         return
     else
         local player = Players:GetPlayerByUserId(player_id)
+        if not player then
+            return
+        end
         local character = player.Character or player:WaitForChild("Character", 10)
         if not character then
             return
@@ -966,19 +973,11 @@ infrequentLoop:start(function(dt)
     end
 end, 1, "test")
 
--- local _booster = PLAYER_STATE:constructor(C.ClientFlags)
--- local _obstacle = PLAYER_STATE:constructor(C.Instance, C.ClientFlags, C.ValueView)
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     -- log:trace("~~~>", guid, newValue)
     if not Id.is(newValue) then
         log:error("Invalid value for RefId", newValue, WORLD:format_row(guid))
     end
-    -- check if it was a booster that has been added
-    -- if Id.kind(newValue) == Id.Kind.Boost then
-    -- subscribe boosters to collisions
-    -- _booster(guid, false) -- initialize client state for booster
-    -- local boosterGuid = guid :: string
-    -- Boosters.onBoosterAdded(WORLD, PLAYER_STATE, boosterGuid)
     if Id.kind(newValue) == Id.Kind.Obstacle then
         -- initialize client values for obstacle
         WORLD:set(guid, W.ClientFlags, false)

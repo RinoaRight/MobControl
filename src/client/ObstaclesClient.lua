@@ -163,7 +163,6 @@ local changeMesh = function(worldState: state.Replica, instanceGuid: str, newMes
 end
 
 local cleanupObstacle = function(worldState: state.Replica, instanceGuid: str)
-    print("LLLLLLLLL cleanup obstacle")
     if worldState:has(instanceGuid) then
         local instance = worldState:get(instanceGuid, W.ClientInstance)
         if instance then

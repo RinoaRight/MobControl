@@ -130,7 +130,7 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     for guid, refId, pos in WorldService.world:select(W.RefId, W.Position) do
         if Id.kind(refId) == Id.Kind.Obstacle then
             if pos.Z > groundUnitPos.Z - unitHalfLength then
-                WorldService.RemoveEntity(guid)
+                Obstacles.RemoveObstacle(WorldService.world, guid :: guid)
             end
         end
     end
@@ -440,6 +440,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         elseif currentPos.Z > playerRoot.Position.Z - 20 then
                             -- enemy is pretty close to player, cancel seeking
                             if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
+                            -- TODO: think of setting separate flag : seek_cancelled (so that mobs do not switch to another, which seems weird at this point)
                                 worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
                                 worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                             end
@@ -461,17 +462,16 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             end
 
             if distToTarget and playerState then
+                -- TODO: should check all players , not only the one that is locked to
                 -- enemy is critically close to player, harm them, then die (boss is an exception)
                 local d = enemyTemplate.Size.Z / 2
                 if distToTarget < d then
                     local enemyDamage = S.Enemy[enemyRefId].damage
-
+                    -- TODO: FIXIT: second player is not colliding with enemies
                     playerState:DeductHp(enemyDamage)
                     if enemyRefId ~= Id.Enemy.OCTOBOSS then
                         -- TODO: effects
                         m.DestroyEnemy(enemyGuid)
-                        print("LLLLLLL destroy enemy", enemyGuid)
-                        -- TODO: FIXIT. collisions stopped registering?
                     end
                 end
             end
@@ -515,11 +515,16 @@ function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
             for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
                 if Id.kind(refId) == Id.Kind.Obstacle then
                     -- check if the player is colliding with the obstacle
-                    local dist = (playerRootPart.Position - obstPos).Magnitude
-                    local meshTemplate = S.Obstacle[refId].meshTemplateFull
-                    if dist < meshTemplate.Size.X / 2 then
-                        local dmg = assert(S.Obstacle[refId].damage)
-                        player_state:DeductHp(dmg, guid)
+                    local rootPos = playerRootPart.Position
+                    if rootPos then
+                        local dist = (rootPos - obstPos).Magnitude
+                        if dist < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then 
+                            if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
+                                Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
+                                local dmg = assert(S.Obstacle[refId].damage)
+                                player_state:DeductHp(dmg, guid)
+                            end
+                        end
                     end
                 end
             end

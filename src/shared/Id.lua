@@ -717,7 +717,7 @@ Id.S2S = enum.with_id "Id.S2S" {
     PASS_GRANTED              = iota'',
     PURCHASE_FINISHED         = iota'',
     CHANGE_WEAPON             = iota'', -- weapon_id
-    PLAYER_DIED               = iota'',
+    PLAYER_DIED               = iota'', -- int (player damage)?, cause_id\uid?
     -- FINAL_BOSS_KILLED         = iota'',
     -- STOP_GAME_SESSION         = iota'',
 }
