@@ -379,7 +379,6 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
             return
         end
         PLAYER_STATE:set(player_id, C.ClientWeaponId, weapon_id)
-        print("LLLLLL player changed weapon", player_id, Id.name(weapon_id))
         if not PLAYER_STATE:get(player_id, C.ClientTTE) then
             PLAYER_STATE:set(player_id, C.ClientTTE, tte)
         end

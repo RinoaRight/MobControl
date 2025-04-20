@@ -36,6 +36,7 @@ local PSS = require(server.PlayerStateService)
 local m = {}
 
 m.AttachCloneDummies = function(player_state: PSS.PlayerState)
+    -- TODO: clone dummy are hindering other player's movement, need to fix
     for i = 1, SharedConfig.CLONES_IN_A_ROW do
         local cloneInstance = Instance.new("Part")
         local humanoid_root_part = player_state.root

@@ -179,7 +179,14 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
     end
 
     player_state:NotifyClient(Id.S2C.PLAYER_DIED, deducted_hp, cause_id)
-    local lobby_spawn = assert(workspace:FindFirstChild("Lobby"):FindFirstChild("SpawnLocation"))
+    local lobby_spawns = {}
+    for _, child in workspace:FindFirstChild("Lobby"):GetChildren() do
+        if child.Name == "SpawnLocation" then
+            table.insert(lobby_spawns, child)
+        end
+    end
+    local spawn_index = math.random(1, #lobby_spawns)
+    local lobby_spawn = lobby_spawns[spawn_index]
     player_state.root.CFrame = lobby_spawn.CFrame
     local constraint = player_state.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
     if constraint then
@@ -628,8 +635,8 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
 
     -- initialize player's loop
     -- local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
-    ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
-    log:trace("player's session started")
+    -- ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
+    -- log:trace("player's session started")
     -- workerMaid.playerLoop = function()
     --     TaskPool.defer(function()
     --         ServerSupervisor:cancel(_main_loop_player_handler)

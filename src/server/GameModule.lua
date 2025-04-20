@@ -51,7 +51,7 @@ local CLONES = {}
 
 local m = {} :: {
     get_state: (int) -> PSS.PlayerState?,
-    StartMainLoopPlayer: (PSS.PlayerState) -> (num) -> (),
+    StarFstartmaintMainLoopPlayer: (PSS.PlayerState) -> (num) -> (),
     Init: (state: state.Main, (int) -> PSS.PlayerState?) -> (),
     CreatePlayerHpGui: (PSS.PlayerState) -> (),
     DestroyEnemy: (enemy_guid: str, player_id: num?) -> (),
@@ -284,22 +284,42 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
 end
 
 local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (Player?, BasePart?, num?)
-    local totalPlayers = #playersInSession
-    local ind = 0
-    local distToTarget = 150
-    local player, playerRoot
-    while distToTarget >= 150 do
-        ind += 1
-        if ind > totalPlayers then
-            -- no player is close enough
-            return nil, nil, nil
+    -- local totalPlayers = #playersInSession
+    -- local ind = 0
+    -- local distToTarget = 150
+    local playerPool = {}
+    -- local player, playerRoot
+
+    for _, p in ipairs(playersInSession) do
+        -- player = playersInSession[ind] :: Player
+        local char = p.Character :: Model
+        local playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
+        local distToTarget = (enemyPos - playerRoot.Position).Magnitude
+        if distToTarget < 150 then
+            table.insert(playerPool, {player = p, playerRoot = playerRoot, distToTarget = distToTarget})
         end
-        player = playersInSession[ind] :: Player
-        local char = player.Character :: Model
-        playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
-        local toTarget = enemyPos - playerRoot.Position
-        distToTarget = toTarget.Magnitude
     end
+
+    if #playerPool <= 0 then
+        return nil, nil, nil
+    end
+
+    local ind = math.random(1, #playerPool)
+    local selectedPlayer = playerPool[ind].player
+    local playerRoot = playerPool[ind].playerRoot
+    local distToTarget = playerPool[ind].distToTarget
+    -- while distToTarget >= 150 do
+    --     ind += 1
+    --     if ind > totalPlayers then
+    --         -- no player is close enough
+    --         return nil, nil, nil
+    --     end
+    --     player = playersInSession[ind] :: Player
+    --     local char = player.Character :: Model
+    --     playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
+    --     local toTarget = enemyPos - playerRoot.Position
+    --     distToTarget = toTarget.Magnitude
+    -- end
 
     local closenessByX = math.abs(enemyPos.X - playerRoot.Position.X)
     if closenessByX > SharedConfig.ENEMY_SIGHT_RADIUS then
@@ -308,7 +328,8 @@ local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (P
     end
 
     -- player selected
-    return player, playerRoot, distToTarget
+    -- return player, playerRoot, distToTarget
+    return selectedPlayer, playerRoot, distToTarget
 end
 
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
@@ -340,38 +361,38 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             return
         end
 
-        -- for _, player in game.Players:GetPlayers() do
-        --     local player_state = get_state(player.UserId)
-        --     if not player_state then
-        --         continue
-        --     end
-        --     local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-        --     if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
-        --         -- weapon cooldown
-        --         local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
-        --         shot_tte -= dt
-        --         player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
+        for _, player in game.Players:GetPlayers() do
+            local player_state = get_state(player.UserId)
+            if not player_state then
+                continue
+            end
+            local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+            if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+                -- weapon cooldown
+                local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
+                shot_tte -= dt
+                player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
 
-        --         -- check obstacle collision
-        --         local playerRootPart = player_state.root :: BasePart
-        --         for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
-        --             if Id.kind(refId) == Id.Kind.Obstacle then
-        --                 -- check if the player is colliding with the obstacle
-        --                 local rootPos = playerRootPart.Position
-        --                 if rootPos then
-        --                     local dist = (rootPos - obstPos).Magnitude
-        --                     if dist < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
-        --                         if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
-        --                             Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
-        --                             local dmg = assert(S.Obstacle[refId].damage)
-        --                             player_state:DeductHp(dmg, guid)
-        --                         end
-        --                     end
-        --                 end
-        --             end
-        --         end
-        --     end
-        -- end
+                -- check obstacle collision
+                local playerRootPart = player_state.root :: BasePart
+                for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
+                    if Id.kind(refId) == Id.Kind.Obstacle then
+                        -- check if the player is colliding with the obstacle
+                        local rootPos = playerRootPart.Position
+                        if rootPos then
+                            local dist = (rootPos - obstPos).Magnitude
+                            if dist < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
+                                if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
+                                    Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
+                                    local dmg = assert(S.Obstacle[refId].damage)
+                                    player_state:DeductHp(dmg, guid)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
 
         -- driving box movement
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
@@ -462,6 +483,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                     if player and playerRoot and distToTarget then
                         -- local time_to_target = distToTarget / speed
+                        local critDist = 1
                         playerId = player.UserId :: int
                         playerState = get_state(playerId)
                         if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
@@ -470,7 +492,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                 worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                             end
                         -- elseif distToTarget < 20 then
-                        elseif currentPos.Z > playerRoot.Position.Z - 20 then
+                        elseif currentPos.Z > playerRoot.Position.Z - critDist then
                             -- enemy is pretty close to player, cancel seeking
                             if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
                                 -- TODO: think of setting separate flag : seek_cancelled (so that mobs do not switch to another, which seems weird at this point)
@@ -480,7 +502,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         else
                             -- predict player's position, binomial distribution add some randomness
                             local playerPos = playerRoot.Position
-                            local targetPos = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z - 20)
+                            local targetPos = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z - critDist)
                             -- local target = targetPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
                             local dist = (currentPos - targetPos).Magnitude
                             local t = dist / speed
@@ -541,36 +563,36 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
     end
 end
 
-function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
-    return function(dt)
-        local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-        if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
-            -- weapon cooldown
-            local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
-            shot_tte -= dt
-            player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
+-- function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
+--     return function(dt)
+--         -- local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+--         -- if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+--         --     -- weapon cooldown
+--         --     local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
+--         --     shot_tte -= dt
+--         --     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
 
-            -- check obstacle collision
-            local playerRootPart = player_state.root :: BasePart
-            for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
-                if Id.kind(refId) == Id.Kind.Obstacle then
-                    -- check if the player is colliding with the obstacle
-                    local rootPos = playerRootPart.Position
-                    if rootPos then
-                        local dist = (rootPos - obstPos).Magnitude
-                        if dist < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
-                            if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
-                                Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
-                                local dmg = assert(S.Obstacle[refId].damage)
-                                player_state:DeductHp(dmg, guid)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
+--         --     -- check obstacle collision
+--         --     local playerRootPart = player_state.root :: BasePart
+--         --     for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
+--         --         if Id.kind(refId) == Id.Kind.Obstacle then
+--         --             -- check if the player is colliding with the obstacle
+--         --             local rootPos = playerRootPart.Position
+--         --             if rootPos then
+--         --                 local dist = (rootPos - obstPos).Magnitude
+--         --                 if dist < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
+--         --                     if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
+--         --                         Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
+--         --                         local dmg = assert(S.Obstacle[refId].damage)
+--         --                         player_state:DeductHp(dmg, guid)
+--         --                     end
+--         --                 end
+--         --             end
+--         --         end
+--         --     end
+--         -- end
+--     end
+-- end
 
 m.DestroyEnemy = function(guid, playerId: num?)
     -- TODO: effects
@@ -634,6 +656,8 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
 end
 
 function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
+    -- TODO: refactor into being able to spawn only between sessions
+
     -- NOTE: players_already_in_session includes this player_state.player
 
     -- define spawning position
