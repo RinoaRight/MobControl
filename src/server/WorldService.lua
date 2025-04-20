@@ -66,8 +66,8 @@ function m.ChangeWeapon(player_state, player_id, weapon_id)
 
         m.world:set(player_id, W.WeaponId, weapon_id)
         m.world:set(player_id, W.ServerInstance, weapon_instance)
-        Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
     end
+    Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end
 
 local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId) -- player hp, weapon instance, weapon id

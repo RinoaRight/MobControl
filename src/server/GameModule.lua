@@ -340,6 +340,39 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             return
         end
 
+        -- for _, player in game.Players:GetPlayers() do
+        --     local player_state = get_state(player.UserId)
+        --     if not player_state then
+        --         continue
+        --     end
+        --     local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+        --     if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+        --         -- weapon cooldown
+        --         local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
+        --         shot_tte -= dt
+        --         player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
+
+        --         -- check obstacle collision
+        --         local playerRootPart = player_state.root :: BasePart
+        --         for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
+        --             if Id.kind(refId) == Id.Kind.Obstacle then
+        --                 -- check if the player is colliding with the obstacle
+        --                 local rootPos = playerRootPart.Position
+        --                 if rootPos then
+        --                     local dist = (rootPos - obstPos).Magnitude
+        --                     if dist < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
+        --                         if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
+        --                             Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
+        --                             local dmg = assert(S.Obstacle[refId].damage)
+        --                             player_state:DeductHp(dmg, guid)
+        --                         end
+        --                     end
+        --                 end
+        --             end
+        --         end
+        --     end
+        -- end
+
         -- driving box movement
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
         if not isBossFightOn then
@@ -382,10 +415,10 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             local distToTarget
             local playerId
             local playerState
+            local playersInSession = {}
 
             if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
                 local players = game.Players:GetPlayers()
-                local playersInSession = {}
                 for _, player in ipairs(players) do
                     local weaponId = worldState:get(player.UserId, W.WeaponId)
                     if weaponId ~= Id.Weapon._NONE then
@@ -440,7 +473,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         elseif currentPos.Z > playerRoot.Position.Z - 20 then
                             -- enemy is pretty close to player, cancel seeking
                             if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
-                            -- TODO: think of setting separate flag : seek_cancelled (so that mobs do not switch to another, which seems weird at this point)
+                                -- TODO: think of setting separate flag : seek_cancelled (so that mobs do not switch to another, which seems weird at this point)
                                 worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
                                 worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                             end
@@ -461,17 +494,24 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 end
             end
 
-            if distToTarget and playerState then
-                -- TODO: should check all players , not only the one that is locked to
-                -- enemy is critically close to player, harm them, then die (boss is an exception)
-                local d = enemyTemplate.Size.Z / 2
-                if distToTarget < d then
-                    local enemyDamage = S.Enemy[enemyRefId].damage
-                    -- TODO: FIXIT: second player is not colliding with enemies
-                    playerState:DeductHp(enemyDamage)
-                    if enemyRefId ~= Id.Enemy.OCTOBOSS then
-                        -- TODO: effects
-                        m.DestroyEnemy(enemyGuid)
+            -- if distToTarget and playerState then
+            -- check for "collision" with players
+            if #playersInSession > 0 then
+                for _, player in ipairs(playersInSession) do
+                    local thisPlayerState = get_state(player.UserId)
+                    if thisPlayerState then
+                        local root = thisPlayerState.root :: BasePart
+                        local proximity = (currentPos - root.Position).Magnitude
+                        local thickness = enemyTemplate.Size.Z / 2
+                        if proximity < thickness then
+                            -- enemy is critically close to player, harm them, then die (boss is an exception)
+                            local enemyDamage = S.Enemy[enemyRefId].damage
+                            thisPlayerState:DeductHp(enemyDamage)
+                            if enemyRefId ~= Id.Enemy.OCTOBOSS then
+                                -- TODO: effects
+                                m.DestroyEnemy(enemyGuid)
+                            end
+                        end
                     end
                 end
             end
@@ -518,7 +558,7 @@ function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
                     local rootPos = playerRootPart.Position
                     if rootPos then
                         local dist = (rootPos - obstPos).Magnitude
-                        if dist < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then 
+                        if dist < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
                             if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
                                 Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
                                 local dmg = assert(S.Obstacle[refId].damage)
@@ -593,7 +633,7 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     end
 end
 
-function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session: int)
+function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
     -- NOTE: players_already_in_session includes this player_state.player
 
     -- define spawning position
@@ -618,21 +658,21 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session
 
     local x_pos = driver_pos.X
     local index = 1
-    if players_already_in_session > #boosters then
+    if players_in_session > #boosters then
         index = math.random(1, #boosters)
-    elseif players_already_in_session % 2 == 0 then
+    elseif players_in_session % 2 == 0 then
         -- evens
         local starting_point = #boosters / 2 + 1
-        index = starting_point - players_already_in_session / 2
+        index = starting_point - players_in_session / 2
     else
         -- odds
         local starting_point = #boosters / 2
-        index = starting_point + (players_already_in_session + 1) / 2
+        index = starting_point + (players_in_session + 1) / 2
     end
     x_pos = boosters[index].Position.X
     local y_pos = playerRootPart.Position.Y
-    local z_pos = driver_pos.Z - 50
-    if players_already_in_session > 1 then
+    local z_pos = driver_pos.Z - 5
+    if players_in_session > 1 then
         local all_players = game.Players:GetPlayers()
         local isInSession = false
         for _, otherPlayer in all_players do

@@ -189,7 +189,7 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, 0)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, 0)
-    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, Id.flag_set(nonPersFlags, Id.PlayerF.READY, false))
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.flag_set(nonPersFlags, Id.PlayerF.READY, false))
 
     onPlayerSessionFinishedWorld(player_state, player_state.player_id)
 end
@@ -277,6 +277,7 @@ stopGameSession = function(exception_player_id: num?)
     -- task.wait(0.1)
     -- log:info("Game session stopped")
     -- log:info(">", WorldService.world:format_state("*"))
+
 end
 
 local function onFinalBossKilledByPlayer(boss_killer_player_state)
@@ -596,10 +597,10 @@ end
 on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     local playerId = player_state.player_id
     local total_players = Players:GetPlayers()
-    local players_already_in_session = 1 -- including this player
+    local players_already_in_session = 0
     if #total_players > 1 then
         for _, player in ipairs(total_players) do
-            local thisPlayerState = get_state(player)
+            local thisPlayerState = get_state(player.UserId)
             if thisPlayerState then
                 local nonPersF = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
                 local isReady = Id.flag_test(nonPersF, Id.PlayerF.READY)
@@ -610,7 +611,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         end
     end
 
-    if players_already_in_session > SharedConfig.MAX_PLAYERS_IN_SESSION then
+    if players_already_in_session >= SharedConfig.MAX_PLAYERS_IN_SESSION then
         player_state:NotifyClient(Id.S2C.SHOW_POPUP_SERVER, Id.C2S.PLAYER_READY_TO_START)
         return
     end
