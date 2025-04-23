@@ -171,7 +171,7 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
         return
     end
 
-    ClonesServer.RemovePlayerCloneDummies(player_state)
+    -- ClonesServer.RemovePlayerCloneDummies(player_state)
 
     local attachement = player_state.root:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
     if attachement then
@@ -646,7 +646,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id, playerHp)
 
-    ClonesServer.AttachCloneDummies(player_state)
+    -- ClonesServer.AttachCloneDummies(player_state)
 
     -- initialize player clones if any
     local cloneUpgradeId = Misc.IsCloneUpgrade(player_state)

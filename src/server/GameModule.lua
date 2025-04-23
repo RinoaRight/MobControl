@@ -296,7 +296,7 @@ local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (P
         local playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
         local distToTarget = (enemyPos - playerRoot.Position).Magnitude
         if distToTarget < 150 then
-            table.insert(playerPool, {player = p, playerRoot = playerRoot, distToTarget = distToTarget})
+            table.insert(playerPool, { player = p, playerRoot = playerRoot, distToTarget = distToTarget })
         end
     end
 
@@ -404,20 +404,50 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         oldPos = DRIVING_BOX_BACK_PART.Position
 
         -- clone dummies movement
-        for i, dummy in CLONES_DUMMY_FOLDER:GetChildren() do
-            -- dummy.Anchored = true
-            local playerId = dummy:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Clone])
-            local playerState = get_state(playerId)
-            if not playerState then
-                continue
-            end
-            local playerRootPart = playerState.root :: BasePart
-            local pos = playerRootPart.Position
-            local cloneCount = tonumber(dummy.Name) :: num
-            local clonePos = Misc.GetCloneDummyPos(pos, cloneCount - 1, 0)
-            local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
+        -- for i, dummy in CLONES_DUMMY_FOLDER:GetChildren() do
+        --     -- dummy.Anchored = true
+        --     local playerId = dummy:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Clone])
+        --     local playerState = get_state(playerId)
+        --     if not playerState then
+        --         continue
+        --     end
+        --     local playerRootPart = playerState.root :: BasePart
+        --     local pos = playerRootPart.Position
+        --     local cloneCount = tonumber(dummy.Name) :: num
+        --     local clonePos = Misc.GetCloneDummyPos(pos, cloneCount - 1, 0)
+        --     local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
 
-            dummy.CFrame = cloneTarget
+        --     dummy.CFrame = cloneTarget
+        -- end
+
+        -- check clones collisions
+        for cloneGuid, refId, playerId in worldState:select(W.RefId, W.PlayerId) do
+            if Id.kind(refId) == Id.Kind.Clone then
+                local playerState = get_state(playerId)
+                if not playerState then
+                    continue
+                end
+                -- with boosters
+                -- TODO: with obstacles and with enemies
+                local currentGroundUnit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
+                for _, booster in currentGroundUnit:GetChildren() do
+                    local playerRootPart = playerState.root :: BasePart
+                    local rootPos = playerRootPart.Position
+                    local cloneIndex = worldState:get(cloneGuid, W.Value)
+                    local alreadyInCol = (cloneIndex - 1) % SharedConfig.CLONES_IN_A_ROW
+                    local row = math.floor((cloneIndex - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
+                    local clonePos = Misc.GetClonePos(rootPos, alreadyInCol, row)
+                    local boosterInstance = worldState:get(booster.Name, W.ServerInstance)
+                    local boosterSizeZ = boosterInstance.Size.Z
+                    local boosterSizeX = boosterInstance.Size.X
+                    local distZ = (clonePos.Z - boosterInstance.Position.Z).Magnitude
+                    local distX = (clonePos.X - boosterInstance.Position.X).Magnitude
+                    if distZ < boosterSizeZ / 2 and distX < boosterSizeX / 2 then
+                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
+                        WorldService.RemoveEntity(cloneGuid)
+                    end
+                end
+            end
         end
 
         -- calculate new enemies' positions
@@ -495,7 +525,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         elseif currentPos.Z > playerRoot.Position.Z - critDist then
                             -- enemy is pretty close to player, cancel seeking
                             if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
-                                -- TODO: think of setting separate flag : seek_cancelled (so that mobs do not switch to another, which seems weird at this point)
                                 worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
                                 worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                             end

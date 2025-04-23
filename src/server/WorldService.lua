@@ -70,13 +70,13 @@ function m.ChangeWeapon(player_state, player_id, weapon_id)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end
 
-local _playerEntity = m.world:constructor(W.HP, W.ServerInstance, W.WeaponId) -- player hp, weapon instance, weapon id
+local _playerEntity = m.world:constructor(W.Value, W.HP, W.ServerInstance, W.WeaponId) -- num of clones, player hp, weapon instance, weapon id
 function m.AddPlayer(state)
     local player_id = state.player_id
     if m.world:has(player_id) then
         log:error("non-unique uid: ", player_id, m.world.format_row, m.world, player_id)
     end
-    return _playerEntity(player_id, SharedConfig.PLAYER_BASE_HP, nil, Id.Weapon._NONE)
+    return _playerEntity(player_id, 0, SharedConfig.PLAYER_BASE_HP, nil, Id.Weapon._NONE)
 end
 
 function m.RemovePlayer(uid: uid)
@@ -84,8 +84,22 @@ function m.RemovePlayer(uid: uid)
 end
 
 function m.RemoveEntity(uid: uid)
-    -- local refId = m.world:get(uid, W.RefId)
-    -- print("Removing entity", Id.name(refId))
+    -- clones
+    local refId = m.world:get(uid, W.RefId)
+    if refId and Id.kind(refId) == Id.Kind.Clone then
+        local playerId = m.world:get(uid, W.PlayerId)
+        if not playerId then
+            log:error("player id not found for clone: ", uid)
+        end
+        local playerClonesCount = m.world:get(playerId, W.Value)
+        if not playerClonesCount then
+            log:error("player clones count not found for player: ", playerId)
+        else
+            m.world:set(playerId, W.Value, playerClonesCount - 1)
+        end
+    end
+
+    -- everything
     m.world:delete(uid)
 end
 
@@ -155,6 +169,17 @@ function m.AddClone(id: id, player_id: int)
     local guid = m.nullary_transient(_roflake.uida())
     m.world:set(guid, W.RefId, id)
     m.world:set(guid, W.PlayerId, player_id)
+    local isPlayerEntity = m.world:has(player_id)
+    if not isPlayerEntity then
+        log:error("player entity not found for player id: ", player_id)
+    else
+        local playerClonesCount = m.world:get(player_id, W.Value)
+        local newCount = playerClonesCount + 1
+        -- set clone index number to clone entity
+        m.world:set(guid, W.Value, newCount)
+        -- set new clone count to player entity
+        m.world:set(player_id, W.Value, newCount)
+    end
     return guid
 end
 
