@@ -159,6 +159,7 @@ local changeMesh = function(worldState: state.Replica, instanceGuid: str, newMes
     newMeshInstance.CFrame = CFrame.new(pos) * CFrame.Angles(0, math.pi, 0)
     newMeshInstance.Parent = parent
     newMeshInstance.Name = instanceGuid
+    newMeshInstance.CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME
     worldState:set(instanceGuid, W.ClientInstance, newMeshInstance)
 end
 
@@ -226,6 +227,7 @@ m.onObstacleAdded = function(worldState: state.Replica, instanceGuid: str, local
     obstInstance.Size = Vector3.new(oldSize.X * mult, oldSize.Y * mult, oldSize.Z * mult)
 
     obstInstance.Name = instanceGuid
+    obstInstance.CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME
     local parentFolder = workspace:FindFirstChild(SharedConfig.OBSTACLE_FOLDER_NAME)
     if not parentFolder then
         parentFolder = Instance.new("Folder", workspace)
@@ -279,44 +281,6 @@ m.OnPlayerCollisionWithObstacle = function(worldState: state.Replica, instanceGu
 end
 
 m.CleanupClientObstacle = cleanupObstacle
-
--- function m.ShakeCamera(intensity: number, duration: number, frequency: number)
---     local camera = workspace.Camera
---     if not camera then return end
-
---     local originalCFrame = camera.CFrame
-
---     TaskPool.spawn(function()
---         task.wait(.5)
---         SFX.PLAY_SOUND(Id.Sound.CREAK_METAL)
-
---         local startTime = os.clock()
-
---         while os.clock() - startTime < duration do
---             local elapsed = os.clock() - startTime
---             local progress = elapsed / duration
-
---             -- Calculate shake amount (decreases over time)
---             local currentIntensity = intensity * (1 - progress)
-
---             -- Generate random Y offset and rotation
---             local yOffset = math.random(-currentIntensity, currentIntensity)
---             local rotation = math.rad(math.random(-currentIntensity * 5, currentIntensity * 5))
-
---             -- Apply shake (only Y position and rotation)
---             camera.CFrame = originalCFrame * CFrame.new(0, yOffset, 0) * CFrame.fromOrientation(0, rotation, 0)
-
---             -- Wait for next shake
---             task.wait(1/frequency)
---         end
-
---         -- Reset camera
---         -- camera.CFrame = originalCFrame
---     end)
--- end
-
--- Example usage:
--- m.ShakeCamera(20, 10, 10) -- intensity: 0.5, duration: 2 seconds, frequency: 10 shakes per second
 
 return m
 -- TODO: subscribe to collision with bullets and make them breakable?

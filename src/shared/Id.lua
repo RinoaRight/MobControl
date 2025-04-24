@@ -625,6 +625,7 @@ Id.Sound = enum.with_id "Id.Sound" {
     SCREAM_LOCALIZED_HIGH = iota'',
     SCREAM_LOCALIZED_REG  = iota'',
     THUMP                 = iota'',
+    THUMP_LOCALIZED       = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound
 export type Sound = typeof(Id.Sound)

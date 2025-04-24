@@ -191,10 +191,11 @@ function m.AddEnemyToState(id: id, pos)
     return guid
 end
 
-local _obstacle = m.world:constructor(W.RefId, W.Position)
+local _obstacle = m.world:constructor(W.RefId, W.HP, W.Position)
 function m.AddObstacleToWorldState(id: id, pos: v3)
     local guid = _roflake.uida()
-    _obstacle(guid, id, pos)
+    local hp = assert(S.Obstacle[id].hp)
+    _obstacle(guid, id, hp, pos)
     return guid
 end
 

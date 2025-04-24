@@ -201,6 +201,31 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
     onPlayerSessionFinishedWorld(player_state, player_state.player_id)
 end
 
+local function doCleanup(exception_player_id: num?)
+    WorldService.SetGameSessionOff()
+    WorldService.SetBossFightOff()
+    -- WorldService.ResetBoosterWaveCount()
+    WorldService.ResetEnemyWaveCount()
+    WorldService.ResetObstacleWaveCount()
+
+    -- kill remaining enemies and obstacles
+    for guid, refId, _pos in WorldService.world:select(W.RefId, W.Position) do
+        if Id.kind(refId) == Id.Kind.Enemy then
+            local thisGuid = guid :: guid
+            GameModule.DestroyEnemy(thisGuid)
+        elseif Id.kind(refId) == Id.Kind.Obstacle then
+            local thisGuid = guid :: guid
+            WorldService.RemoveEntity(thisGuid)
+        end
+    end
+
+    -- remove remaining ground units and reset driving box
+    GameModule.Cleanup()
+    -- task.wait(0.1)
+    -- log:info("Game session stopped")
+    -- log:info(">", WorldService.world:format_state("*"))
+end
+
 local function startGameSession()
     TaskPool.spawn(function()
         Leaderboards.ResetLeaderboards()
@@ -239,6 +264,7 @@ local function startGameSession()
         workerMaid.worldLoop = function()
             task.defer(function()
                 ServerSupervisor:cancel(_main_loop_world_handler)
+                doCleanup(playerState.player_id)
                 log:trace("world loop canceled")
             end)
         end
@@ -248,6 +274,7 @@ end
 stopGameSession = function(exception_player_id: num?)
     workerMaid.worldLoop = nil
 
+    -- kill other active players
     local total_players = Players:GetPlayers()
     for _, player in ipairs(total_players) do
         local userId = player.UserId
@@ -262,29 +289,6 @@ stopGameSession = function(exception_player_id: num?)
             end
         end
     end
-    WorldService.SetGameSessionOff()
-    WorldService.SetBossFightOff()
-    -- WorldService.ResetBoosterWaveCount()
-    WorldService.ResetEnemyWaveCount()
-    WorldService.ResetObstacleWaveCount()
-
-    -- kill remaining enemies and obstacles
-    for guid, refId, _pos in WorldService.world:select(W.RefId, W.Position) do
-        if Id.kind(refId) == Id.Kind.Enemy then
-            local thisGuid = guid :: guid
-            GameModule.DestroyEnemy(thisGuid)
-        elseif Id.kind(refId) == Id.Kind.Obstacle then
-            local thisGuid = guid :: guid
-            WorldService.RemoveEntity(thisGuid)
-        end
-    end
-
-    -- remove remaining ground units and reset driving box
-    GameModule.Cleanup()
-    -- task.wait(0.1)
-    -- log:info("Game session stopped")
-    -- log:info(">", WorldService.world:format_state("*"))
-
 end
 
 local function onFinalBossKilledByPlayer(boss_killer_player_state)
@@ -429,13 +433,15 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
         if WorldService.world:has(targetGuid) then
             local targetRefId = WorldService.world:get(targetGuid, W.RefId)
             local targetPos
-            local serverInstance
+            local boosterServerInstance
 
             if Id.kind(targetRefId) == Id.Kind.Enemy then
                 targetPos = WorldService.world:get(targetGuid, W.Position)
             elseif Id.kind(targetRefId) == Id.Kind.Boost then
-                serverInstance = WorldService.world:get(targetGuid, W.ServerInstance)
-                targetPos = serverInstance.Position
+                boosterServerInstance = WorldService.world:get(targetGuid, W.ServerInstance)
+                targetPos = boosterServerInstance.Position
+            elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
+                targetPos = WorldService.world:get(targetGuid, W.Position)
             end
 
             if not targetPos then
@@ -505,7 +511,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                 local dmg = math.floor(S.Weapon[bulletWeaponId].damage + firepowerBonus)
                 local booster_hp = WorldService.world:get(targetGuid, W.HP)
                 local new_hp = booster_hp - dmg
-                local boosterGui = serverInstance:FindFirstChildWhichIsA("SurfaceGui")
+                local boosterGui = boosterServerInstance:FindFirstChildWhichIsA("SurfaceGui")
                 if boosterGui then
                     boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
                 end
@@ -525,6 +531,17 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                     local _ = playerState:UpdateSessionDamageStats(dmg)
                     WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
                 end
+            -- elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
+            --     local dmg = math.floor(S.Weapon[bulletWeaponId].damage + firepowerBonus)
+            --     local obstacleHP = WorldService.world:get(targetGuid, W.HP)
+            --     local newHP = obstacleHP - dmg
+            --     if newHP <= 0 then
+            --         local _ = playerState:UpdateSessionDamageStats(newHP)
+            --         WorldService.world:delete(targetGuid)
+            --     else
+            --         local _ = playerState:UpdateSessionDamageStats(dmg)
+            --         WorldService.world:set(targetGuid, W.HP, newHP)
+            --     end
             else
                 return
             end

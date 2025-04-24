@@ -139,6 +139,7 @@ end
 m.Obstacle = {
     [Id.Obstacle.GRAVE] = {
         damage = 20,
+        hp = 20,
         meshTemplateFull = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall1"),
         meshTemplateHalf = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall2"),
         meshTemplateLast = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall3"),
@@ -253,10 +254,11 @@ m.Sound = {
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
     [Id.Sound.SCREAM_LOCALIZED_HIGH] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ScreamHigh")),
     [Id.Sound.SCREAM_LOCALIZED_REG] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ScreamReg")),
+    [Id.Sound.THUMP_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Thump")),
 }
 
 m.VFX = {
-    -- TODO: FIXIT. Explosion doesn't appear in Replicate dStorage of a player outside the editor
+    -- TODO: FIXIT. Explosion doesn't appear in Replicated Storage of a player outside the editor
     -- [Id.VFX.EXPLOSION] = assert(VFX_ROOT:WaitForChild("Explosion")),
 }
 
