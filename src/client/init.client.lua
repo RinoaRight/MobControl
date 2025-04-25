@@ -170,7 +170,7 @@ local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
         if Id.kind(causeRefId) == Id.Kind.Obstacle then
             -- TODO: change mesh of the obstacle
             local obstacleGuid = assert(cause :: uid)
-            Obstacles.OnPlayerCollisionWithObstacle(WORLD, obstacleGuid)
+            Obstacles.OnCollisionWithObstacle(WORLD, obstacleGuid)
         end
     end
 end
@@ -706,6 +706,9 @@ local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_si
             -- targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
             targetThickness = target.Size.Z
             isTargetKillable = true
+        elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
+            targetThickness = target.Size.Z
+            isTargetKillable = true
         end
     end
     return target, isTargetKillable, targetThickness, targetRefId
@@ -829,6 +832,8 @@ RunService.Heartbeat:Connect(function(dt)
                 target_pos = WORLD:get(target.Name, W.Position)
             elseif Id.kind(targetRefId) == Id.Kind.Boost then
                 target_pos = target.Position
+            elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
+                target_pos = target.Position
             end
             hit_z = target_pos.Z + targetThickness + 1
             if weapon_id == Id.Weapon.ROCKET then
@@ -839,7 +844,10 @@ RunService.Heartbeat:Connect(function(dt)
         if target and isTargetKillable and hit_z and hit_z >= bullet.Position.Z then
             -- bullet collided with a bullet-killable target
             if owner == LOCAL_PLAYER then
-                if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy then
+                if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy or Id.kind(targetRefId) == Id.Kind.Obstacle then
+                    if Id.kind(targetRefId) == Id.Kind.Obstacle then
+                        Obstacles.OnCollisionWithObstacle(WORLD, target.Name)
+                    end
                     local targetGuids = { target.Name }
                     if weapon_id == Id.Weapon.ROCKET then
                         -- animate the explosion
@@ -860,8 +868,11 @@ RunService.Heartbeat:Connect(function(dt)
                             for _, otherTarget in ipairs(otherTargets) do
                                 if otherTarget and WORLD:has(otherTarget.Name) then
                                     local otherTargetRefId = WORLD:get(otherTarget.Name, W.RefId)
-                                    if Id.kind(otherTargetRefId) == Id.Kind.Boost or Id.kind(otherTargetRefId) == Id.Kind.Boost then
+                                    if Id.kind(otherTargetRefId) == Id.Kind.Boost or Id.kind(otherTargetRefId) == Id.Kind.Enemy or Id.kind(otherTargetRefId) == Id.Kind.Obstacle then
                                         table.insert(targetGuids, otherTarget.Name)
+                                        if Id.kind(targetRefId) == Id.Kind.Obstacle then
+                                            Obstacles.OnCollisionWithObstacle(WORLD, otherTarget.Name)
+                                        end
                                     end
                                 end
                             end

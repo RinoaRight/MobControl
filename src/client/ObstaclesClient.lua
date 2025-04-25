@@ -252,23 +252,46 @@ m.onObstacleAdded = function(worldState: state.Replica, instanceGuid: str, local
     -- subscribeInstance(worldState, instanceGuid, refId, obstInstance)
 end
 
-m.OnPlayerCollisionWithObstacle = function(worldState: state.Replica, instanceGuid: str)
+-- m.OnCollisionWithObstacle = function(worldState: state.Replica, instanceGuid: str)
+--     SFX.PLAY_SOUND(Id.Sound.THUMP)
+--     local instanceRefId = worldState:get(instanceGuid, W.RefId)
+--     local currentMesh = worldState:get(instanceGuid, W.ClientInstance)
+--     if currentMesh then
+--         -- change the model of the obstacle
+--         local currentMeshStage = worldState:get(instanceGuid, W.ValueView)
+--         if currentMeshStage and currentMeshStage == 3 then
+--             cleanupObstacle(worldState, instanceGuid)
+--         elseif currentMeshStage and currentMeshStage ~= 0 then
+--             local newMeshStage = currentMeshStage + 1
+--             local newMeshTemplate
+--             if currentMeshStage == 1 then
+--                 newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateHalf
+--             elseif currentMeshStage == 2 then
+--                 newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateLast
+--             end
+--             local pos = currentMesh.Position
+--             local parent = currentMesh.Parent
+--             disposer.dispose(currentMesh)
+--             if newMeshTemplate then
+--                 worldState:set(instanceGuid, W.ValueView, newMeshStage)
+--                 changeMesh(worldState, instanceGuid, newMeshTemplate, pos, parent)
+--             end
+--         end
+--     end
+-- end
+
+m.OnCollisionWithObstacle = function(worldState: state.Replica, instanceGuid: str)
     SFX.PLAY_SOUND(Id.Sound.THUMP)
     local instanceRefId = worldState:get(instanceGuid, W.RefId)
     local currentMesh = worldState:get(instanceGuid, W.ClientInstance)
     if currentMesh then
         -- change the model of the obstacle
         local currentMeshStage = worldState:get(instanceGuid, W.ValueView)
-        if currentMeshStage and currentMeshStage == 3 then
-            cleanupObstacle(worldState, instanceGuid)
-        elseif currentMeshStage and currentMeshStage ~= 0 then
+        if currentMeshStage and currentMeshStage == 2 then
+            return
+        elseif currentMeshStage and currentMeshStage == 1 then
             local newMeshStage = currentMeshStage + 1
-            local newMeshTemplate
-            if currentMeshStage == 1 then
-                newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateHalf
-            elseif currentMeshStage == 2 then
-                newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateLast
-            end
+            local newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateHalf
             local pos = currentMesh.Position
             local parent = currentMesh.Parent
             disposer.dispose(currentMesh)

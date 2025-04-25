@@ -531,17 +531,17 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                     local _ = playerState:UpdateSessionDamageStats(dmg)
                     WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
                 end
-            -- elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
-            --     local dmg = math.floor(S.Weapon[bulletWeaponId].damage + firepowerBonus)
-            --     local obstacleHP = WorldService.world:get(targetGuid, W.HP)
-            --     local newHP = obstacleHP - dmg
-            --     if newHP <= 0 then
-            --         local _ = playerState:UpdateSessionDamageStats(newHP)
-            --         WorldService.world:delete(targetGuid)
-            --     else
-            --         local _ = playerState:UpdateSessionDamageStats(dmg)
-            --         WorldService.world:set(targetGuid, W.HP, newHP)
-            --     end
+            elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
+                local dmg = math.floor(S.Weapon[bulletWeaponId].damage + firepowerBonus)
+                local obstacleHP = WorldService.world:get(targetGuid, W.HP)
+                local newHP = obstacleHP - dmg
+                if newHP <= 0 then
+                    local _ = playerState:UpdateSessionDamageStats(newHP)
+                    WorldService.world:delete(targetGuid)
+                else
+                    local _ = playerState:UpdateSessionDamageStats(dmg)
+                    WorldService.world:set(targetGuid, W.HP, newHP)
+                end
             else
                 return
             end
@@ -552,7 +552,6 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
     WorldService.RemoveEntity(bulletGuid)
 end
 
--- TODO: refactor 3 next event. They should be registered server side
 -- on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
 --     if not triggerer_id then
 --         log:error("Collision triggerer id is not defined")
@@ -603,20 +602,20 @@ end
 --     end
 -- end
 
-on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num | str, ...)
-    if not triggerer_id then
-        log:error("Collision triggerer id is not defined")
-    end
-    local isPlayer = type(triggerer_id) == "number"
-    -- local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION_PARAMS, C.Value)
-    local damage = S.Weapon[Id.Weapon.ROCKET].damage * SharedConfig.ROCKET_SELF_HARM_MULT
-    if isPlayer then
-        player_state:DeductHp(damage)
-    else
-        -- delete clone
-        WorldService.world:delete(triggerer_id)
-    end
-end
+-- on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num | str, ...)
+--     if not triggerer_id then
+--         log:error("Collision triggerer id is not defined")
+--     end
+--     local isPlayer = type(triggerer_id) == "number"
+--     -- local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION_PARAMS, C.Value)
+--     local damage = S.Weapon[Id.Weapon.ROCKET].damage * SharedConfig.ROCKET_SELF_HARM_MULT
+--     if isPlayer then
+--         player_state:DeductHp(damage)
+--     else
+--         -- delete clone
+--         WorldService.world:delete(triggerer_id)
+--     end
+-- end
 
 on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     local playerId = player_state.player_id
