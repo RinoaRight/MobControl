@@ -272,23 +272,24 @@ local function startGameSession()
 end
 
 stopGameSession = function(exception_player_id: num?)
-    workerMaid.worldLoop = nil
-
     -- kill other active players
     local total_players = Players:GetPlayers()
     for _, player in ipairs(total_players) do
         local userId = player.UserId
+        -- skip the player who ended the session to avoid recursion
         if exception_player_id and userId ~= exception_player_id then
-            -- skip the player who ended the session to avoid recursion
-            local thisPlayerState = get_state(userId)
-            if thisPlayerState then
-                thisPlayerState:DeductHp(thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value))
-                -- onPlayerSessionFinishedPlayerState(thisPlayerState)
-            else
-                log:error("Player state not found", debug.traceback())
-            end
+            continue
+        end
+        local thisPlayerState = get_state(userId)
+        if thisPlayerState then
+            thisPlayerState:DeductHp(thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value))
+            -- onPlayerSessionFinishedPlayerState(thisPlayerState)
+        else
+            log:error("Player state not found", debug.traceback())
         end
     end
+
+    workerMaid.worldLoop = nil
 end
 
 local function onFinalBossKilledByPlayer(boss_killer_player_state)
@@ -537,6 +538,9 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                 local newHP = obstacleHP - dmg
                 if newHP <= 0 then
                     local _ = playerState:UpdateSessionDamageStats(newHP)
+                    -- give reward for destroying obstacle
+                    local reward = S.Obstacle[targetRefId].reward or 0
+                    playerState:AddCountable(Id.Countable.COIN, reward)
                     WorldService.world:delete(targetGuid)
                 else
                     local _ = playerState:UpdateSessionDamageStats(dmg)
@@ -566,7 +570,7 @@ end
 --         log:error("Instance ref id is not a booster")
 --         return
 --     end
-    
+
 --     -- all checks done, do the logic
 --     local hp = WorldService.world:get(instance_guid, W.HP)
 --     if is_player then

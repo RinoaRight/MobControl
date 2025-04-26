@@ -306,4 +306,3 @@ end
 m.CleanupClientObstacle = cleanupObstacle
 
 return m
--- TODO: subscribe to collision with bullets and make them breakable?

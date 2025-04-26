@@ -462,26 +462,26 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 end
 
                 -- with enemies
-                for enemyGuid, refId, _hp, enemyPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
-                    if Id.kind(refId) ~= Id.Kind.Enemy then
-                        continue
-                    end                    
-                    local proximityByX = math.abs(rootPos.X - enemyPos.X)
-                    local proximityByZ = math.abs(rootPos.Z - enemyPos.Z)
-                    local enemyTemplate = assert(S.Enemy[refId].meshTemplate)
-                    local obstWidth = enemyTemplate.Size.X
-                    local obstLength = enemyTemplate.Size.Z
-                    if proximityByX < obstWidth and proximityByZ < obstLength then
-                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
-                        WorldService.RemoveEntity(cloneGuid)
-                        isCollided = true
-                        break
-                    end
-                end
+                -- for enemyGuid, refId, _hp, enemyPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
+                --     if Id.kind(refId) ~= Id.Kind.Enemy then
+                --         continue
+                --     end                    
+                --     local proximityByX = math.abs(rootPos.X - enemyPos.X)
+                --     local proximityByZ = math.abs(rootPos.Z - enemyPos.Z)
+                --     local enemyTemplate = assert(S.Enemy[refId].meshTemplate)
+                --     local obstWidth = enemyTemplate.Size.X
+                --     local obstLength = enemyTemplate.Size.Z
+                --     if proximityByX < obstWidth and proximityByZ < obstLength then
+                --         Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
+                --         WorldService.RemoveEntity(cloneGuid)
+                --         isCollided = true
+                --         break
+                --     end
+                -- end
 
-                if isCollided then
-                    continue
-                end
+                -- if isCollided then
+                --     continue
+                -- end
 
                 -- with obstacles
                 for obstacleGuid, refId, obstaclePos in worldState:select(W.RefId, W.Position) do
@@ -570,7 +570,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                     if player and playerRoot and distToTarget then
                         -- local time_to_target = distToTarget / speed
-                        local critDist = 1.5
+                        local critDist = 10--1.5
                         playerId = player.UserId :: int
                         playerState = get_state(playerId)
                         if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking

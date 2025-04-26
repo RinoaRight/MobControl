@@ -78,9 +78,9 @@ local ENV_WORLD_READY = "WORLD_READY"
 
 local ENEMIES_FOLDER = assert(workspace:WaitForChild("Enemies"))
 
-local ACTIVE_BULLETS_REPOSITORY = workspace:WaitForChild("Bullets")
+local ACTIVE_BULLETS_REPOSITORY = assert(workspace:WaitForChild("Bullets"))
 Misc.AddInstanceToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
-local INACTIVE_BULLETS_REPOSITORY = ReplicatedStorage:WaitForChild("Bullets")
+local INACTIVE_BULLETS_REPOSITORY = assert(ReplicatedStorage:WaitForChild("Bullets"))
 local activeBulletsDataTable = {} :: { table }
 local NIL_TABLE = table.freeze { "NIL" }
 -----------------------------
@@ -116,6 +116,9 @@ local TOKEN_SHOP_GUI = assert(PLAYER_GUI:WaitForChild("TokenShopGUI"))
 local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
 local SETTINGS_BTN_PANEL = assert(MAIN_GUI.GearPanel)
 local TOP_RIGHT_PANEL = assert(MAIN_GUI:WaitForChild("TopRightPanel"))
+
+local COLLIDABLES_HP_GUI_NAME = "CollidableHpGui"
+local COLLIDABLES_HP_GUI_TEMPLATE = assert(PLAYER_GUI:WaitForChild(COLLIDABLES_HP_GUI_NAME)) :: BillboardGui
 
 -- forward declarations
 local playRunAnimTrack
@@ -721,6 +724,23 @@ RunService.Heartbeat:Connect(function(dt)
         return
     end
 
+    -- -- update TTE for all currently shown damage GUIs
+    -- for targetGuid, tte in WORLD:select(W.ClientTTE) do
+    --     if tte <= 0 then
+    --         local refId = WORLD:get(targetGuid, W.RefId)
+    --         if Id.kind(refId) ~= Id.Kind.Enemy and Id.kind(refId) ~= Id.Kind.Obstacle then
+    --             continue
+    --         end
+    --         local target = WORLD:get(targetGuid, W.ClientInstance)
+    --         local hpGui = target:FindFirstChild(COLLIDABLES_HP_GUI_NAME) :: BillboardGui
+    --         if not hpGui then
+    --             continue
+    --         end
+    --         hpGui:Destroy()
+    --     end
+    --     WORLD:set(targetGuid, W.ClientTTE, tte - dt)
+    -- end
+
     -- move clones
     local clonesRootParts = {}
     local clonesTargets = {}
@@ -804,7 +824,7 @@ RunService.Heartbeat:Connect(function(dt)
 
     -- move existing bullets
     local activeBullets = {}
-    local bulletsTargets = {}
+    local bulletsTargetCFrames = {}
     local now = roflake.time()
     for i, bulletData in ipairs(activeBulletsDataTable) do
         -- check for collisions
@@ -849,6 +869,7 @@ RunService.Heartbeat:Connect(function(dt)
                         Obstacles.OnCollisionWithObstacle(WORLD, target.Name)
                     end
                     local targetGuids = { target.Name }
+                    -- local killables = { target }
                     if weapon_id == Id.Weapon.ROCKET then
                         -- animate the explosion
                         local explosionSize = assert(S.Weapon[weapon_id].explosionSize)
@@ -868,8 +889,13 @@ RunService.Heartbeat:Connect(function(dt)
                             for _, otherTarget in ipairs(otherTargets) do
                                 if otherTarget and WORLD:has(otherTarget.Name) then
                                     local otherTargetRefId = WORLD:get(otherTarget.Name, W.RefId)
-                                    if Id.kind(otherTargetRefId) == Id.Kind.Boost or Id.kind(otherTargetRefId) == Id.Kind.Enemy or Id.kind(otherTargetRefId) == Id.Kind.Obstacle then
+                                    if
+                                        Id.kind(otherTargetRefId) == Id.Kind.Boost
+                                        or Id.kind(otherTargetRefId) == Id.Kind.Enemy
+                                        or Id.kind(otherTargetRefId) == Id.Kind.Obstacle
+                                    then
                                         table.insert(targetGuids, otherTarget.Name)
+                                        -- table.insert(killables, otherTarget)
                                         if Id.kind(targetRefId) == Id.Kind.Obstacle then
                                             Obstacles.OnCollisionWithObstacle(WORLD, otherTarget.Name)
                                         end
@@ -878,6 +904,7 @@ RunService.Heartbeat:Connect(function(dt)
                             end
                         end
                     end
+                    -- showCollidableHP(targetGuids, killables, weapon_id)
                     fire_server(Id.C2S.TARGET_HIT, targetGuids, bullet.Name)
                 end
             end
@@ -890,7 +917,7 @@ RunService.Heartbeat:Connect(function(dt)
             bullet.Parent = INACTIVE_BULLETS_REPOSITORY
         else
             table.insert(activeBullets, bullet)
-            table.insert(bulletsTargets, newBulletCframe)
+            table.insert(bulletsTargetCFrames, newBulletCframe)
         end
     end
     -- remove all NIL_TABLEs from the table
@@ -902,7 +929,7 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 
-    workspace:BulkMoveTo(activeBullets, bulletsTargets, Enum.BulkMoveMode.FireCFrameChanged)
+    workspace:BulkMoveTo(activeBullets, bulletsTargetCFrames, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player
     if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION_PARAMS) then

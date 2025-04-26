@@ -115,6 +115,47 @@ m.PlayCharacterAnim = function(character: Model, animId: str, isLooped: bool?)
     return activeAnimTrack
 end
 
+m.ShowCollidableHP = function(worldState, targetGuids, killables, weapon_id, guiName, guiTemplate)
+    -- TODO: show HP for the targets that have been hit by the bullet
+    for i, targetGuid in ipairs(targetGuids) do
+        if not worldState:has(targetGuid) then
+            continue
+        end
+        local targetRefId = worldState:get(targetGuid, W.RefId)
+        if not targetRefId then
+            continue
+        end
+
+        -- show gui only for enemies and obstacles
+        if Id.kind(targetRefId) ~= Id.Kind.Enemy and Id.kind(targetRefId) ~= Id.Kind.Obstacle then
+            continue
+        end
+
+        -- calculate new HP, it's not yet updated in the state
+        local weaponDamage = S.Weapon[weapon_id].damage
+        local targetcurrentHP = worldState:get(targetGuid, W.HP)
+        if not targetcurrentHP then
+            continue
+        end
+        local targetNewHP = targetcurrentHP - weaponDamage
+        if targetNewHP <= 0 then
+            targetNewHP = 0
+        end
+
+        local target = assert(killables[i]) :: BasePart
+
+        local hpGui = (target:FindFirstChild(guiName) :: BillboardGui) or guiTemplate:Clone() :: BillboardGui
+        hpGui.Parent = target
+        hpGui.Adornee = target
+        local textLabel = assert(hpGui:FindFirstChild("TextLabel") :: TextLabel)
+        textLabel.Text = tostring(math.round(targetNewHP))
+        textLabel.Visible = true
+
+        -- set TTE for how much the gui should be shown
+        worldState:set(targetGuid, W.ClientTTE, 2)
+    end
+end
+
 m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
     local blockcastParams = RaycastParams.new()
     blockcastParams.FilterDescendantsInstances = blacklist

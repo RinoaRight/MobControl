@@ -140,6 +140,7 @@ m.Obstacle = {
     [Id.Obstacle.GRAVE] = {
         damage = 20,
         hp = 20,
+        reward = 1,
         meshTemplateFull = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall1"),
         meshTemplateHalf = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall2"),
         meshTemplateLast = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall3"),
