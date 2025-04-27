@@ -79,7 +79,7 @@ local ENV_WORLD_READY = "WORLD_READY"
 local ENEMIES_FOLDER = assert(workspace:WaitForChild("Enemies"))
 
 local ACTIVE_BULLETS_REPOSITORY = assert(workspace:WaitForChild("Bullets"))
-Misc.AddInstanceToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
+-- Misc.AddInstanceToRaycastFilter(ACTIVE_BULLETS_REPOSITORY) 
 local INACTIVE_BULLETS_REPOSITORY = assert(ReplicatedStorage:WaitForChild("Bullets"))
 local activeBulletsDataTable = {} :: { table }
 local NIL_TABLE = table.freeze { "NIL" }
@@ -570,6 +570,7 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     -- set bullet's position
     local pos = rootPart.Position + rootPart.CFrame.LookVector * (bulletSize.Z / 2 + SharedConfig.BULLET_RAYCAST_START_MULT)
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
+    Misc.AddInstanceToRaycastFilter(bullet)
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
     local range = SharedConfig.BULLET_BASE_DISTANCE
     if S.Weapon[weapon_id].range then
@@ -866,6 +867,7 @@ RunService.Heartbeat:Connect(function(dt)
             if owner == LOCAL_PLAYER then
                 if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy or Id.kind(targetRefId) == Id.Kind.Obstacle then
                     if Id.kind(targetRefId) == Id.Kind.Obstacle then
+                        -- TODO:not every collision with obtsacle registers (clone bullets?)
                         Obstacles.OnCollisionWithObstacle(WORLD, target.Name)
                     end
                     local targetGuids = { target.Name }
