@@ -28,6 +28,7 @@ local TaskPool = require(shared.TaskPool)
 local PSS = require(server.PlayerStateService)
 local Signal = require(shared.signal)
 local En = require(shared.enum)
+local Array = require(shared.array)
 local _iota = En.iota
 local _flag = En.flag
 local disposer = require(shared.disposer)
@@ -68,6 +69,8 @@ local OBSTACLES_DATA_TABLE = {
     { count = 30, gacha = { [Id.Obstacle.GRAVE] = 1 } },
 }
 
+local OBSTACLE_FLAGS_TABLE = {}
+
 local m = {}
 
 function m.AddObstacles(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool)
@@ -86,6 +89,7 @@ function m.AddObstacles(worldState: state.Main, groundUnit: BasePart, isFirstHal
     end
 
     -- all checks done, spawn obstacles
+    -- TODO: it sounds for everybody, but it should be for the players who are in session
     local audio = S.Sound[Id.Sound.CREAK_METAL]
     if audio then
         audio:Play()
@@ -139,16 +143,22 @@ function m.AddObstacles(worldState: state.Main, groundUnit: BasePart, isFirstHal
         obstPos = Vector3.new(obstPos.X, correctY, correctZ)
 
         local _worldGuid = WorldService.AddObstacleToWorldState(obstRefId, obstPos)
-
-        -- add obstacle to all players' states
-        -- local total_players = Players:GetPlayers()
-        -- for _, player in ipairs(total_players) do
-        --     local player_state = get_state(player.UserId)
-        --     if player_state then
-        --         local _playerStateGuid = player_state:AddObstacle(obstRefId, obstPos)
-        --     end
-        -- end
     end
+end
+
+m.UpdateObstacleFlags = function(worldState: state.Main, worldGuid: guid, playerId: int)
+    OBSTACLE_FLAGS_TABLE[worldGuid] = playerId
+end
+
+m.IsPlayerAlreadyCollided = function(worldGuid: guid, playerId: int)
+    return OBSTACLE_FLAGS_TABLE[worldGuid] == playerId
+end
+
+m.RemoveObstacle = function(worldState: state.Main, osbtGuid: guid)
+    -- remove obstacle from flag_table
+    OBSTACLE_FLAGS_TABLE[osbtGuid] = nil
+    -- remove obstacle from world state
+    WorldService.RemoveEntity(osbtGuid)
 end
 
 return m

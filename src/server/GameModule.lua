@@ -45,12 +45,13 @@ local SharedUtil = require(shared.util)
 local rand = require(shared.rand)
 local BoosterServer = require(server.BoosterServer)
 local Obstacles = require(server.Obstacles)
+local ClonesServer = require(server.ClonesServer)
 
 local CLONES = {}
 
 local m = {} :: {
     get_state: (int) -> PSS.PlayerState?,
-    StartMainLoopPlayer: (PSS.PlayerState) -> (num) -> (),
+    StarFstartmaintMainLoopPlayer: (PSS.PlayerState) -> (num) -> (),
     Init: (state: state.Main, (int) -> PSS.PlayerState?) -> (),
     CreatePlayerHpGui: (PSS.PlayerState) -> (),
     DestroyEnemy: (enemy_guid: str, player_id: num?) -> (),
@@ -76,6 +77,8 @@ local BOOSTER_OFFSET_Z = -50
 local BOOSTER_GAP = 40
 local GAP_WIDTH = BOOSTER_GAP - BOOSTER_WIDTH
 local BOOSTER_CONTENTS_BILLBOARD_TEMPLATE = assert(ReplicatedStorage.BoosterContentsBillboard)
+
+local CLONES_DUMMY_FOLDER = assert(workspace:FindFirstChild(SharedConfig.CLONES_DUMMY_FOLDER_NAME))
 
 local FIELD_NAMES = En.with_id("*")({
     FIRST = 1,
@@ -119,9 +122,7 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     -- delete boosters
     local boosters = groundUnit:GetChildren()
     for i, booster in ipairs(boosters) do
-        if WorldService.world:has(booster.Name) then
-            WorldService.RemoveEntity(booster.Name)
-        end
+        BoosterServer.DeleteBooster(WorldService.world, booster.Name, m.get_state)
     end
     -- delete obstacles
     local groundUnitPos = groundUnit.Position
@@ -129,7 +130,7 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     for guid, refId, pos in WorldService.world:select(W.RefId, W.Position) do
         if Id.kind(refId) == Id.Kind.Obstacle then
             if pos.Z > groundUnitPos.Z - unitHalfLength then
-                WorldService.RemoveEntity(guid)
+                Obstacles.RemoveObstacle(WorldService.world, guid :: guid)
             end
         end
     end
@@ -188,7 +189,18 @@ local function setBooster(worldState: state.Main, instance: BasePart, get_state:
 
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
     instance.CollisionGroup = "BulletCollidable"
-    WorldService.AddBooster(instance, refID, value, hp, boostContentId)
+    -- add booster to world state
+    local boosterGuid = WorldService.AddBooster(instance, refID, value, hp, boostContentId)
+    -- add booster to player states
+    local players = game.Players:GetPlayers()
+    for _, player in ipairs(players) do
+        local playerState = get_state(player.UserId)
+        if playerState then
+            playerState:AddBooster(boosterGuid)
+        end
+    end
+    -- subscribe booster to collision with player
+    BoosterServer.SubscribeBooster(worldState, get_state, boosterGuid, refID, instance)
 end
 
 local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: int, refPos: Vector3)
@@ -272,22 +284,42 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
 end
 
 local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (Player?, BasePart?, num?)
-    local totalPlayers = #playersInSession
-    local ind = 0
-    local distToTarget = 150
-    local player, playerRoot
-    while distToTarget >= 150 do
-        ind += 1
-        if ind > totalPlayers then
-            -- no player is close enough
-            return nil, nil, nil
+    -- local totalPlayers = #playersInSession
+    -- local ind = 0
+    -- local distToTarget = 150
+    local playerPool = {}
+    -- local player, playerRoot
+
+    for _, p in ipairs(playersInSession) do
+        -- player = playersInSession[ind] :: Player
+        local char = p.Character :: Model
+        local playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
+        local distToTarget = (enemyPos - playerRoot.Position).Magnitude
+        if distToTarget < 150 then
+            table.insert(playerPool, { player = p, playerRoot = playerRoot, distToTarget = distToTarget })
         end
-        player = playersInSession[ind] :: Player
-        local char = player.Character :: Model
-        playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
-        local toTarget = enemyPos - playerRoot.Position
-        distToTarget = toTarget.Magnitude
     end
+
+    if #playerPool <= 0 then
+        return nil, nil, nil
+    end
+
+    local ind = math.random(1, #playerPool)
+    local selectedPlayer = playerPool[ind].player
+    local playerRoot = playerPool[ind].playerRoot
+    local distToTarget = playerPool[ind].distToTarget
+    -- while distToTarget >= 150 do
+    --     ind += 1
+    --     if ind > totalPlayers then
+    --         -- no player is close enough
+    --         return nil, nil, nil
+    --     end
+    --     player = playersInSession[ind] :: Player
+    --     local char = player.Character :: Model
+    --     playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
+    --     local toTarget = enemyPos - playerRoot.Position
+    --     distToTarget = toTarget.Magnitude
+    -- end
 
     local closenessByX = math.abs(enemyPos.X - playerRoot.Position.X)
     if closenessByX > SharedConfig.ENEMY_SIGHT_RADIUS then
@@ -296,7 +328,8 @@ local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (P
     end
 
     -- player selected
-    return player, playerRoot, distToTarget
+    -- return player, playerRoot, distToTarget
+    return selectedPlayer, playerRoot, distToTarget
 end
 
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
@@ -328,6 +361,42 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             return
         end
 
+        for _, player in game.Players:GetPlayers() do
+            local player_state = get_state(player.UserId)
+            if not player_state then
+                continue
+            end
+            local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+            if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+                -- weapon cooldown
+                local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
+                shot_tte -= dt
+                player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
+
+                -- check obstacle collision for player
+                local playerRootPart = player_state.root :: BasePart
+                for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
+                    if Id.kind(refId) == Id.Kind.Obstacle then
+                        -- check if the player is colliding with the obstacle
+                        local rootPos = playerRootPart.Position
+                        if rootPos then
+                            local proximityByX = math.abs(rootPos.X - obstPos.X)
+                            local proximityByZ = math.abs(rootPos.Z - obstPos.Z)
+                            local obstacleTemplate = assert(S.Obstacle[refId].meshTemplateFull)
+                            local obstWidth = obstacleTemplate.Size.X
+                            if proximityByX < obstWidth and proximityByZ < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
+                                if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
+                                    Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
+                                    local dmg = assert(S.Obstacle[refId].damage)
+                                    player_state:DeductHp(dmg, guid)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
         -- driving box movement
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
         if not isBossFightOn then
@@ -336,6 +405,107 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.1))
         end
         oldPos = DRIVING_BOX_BACK_PART.Position
+
+        -- clone dummies movement
+        -- for i, dummy in CLONES_DUMMY_FOLDER:GetChildren() do
+        --     -- dummy.Anchored = true
+        --     local playerId = dummy:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Clone])
+        --     local playerState = get_state(playerId)
+        --     if not playerState then
+        --         continue
+        --     end
+        --     local playerRootPart = playerState.root :: BasePart
+        --     local pos = playerRootPart.Position
+        --     local cloneCount = tonumber(dummy.Name) :: num
+        --     local clonePos = Misc.GetCloneDummyPos(pos, cloneCount - 1, 0)
+        --     local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
+
+        --     dummy.CFrame = cloneTarget
+        -- end
+
+        -- check clones collisions
+        for cloneGuid, refId, playerId in worldState:select(W.RefId, W.PlayerId) do
+            if Id.kind(refId) == Id.Kind.Clone then
+                local playerState = get_state(playerId)
+                if not playerState then
+                    continue
+                end
+                -- with boosters
+                -- TODO: with obstacles and with enemies
+                local currentGroundUnit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
+                local playerRootPart = playerState.root :: BasePart
+                local rootPos = playerRootPart.Position
+                local cloneIndex = worldState:get(cloneGuid, W.Value)
+                local alreadyInCol = (cloneIndex - 1) % SharedConfig.CLONES_IN_A_ROW
+                local row = math.floor((cloneIndex - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
+                local clonePos = Misc.GetClonePos(rootPos, alreadyInCol, row)
+                local isCollided = false
+                for _, booster in currentGroundUnit:GetChildren() do
+                    if not worldState:has(booster.Name) then
+                        continue
+                    end
+                    local boosterInstance = worldState:get(booster.Name, W.ServerInstance)
+                    local boosterSizeZ = boosterInstance.Size.Z
+                    local boosterSizeX = boosterInstance.Size.X
+                    local distZ = math.abs(clonePos.Z - boosterInstance.Position.Z)
+                    local distX = math.abs(clonePos.X - boosterInstance.Position.X)
+                    if distZ < boosterSizeZ / 2 and distX < boosterSizeX / 2 then
+                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
+                        WorldService.RemoveEntity(cloneGuid)
+                        isCollided = true
+                        break
+                    end
+                end
+
+                if isCollided then
+                    continue
+                end
+
+                -- with enemies
+                -- for enemyGuid, refId, _hp, enemyPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
+                --     if Id.kind(refId) ~= Id.Kind.Enemy then
+                --         continue
+                --     end                    
+                --     local proximityByX = math.abs(rootPos.X - enemyPos.X)
+                --     local proximityByZ = math.abs(rootPos.Z - enemyPos.Z)
+                --     local enemyTemplate = assert(S.Enemy[refId].meshTemplate)
+                --     local obstWidth = enemyTemplate.Size.X
+                --     local obstLength = enemyTemplate.Size.Z
+                --     if proximityByX < obstWidth and proximityByZ < obstLength then
+                --         Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
+                --         WorldService.RemoveEntity(cloneGuid)
+                --         isCollided = true
+                --         break
+                --     end
+                -- end
+
+                -- if isCollided then
+                --     continue
+                -- end
+
+                -- with obstacles
+                for obstacleGuid, refId, obstaclePos in worldState:select(W.RefId, W.Position) do
+                    if Id.kind(refId) ~= Id.Kind.Obstacle then
+                        continue
+                    end
+                    local proximityByX = math.abs(rootPos.X - obstaclePos.X)
+                    local proximityByZ = math.abs(rootPos.Z - obstaclePos.Z)
+                    local obstacleTemplate = assert(S.Obstacle[refId].meshTemplateFull)
+                    local obstWidth = obstacleTemplate.Size.X
+                    if proximityByX < obstWidth and proximityByZ < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
+                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
+                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.THUMP_LOCALIZED], clonePos, 0)
+                        WorldService.RemoveEntity(cloneGuid)
+                        isCollided = true
+                        break
+                    end
+                end
+
+                if isCollided then
+                    continue
+                end
+            end
+        end
 
         -- calculate new enemies' positions
         for enemyGuid, refId, _hp, currentPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
@@ -353,10 +523,10 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             local distToTarget
             local playerId
             local playerState
+            local playersInSession = {}
 
             if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
                 local players = game.Players:GetPlayers()
-                local playersInSession = {}
                 for _, player in ipairs(players) do
                     local weaponId = worldState:get(player.UserId, W.WeaponId)
                     if weaponId ~= Id.Weapon._NONE then
@@ -400,68 +570,30 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                     if player and playerRoot and distToTarget then
                         -- local time_to_target = distToTarget / speed
+                        local critDist = 10--1.5
                         playerId = player.UserId :: int
                         playerState = get_state(playerId)
-
                         if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
                             if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
                                 worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
                                 worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                             end
                         -- elseif distToTarget < 20 then
-                        elseif currentPos.Z > playerRoot.Position.Z - 20 then
+                        elseif currentPos.Z > playerRoot.Position.Z - critDist then
                             -- enemy is pretty close to player, cancel seeking
                             if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
                                 worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
                                 worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                             end
                         else
-                            ---[[ old code
                             -- predict player's position, binomial distribution add some randomness
                             local playerPos = playerRoot.Position
-                            local targetPos = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z - 20)
+                            local targetPos = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z - critDist)
                             -- local target = targetPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
                             local dist = (currentPos - targetPos).Magnitude
                             local t = dist / speed
                             local target = targetPos + (rand.binomial() * t) * playerRoot.AssemblyLinearVelocity
                             newPos = currentPos:Lerp(target, dt * speed / dist) -- Move towards the predicted position slightly ahead of the player
-                            --]]
-
-                            --[[ My crap
-                                        -- TODO: tune this, this is the speed at which the enemy will rotate to face the player
-                                        local K = 0.05 -- in radians/sec
-                                        -- predict player's position, binomial distribution add some randomness
-                                        local playerPos = playerRoot.Position
-                                        local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                                        -- Calculate desired look direction
-                                        local desiredLook = (target - currentPos).Unit
-                                        local currentLook: Vector3 = enemyInstance.CFrame.LookVector
-                                        local angle = currentLook:Angle(desiredLook, Vector3.UP)
-
-                                        -- Limit rotation angle
-                                        angle = math.sign(angle) * math.min(math.abs(angle), K * dt) 
-                                        
-                                        local rotation = CFrame.fromAxisAngle(Vector3.UP, angle)
-                                        lookAt = rotation.LookVector
-                                        newPos = currentPos + lookAt * dt * speed
-                                        --]]
-
-                            --[[ Claude version
-                                        -- TODO: tune this, this is the speed at which the enemy will rotate to face the player
-                                        local K = 0.05 --2.5 -- radians/sec
-                                        local playerPos = playerRoot.Position
-                                        local target = playerPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                                        local desiredLook = (target - currentPos).Unit
-                                        local currentLook = enemyInstance.CFrame.LookVector
-                                        local angle = math.acos(currentLook:Dot(desiredLook))
-                                        -- Determine rotation direction using cross product
-                                        local axis = currentLook:Cross(desiredLook)
-                                        local rotationDirection = axis.Y > 0 and 1 or -1
-                                        angle = rotationDirection * math.min(math.abs(angle), K * dt)
-                                        local rotation = CFrame.fromAxisAngle(Vector3.yAxis, angle)
-                                        lookAt = currentPos + rotation.LookVector
-                                        newPos = currentPos:Lerp(currentPos - rotation.LookVector * speed, dt)
-                                        --]]
                         end
                     else
                         -- no player is close enough, remove lock to target if any
@@ -470,16 +602,24 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 end
             end
 
-            if distToTarget and playerState then
-                -- enemy is critically close to player, harm them, then die (boss is an exception)
-                local d = enemyTemplate.Size.Z / 2
-                if distToTarget < d then
-                    local enemyDamage = S.Enemy[enemyRefId].damage
-
-                    playerState:DeductHp(enemyDamage)
-                    if enemyRefId ~= Id.Enemy.OCTOBOSS then
-                        -- TODO: effects
-                        m.DestroyEnemy(enemyGuid)
+            -- if distToTarget and playerState then
+            -- check for "collision" with players
+            if #playersInSession > 0 then
+                for _, player in ipairs(playersInSession) do
+                    local thisPlayerState = get_state(player.UserId)
+                    if thisPlayerState then
+                        local root = thisPlayerState.root :: BasePart
+                        local proximity = (currentPos - root.Position).Magnitude
+                        local thickness = enemyTemplate.Size.Z / 2
+                        if proximity < thickness then
+                            -- enemy is critically close to player, harm them, then die (boss is an exception)
+                            local enemyDamage = S.Enemy[enemyRefId].damage
+                            thisPlayerState:DeductHp(enemyDamage)
+                            if enemyRefId ~= Id.Enemy.OCTOBOSS then
+                                -- TODO: effects
+                                m.DestroyEnemy(enemyGuid)
+                            end
+                        end
                     end
                 end
             end
@@ -509,32 +649,39 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
     end
 end
 
-function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
-    return function(dt)
-        -- weapon cooldown
-        local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-        if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
-            local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
-            shot_tte -= dt
-            player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
-        end
-    end
-end
+-- function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
+--     return function(dt)
+--         -- local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+--         -- if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+--         --     -- weapon cooldown
+--         --     local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
+--         --     shot_tte -= dt
+--         --     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
+
+--         --     -- check obstacle collision
+--         --     local playerRootPart = player_state.root :: BasePart
+--         --     for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
+--         --         if Id.kind(refId) == Id.Kind.Obstacle then
+--         --             -- check if the player is colliding with the obstacle
+--         --             local rootPos = playerRootPart.Position
+--         --             if rootPos then
+--         --                 local dist = (rootPos - obstPos).Magnitude
+--         --                 if dist < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
+--         --                     if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
+--         --                         Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
+--         --                         local dmg = assert(S.Obstacle[refId].damage)
+--         --                         player_state:DeductHp(dmg, guid)
+--         --                     end
+--         --                 end
+--         --             end
+--         --         end
+--         --     end
+--         -- end
+--     end
+-- end
 
 m.DestroyEnemy = function(guid, playerId: num?)
     -- TODO: effects
-
-    -- NOTE: moved to init.server
-    -- local enemyRefId = WorldService.world:get(guid, W.RefId)
-    -- if enemyRefId == Id.Enemy.OCTOBOSS then
-    --     if WorldService.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then -- we are checking player_id, other checks are redundant
-    --         WorldService.SetBossFightOff()
-    --         if playerId then
-    --             -- boss was killed by a player's bullet
-    --             Signal.Fire(Id.S2S.FINAL_BOSS_KILLED, playerId)
-    --         end
-    --     end
-    -- end
     if WorldService.world:has(guid) then
         WorldService.RemoveEntity(guid)
     end
@@ -594,12 +741,17 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     end
 end
 
-function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session: int)
+function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
+    -- TODO: refactor into being able to spawn only between sessions
+
     -- NOTE: players_already_in_session includes this player_state.player
 
     -- define spawning position
     local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.flag_or(nonPersFlags, Id.PlayerF.READY))
+
+    local playerCharacter = player_state.character :: Model
+    local playerRootPart = player_state.root :: Part
 
     local driver_pos = DRIVING_BOX_BACK_PART.Position
     local ground_folder = workspace:FindFirstChild("GroundUnits")
@@ -616,47 +768,51 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_already_in_session
 
     local x_pos = driver_pos.X
     local index = 1
-    if players_already_in_session > #boosters then
+    if players_in_session > #boosters then
         index = math.random(1, #boosters)
-    elseif players_already_in_session % 2 == 0 then
+    elseif players_in_session % 2 == 0 then
         -- evens
         local starting_point = #boosters / 2 + 1
-        index = starting_point - players_already_in_session / 2
+        index = starting_point - players_in_session / 2
     else
         -- odds
         local starting_point = #boosters / 2
-        index = starting_point + (players_already_in_session + 1) / 2
+        index = starting_point + (players_in_session + 1) / 2
     end
     x_pos = boosters[index].Position.X
-    local y_pos = player_state.root.Position.Y
-    local z_pos = driver_pos.Z - 50
-    if players_already_in_session > 1 then
+    local y_pos = playerRootPart.Position.Y
+    local z_pos = driver_pos.Z - 5
+    if players_in_session > 1 then
         local all_players = game.Players:GetPlayers()
         local isInSession = false
-        for _, player in all_players do
-            local weapon_id = WorldService.world:get(player.UserId, W.WeaponId)
+        for _, otherPlayer in all_players do
+            local weapon_id = WorldService.world:get(otherPlayer.UserId, W.WeaponId)
             isInSession = weapon_id ~= Id.Weapon._NONE
             if isInSession then
-                z_pos = player.Character.HumanoidRootPart.Position.Z
+                z_pos = otherPlayer.Character.HumanoidRootPart.Position.Z
             end
         end
         assert(isInSession) -- sanity check
     end
 
     local target_c_frame = CFrame.new(x_pos, y_pos, z_pos)
-    player_state.root.CFrame = target_c_frame
+    playerRootPart.CFrame = target_c_frame
 
     -- set player alignment
-    local playerAtt = Instance.new("Attachment") :: Attachment
-    local playerCharacter = player_state.character :: Model
-    local playerRootPart = player_state.root :: Part
-    playerAtt.CFrame = playerRootPart.CFrame
-    playerAtt.Parent = playerRootPart
+    local attAlign = Instance.new("Attachment") :: Attachment
+    attAlign.CFrame = playerRootPart.CFrame
+    attAlign.Parent = playerRootPart
     local playerAlignConst = Instance.new("AlignOrientation")
     playerAlignConst.Name = SharedConfig.PLAYER_ALIGN_CONSTR_NAME
     playerAlignConst.Parent = playerCharacter
-    playerAlignConst.Attachment0 = playerAtt
+    playerAlignConst.Attachment0 = attAlign
     playerAlignConst.Attachment1 = DRIVING_BOX_ATT
+
+    -- create attachement for clones
+    local attClones = Instance.new("Attachment") :: Attachment
+    attClones.Name = SharedConfig.CLONE_ATTACHMENT_NAME
+    attClones.CFrame = playerRootPart.CFrame
+    attClones.Parent = playerRootPart
 end
 
 print("[Game Module -- started]")

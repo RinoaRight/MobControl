@@ -93,12 +93,13 @@ export type PlayerState = {
     Save: (self: PlayerState) -> (),
     Destroy: (self: PlayerState) -> (),
     NotifyClient: (self: PlayerState, event_id: id, ...any) -> (),
+    AddBooster: (self: PlayerState, instanceGuid: string) -> (),
     AddObstacle: (self: PlayerState, refId: id, pos: Vector3) -> uid,
     AddCountable: (self: PlayerState, id: id, count: int) -> (),
     AddHp: (self: PlayerState, amount: num) -> (num, num),
     DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
     ResetCountable: (self: PlayerState, id: id) -> (),
-    DeductHp: (self: PlayerState, amount: num) -> num,
+    DeductHp: (self: PlayerState, amount: num, cause: id | uid?) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
     UpdateSessionDamageStats: (self: PlayerState, dmg: num) -> int,
@@ -293,14 +294,14 @@ function PlayerState.AddHp(self: PlayerState, howMuch: num)
     return current, new_hp
 end
 
-function PlayerState.DeductHp(self: PlayerState, howMuch: num)
-    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
-    local new_hp = math.max(current - howMuch, 0)
+function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
+    local current_hp = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
+    local new_hp = math.max(current_hp - howMuch, 0)
     self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, new_hp)
     if new_hp <= 0 then
-        Signal.Fire(Id.S2S.PLAYER_DIED, self.player_id)
+        Signal.Fire(Id.S2S.PLAYER_DIED, self.player_id, current_hp, cause)
     else
-        self:NotifyClient(Id.S2C.PLAYER_DAMAGED, -howMuch)
+        self:NotifyClient(Id.S2C.PLAYER_DAMAGED, -howMuch, cause)
     end
     return new_hp
 end
@@ -327,6 +328,11 @@ function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
         end
     end
     return clonesAmount
+end
+
+function PlayerState.AddBooster(self: PlayerState, instanceGuid: string): ()
+    local _booster = self.state:constructor(C.BitsetNonPers)
+    _booster(instanceGuid, Id.PlayerF.NONE)
 end
 
 function PlayerState.__tostring(self: PlayerState): str

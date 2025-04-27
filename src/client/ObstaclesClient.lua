@@ -145,8 +145,6 @@ local function animateObstacle(
 
         task.wait(1)
         tween1:Play()
-
-        -- doUpAndDown(tween1, tween2, duration)
     end)
 end
 
@@ -161,6 +159,7 @@ local changeMesh = function(worldState: state.Replica, instanceGuid: str, newMes
     newMeshInstance.CFrame = CFrame.new(pos) * CFrame.Angles(0, math.pi, 0)
     newMeshInstance.Parent = parent
     newMeshInstance.Name = instanceGuid
+    newMeshInstance.CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME
     worldState:set(instanceGuid, W.ClientInstance, newMeshInstance)
 end
 
@@ -176,73 +175,45 @@ local cleanupObstacle = function(worldState: state.Replica, instanceGuid: str)
     end
 end
 
-local onPlayerCollisionWithObstacle = function(worldState: state.Replica, instanceGuid: str)
-    SFX.PLAY_SOUND(Id.Sound.THUMP)
-    local instanceRefId = worldState:get(instanceGuid, W.RefId)
-    local currentMesh = worldState:get(instanceGuid, W.ClientInstance)
-    if currentMesh then
-        -- change the model of the obstacle
-        local currentMeshStage = worldState:get(instanceGuid, W.ValueView)
-        if currentMeshStage and currentMeshStage == 3 then
-            cleanupObstacle(worldState, instanceGuid)
-        elseif currentMeshStage and currentMeshStage ~= 0 then
-            local newMeshStage = currentMeshStage + 1
-            local newMeshTemplate
-            if currentMeshStage == 1 then
-                newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateHalf
-            elseif currentMeshStage == 2 then
-                newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateLast
-            end
-            local pos = currentMesh.Position
-            local parent = currentMesh.Parent
-            disposer.dispose(currentMesh)
-            if newMeshTemplate then
-                worldState:set(instanceGuid, W.ValueView, newMeshStage)
-                changeMesh(worldState, instanceGuid, newMeshTemplate, pos, parent)
-            end
-        end
-    end
-end
+-- local function subscribeInstance(worldState: state.Replica, instanceGuid: string, refId: id, instance)
+--     workerMaid[instanceGuid] = instance.Touched:Connect(function(triggerer)
+--         if triggerer.Name ~= "HumanoidRootPart" then
+--             return
+--         end
+--         local character = triggerer.Parent
+--         assert(character:IsA("Model")) -- sanity check
+--         -- check if this player already collided with this instance
+--         if not worldState:has(instanceGuid) then
+--             log:error("worldState is nil for this guid %s", instanceGuid)
+--             return
+--         end
+--         -- if the player already collided with this instance, do nothing
+--         if worldState:get(instanceGuid, W.ClientFlags) then
+--             return
+--         end
 
-local function subscribeInstance(worldState: state.Replica, instanceGuid: string, refId: id, instance)
-    workerMaid[instanceGuid] = instance.Touched:Connect(function(triggerer)
-        if triggerer.Name ~= "HumanoidRootPart" then
-            return
-        end
-        local character = triggerer.Parent
-        assert(character:IsA("Model")) -- sanity check
-        -- check if this player already collided with this instance
-        if not worldState:has(instanceGuid) then
-            log:error("worldState is nil for this guid %s", instanceGuid)
-            return
-        end
-        -- if the player already collided with this instance, do nothing
-        if worldState:get(instanceGuid, W.ClientFlags) then
-            return
-        end
+--         -- local player has not yet collided with this instance, do the checks
+--         local triggererId
+--         local isClone, playerId = Misc.CloneOrPlayer(worldState, character)
+--         if playerId and playerId == LOCAL_PLAYER.UserId then
+--             if isClone then
+--                 -- player's clone collided with the instance
+--                 Misc.DestroyClientClone(character)
+--                 triggererId = character.Name
+--             else
+--                 -- player themselves collided with the instance for the first time, set the flag for the check above
+--                 worldState:set(instanceGuid, W.ClientFlags, true)
+--                 triggererId = LOCAL_PLAYER.UserId
+--             end
 
-        -- local player has not yet collided with this instance, do the checks
-        local triggererId
-        local isClone, playerId = Misc.CloneOrPlayer(worldState, character)
-        if playerId and playerId == LOCAL_PLAYER.UserId then
-            if isClone then
-                -- player's clone collided with the instance
-                Misc.DestroyClientClone(character)
-                triggererId = character.Name
-            else
-                -- player themselves collided with the instance for the first time, set the flag for the check above
-                worldState:set(instanceGuid, W.ClientFlags, true)
-                triggererId = LOCAL_PLAYER.UserId
-            end
+--             -- handle client instance
+--             onPlayerCollisionWithObstacle(worldState, instanceGuid)
 
-            -- handle client instance
-            onPlayerCollisionWithObstacle(worldState, instanceGuid)
-
-            -- signal to server to handle server instance
-            Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_OBSTACLE, instanceGuid, triggererId)
-        end
-    end)
-end
+--             -- signal to server to handle server instance
+--             Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_OBSTACLE, instanceGuid, triggererId)
+--         end
+--     end)
+-- end
 
 local m = {}
 
@@ -256,6 +227,7 @@ m.onObstacleAdded = function(worldState: state.Replica, instanceGuid: str, local
     obstInstance.Size = Vector3.new(oldSize.X * mult, oldSize.Y * mult, oldSize.Z * mult)
 
     obstInstance.Name = instanceGuid
+    obstInstance.CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME
     local parentFolder = workspace:FindFirstChild(SharedConfig.OBSTACLE_FOLDER_NAME)
     if not parentFolder then
         parentFolder = Instance.new("Folder", workspace)
@@ -277,48 +249,60 @@ m.onObstacleAdded = function(worldState: state.Replica, instanceGuid: str, local
 
     animateObstacle(worldState, obstInstance, 2, obstPos, targetPos, localRoot)
 
-    subscribeInstance(worldState, instanceGuid, refId, obstInstance)
+    -- subscribeInstance(worldState, instanceGuid, refId, obstInstance)
+end
+
+-- m.OnCollisionWithObstacle = function(worldState: state.Replica, instanceGuid: str)
+--     SFX.PLAY_SOUND(Id.Sound.THUMP)
+--     local instanceRefId = worldState:get(instanceGuid, W.RefId)
+--     local currentMesh = worldState:get(instanceGuid, W.ClientInstance)
+--     if currentMesh then
+--         -- change the model of the obstacle
+--         local currentMeshStage = worldState:get(instanceGuid, W.ValueView)
+--         if currentMeshStage and currentMeshStage == 3 then
+--             cleanupObstacle(worldState, instanceGuid)
+--         elseif currentMeshStage and currentMeshStage ~= 0 then
+--             local newMeshStage = currentMeshStage + 1
+--             local newMeshTemplate
+--             if currentMeshStage == 1 then
+--                 newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateHalf
+--             elseif currentMeshStage == 2 then
+--                 newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateLast
+--             end
+--             local pos = currentMesh.Position
+--             local parent = currentMesh.Parent
+--             disposer.dispose(currentMesh)
+--             if newMeshTemplate then
+--                 worldState:set(instanceGuid, W.ValueView, newMeshStage)
+--                 changeMesh(worldState, instanceGuid, newMeshTemplate, pos, parent)
+--             end
+--         end
+--     end
+-- end
+
+m.OnCollisionWithObstacle = function(worldState: state.Replica, instanceGuid: str)
+    SFX.PLAY_SOUND(Id.Sound.THUMP)
+    local instanceRefId = worldState:get(instanceGuid, W.RefId)
+    local currentMesh = worldState:get(instanceGuid, W.ClientInstance)
+    if currentMesh then
+        -- change the model of the obstacle
+        local currentMeshStage = worldState:get(instanceGuid, W.ValueView)
+        if currentMeshStage and currentMeshStage == 2 then
+            return
+        elseif currentMeshStage and currentMeshStage == 1 then
+            local newMeshStage = currentMeshStage + 1
+            local newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateHalf
+            local pos = currentMesh.Position
+            local parent = currentMesh.Parent
+            disposer.dispose(currentMesh)
+            if newMeshTemplate then
+                worldState:set(instanceGuid, W.ValueView, newMeshStage)
+                changeMesh(worldState, instanceGuid, newMeshTemplate, pos, parent)
+            end
+        end
+    end
 end
 
 m.CleanupClientObstacle = cleanupObstacle
 
--- function m.ShakeCamera(intensity: number, duration: number, frequency: number)
---     local camera = workspace.Camera
---     if not camera then return end
-
---     local originalCFrame = camera.CFrame
-
---     TaskPool.spawn(function()
---         task.wait(.5)
---         SFX.PLAY_SOUND(Id.Sound.CREAK_METAL)
-
---         local startTime = os.clock()
-
---         while os.clock() - startTime < duration do
---             local elapsed = os.clock() - startTime
---             local progress = elapsed / duration
-
---             -- Calculate shake amount (decreases over time)
---             local currentIntensity = intensity * (1 - progress)
-
---             -- Generate random Y offset and rotation
---             local yOffset = math.random(-currentIntensity, currentIntensity)
---             local rotation = math.rad(math.random(-currentIntensity * 5, currentIntensity * 5))
-
---             -- Apply shake (only Y position and rotation)
---             camera.CFrame = originalCFrame * CFrame.new(0, yOffset, 0) * CFrame.fromOrientation(0, rotation, 0)
-
---             -- Wait for next shake
---             task.wait(1/frequency)
---         end
-
---         -- Reset camera
---         -- camera.CFrame = originalCFrame
---     end)
--- end
-
--- Example usage:
--- m.ShakeCamera(20, 10, 10) -- intensity: 0.5, duration: 2 seconds, frequency: 10 shakes per second
-
 return m
--- TODO: subscribe to collision with bullets and make them breakable?

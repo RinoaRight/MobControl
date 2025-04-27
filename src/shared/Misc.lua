@@ -115,6 +115,47 @@ m.PlayCharacterAnim = function(character: Model, animId: str, isLooped: bool?)
     return activeAnimTrack
 end
 
+m.ShowCollidableHP = function(worldState, targetGuids, killables, weapon_id, guiName, guiTemplate)
+    -- TODO: show HP for the targets that have been hit by the bullet
+    for i, targetGuid in ipairs(targetGuids) do
+        if not worldState:has(targetGuid) then
+            continue
+        end
+        local targetRefId = worldState:get(targetGuid, W.RefId)
+        if not targetRefId then
+            continue
+        end
+
+        -- show gui only for enemies and obstacles
+        if Id.kind(targetRefId) ~= Id.Kind.Enemy and Id.kind(targetRefId) ~= Id.Kind.Obstacle then
+            continue
+        end
+
+        -- calculate new HP, it's not yet updated in the state
+        local weaponDamage = S.Weapon[weapon_id].damage
+        local targetcurrentHP = worldState:get(targetGuid, W.HP)
+        if not targetcurrentHP then
+            continue
+        end
+        local targetNewHP = targetcurrentHP - weaponDamage
+        if targetNewHP <= 0 then
+            targetNewHP = 0
+        end
+
+        local target = assert(killables[i]) :: BasePart
+
+        local hpGui = (target:FindFirstChild(guiName) :: BillboardGui) or guiTemplate:Clone() :: BillboardGui
+        hpGui.Parent = target
+        hpGui.Adornee = target
+        local textLabel = assert(hpGui:FindFirstChild("TextLabel") :: TextLabel)
+        textLabel.Text = tostring(math.round(targetNewHP))
+        textLabel.Visible = true
+
+        -- set TTE for how much the gui should be shown
+        worldState:set(targetGuid, W.ClientTTE, 2)
+    end
+end
+
 m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
     local blockcastParams = RaycastParams.new()
     blockcastParams.FilterDescendantsInstances = blacklist
@@ -187,12 +228,29 @@ m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
     return new_pos
 end
 
+m.GetCloneDummyPos = function(pos: Vector3, alreadyInCol: int, row: int)
+    local dist = SharedConfig.INTERCLONES_DISTANCE
+    local new_pos = Vector3.new(pos.X, pos.Y, pos.Z)
+    local x = 0
+
+    if alreadyInCol == 1 then
+        x = -dist
+    elseif alreadyInCol == 2 then
+        x = dist
+    elseif alreadyInCol == 3 then
+        x = -dist * 2
+    elseif alreadyInCol == 4 then
+        x = dist * 2
+    end
+    new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z)
+    return new_pos
+end
+
 -- attach hitbox to the player == clones formation width
 m.AttachHitboxToPlayer = function(player_state)
     local player_character = player_state.character
     local humanoid_root_part = player_state.root
     local hitbox = Instance.new("Part")
-    hitbox.Size = Vector3.new(5, 5, 5)
     hitbox.Transparency = 1
     hitbox.CanCollide = false
     hitbox.Anchored = false
@@ -229,7 +287,7 @@ end
 
 m.DestroyClientClone = function(character: Model)
     local root = character:FindFirstChild("HumanoidRootPart") :: BasePart
-    m.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED], root.Position, 0)
+    m.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], root.Position, 0)
     character:Destroy()
 end
 

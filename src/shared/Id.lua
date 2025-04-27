@@ -451,6 +451,7 @@ Id.PlayerF = enum.with_id "Id.PlayerF" {
     OTHER_CLONES_ON    = flag'',
     _NON_PERSISTENT    = flag'', 
     READY              = flag'',
+    BOOSTER_TOUCHED    = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
@@ -621,8 +622,10 @@ Id.Sound = enum.with_id "Id.Sound" {
     FIRE_PISTOL_LOCALIZED = iota'',
     RELOAD                = iota'',
     SCREAM                = iota'',
-    SCREAM_LOCALIZED      = iota'',
+    SCREAM_LOCALIZED_HIGH = iota'',
+    SCREAM_LOCALIZED_REG  = iota'',
     THUMP                 = iota'',
+    THUMP_LOCALIZED       = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound
 export type Sound = typeof(Id.Sound)
@@ -715,7 +718,7 @@ Id.S2S = enum.with_id "Id.S2S" {
     PASS_GRANTED              = iota'',
     PURCHASE_FINISHED         = iota'',
     CHANGE_WEAPON             = iota'', -- weapon_id
-    PLAYER_DIED               = iota'',
+    PLAYER_DIED               = iota'', -- int (player damage)?, cause_id\uid?
     -- FINAL_BOSS_KILLED         = iota'',
     -- STOP_GAME_SESSION         = iota'',
 }
@@ -749,7 +752,7 @@ Id.C2S = enum.with_id "Id.C2S" {
     PLAYER_COLLIDED_W_BOOSTER         = iota'', -- booster_guid, triggerer_guid (or player_id)
     PLAYER_COLLIDED_W_OBSTACLE        = iota'', -- obstacle_guid, triggerer_guid (or player_id)
     PLAYER_HIT_BY_BOMB                = iota'', -- triggerer_guid (or player_id)
-    PLAYER_HIT_BY_OWN_ROCKET          = iota'', -- triggerer_guid (or player_id)
+    -- PLAYER_HIT_BY_OWN_ROCKET          = iota'', -- triggerer_guid (or player_id)
     PLAYER_READY_TO_START             = iota'',               
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
@@ -765,8 +768,8 @@ Id.S2C = enum.with_id "Id.S2C" {
     BOOSTER_DESTROYED = iota'', -- boost_ref_id, value, boost_content_id
     INIT_WORLD        = iota'',
     UPDATE_WORLD      = iota'',
-    PLAYER_DAMAGED    = iota'', -- int (player damage)
-    PLAYER_DIED       = iota'', 
+    PLAYER_DAMAGED    = iota'', -- int (player damage), cause_id\uid?
+    PLAYER_DIED       = iota'', -- int (player damage), cause_id\uid?
     SHOW_POPUP_SERVER = iota'', -- event_id
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
