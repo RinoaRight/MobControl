@@ -69,6 +69,7 @@ local function spawnBoss(enemyId, unitPos)
     return bossGuid
 end
 
+-- TODO: add more waves
 local ENEMIES_DATA_TABLE = {
     { count = 20, gacha = {[Id.Enemy.BASIC] = 1}},
     { count = 20, gacha = {[Id.Enemy.BASIC] = 1}},

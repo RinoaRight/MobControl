@@ -210,7 +210,7 @@ local function doCleanup(exception_player_id: num?)
 
     -- kill remaining enemies and obstacles
     for guid, refId, _pos in WorldService.world:select(W.RefId, W.Position) do
-        if Id.kind(refId) == Id.Kind.Enemy then
+        if Id.kind(refId) == Id.Kind.Enemy or Id.kind(refId) == Id.Kind.EnemyFlying then
             local thisGuid = guid :: guid
             GameModule.DestroyEnemy(thisGuid)
         elseif Id.kind(refId) == Id.Kind.Obstacle then

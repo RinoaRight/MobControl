@@ -69,6 +69,7 @@ m.BULLET_ATTRIBUTE_NAME = "BulletOwner"
 m.BULLET_COLLIDABLE_COLLISION_GROUP_NAME = "BulletCollidable"
 m.OBSTACLE_FOLDER_NAME = "Obstacles"
 m.FLYERS_FOLDER_NAME = "EnemiesFlying"
+m.GROUND_UNIT_NAME = "GroundUnit"
 m.DEFAULT_WEAPON_ID = Id.Weapon.BASIC
 m.DISTANCE_FROM_MID_TO_BOOSTER = 50
 m.DEFAULT_PLAYER_ID = -100
@@ -107,6 +108,7 @@ World.CId = En.with_id("World.CId") {
     PlayerId       = iota'',   -- number
     WeaponId       = iota'',   -- id
     TTL            = iota'',   -- epoch
+    TTE            = iota'',   -- sec (*1)
     Bitset         = iota'',   -- flag
     Total          = iota'',   -- number
     -- non-replicated

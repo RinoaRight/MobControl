@@ -71,15 +71,17 @@ local Popup = require(script.UI_Popup)
 local TaskPool = require(shared.TaskPool)
 local SFX = require(script.SFX)
 local Settings = require(script.Settings)
+local EnemiesFlying = require(script.EnemiesFlyingClient)
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
 local ENV_WORLD_READY = "WORLD_READY"
 
 local ENEMIES_FOLDER = assert(workspace:WaitForChild("Enemies"))
+local ENEMY_FLYERS_FOLDER = assert(workspace:WaitForChild("EnemiesFlying"))
 
 local ACTIVE_BULLETS_REPOSITORY = assert(workspace:WaitForChild("Bullets"))
--- Misc.AddInstanceToRaycastFilter(ACTIVE_BULLETS_REPOSITORY) 
+-- Misc.AddInstanceToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
 local INACTIVE_BULLETS_REPOSITORY = assert(ReplicatedStorage:WaitForChild("Bullets"))
 local activeBulletsDataTable = {} :: { table }
 local NIL_TABLE = table.freeze { "NIL" }
@@ -1027,6 +1029,8 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         Obstacles.onObstacleAdded(WORLD, obstacleGuid, LOCAL_HUMANOID_ROOT_PART)
     elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
+    elseif Id.kind(newValue) == Id.Kind.EnemyFlying and WORLD:get(guid, W.PlayerId) then
+        EnemiesFlying.OnFlyerAdded(WORLD, PLAYER_STATE, guid :: string, LOCAL_HUMANOID_ROOT_PART)
     elseif Id.kind(newValue) == Id.Kind.Clone and WORLD:get(guid, W.PlayerId) then
         -- create clones if any new clones appeared (if the option for others' clones is turned off, for local player only)
         local playerId = WORLD:get(guid, W.PlayerId)
@@ -1078,6 +1082,12 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
         if clientInstance then
             clientInstance:Destroy()
         end
+    elseif Id.kind(oldValue) == Id.Kind.EnemyFlying then
+        local clientInstance = ENEMY_FLYERS_FOLDER:FindFirstChild(guid)
+        if clientInstance then
+            clientInstance:Destroy()
+        end
+        EnemiesFlying.CleanupClientFlyer(WORLD, guid :: string)
     end
 end)
 

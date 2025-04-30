@@ -191,6 +191,14 @@ function m.AddEnemyToState(id: id, pos)
     return guid
 end
 
+local _enemy_flying = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset)
+function m.AddEnemyFlyingToState(id: id, pos: v3)
+    local hp = S.EnemyFlying[id].health
+    local guid = _roflake.uida()
+    _enemy_flying(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
+    return guid
+end
+
 local _obstacle = m.world:constructor(W.RefId, W.HP, W.Position)
 function m.AddObstacleToWorldState(id: id, pos: v3)
     local guid = _roflake.uida()
@@ -229,7 +237,7 @@ function m.AddBulletToState(guid, weaponId, startingPos, playerId)
 end
 
 local _enemyCounter = m.world:constructor(W.Value) -- enemy wave count
-function m.GetPreviousEnemyWaveNumber()
+function m.GetEnemyWaveNumber()
     local currentNum = m.world:get(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value)
     if not currentNum then
         currentNum = 0
@@ -238,12 +246,12 @@ function m.GetPreviousEnemyWaveNumber()
     return currentNum
 end
 function m.UpdateEnemyWaveCount()
-    local newNum = m.GetPreviousEnemyWaveNumber() + 1
+    local newNum = m.GetEnemyWaveNumber() + 1
     m.world:set(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value, newNum)
     return newNum
 end
 function m.ResetEnemyWaveCount()
-    local _ = m.GetPreviousEnemyWaveNumber() -- to make sure that the entity is created
+    local _ = m.GetEnemyWaveNumber() -- to make sure that the entity is created
     m.world:set(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value, 0)
 end
 

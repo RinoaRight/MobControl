@@ -40,6 +40,7 @@ local Misc = require(shared.Misc)
 local NumFormat = require(shared.num_format)
 local SharedUtils = require(shared.util)
 local Enemies = require(server.Enemies)
+local EnemiesFlying = require(server.EnemiesFlyingServer)
 local PlayerService = game:GetService("Players")
 local SharedUtil = require(shared.util)
 local rand = require(shared.rand)
@@ -226,7 +227,15 @@ end
 local function generateEnemies(worldState: state.Main)
     local newWaveNumber = WorldService.UpdateEnemyWaveCount()
     local unit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
-    local enemyGuids = Enemies.AddEnemies(worldState, unit, true, newWaveNumber) :: {}
+    local enemyWalkingGuids = Enemies.AddEnemies(worldState, unit, true, newWaveNumber) :: {}
+    local enemiesFlyingGuids = EnemiesFlying.AddEnemiesFlying(worldState, unit, true, newWaveNumber) :: {}
+    local enemyGuids = {}
+    for _, enemyGuid in ipairs(enemyWalkingGuids) do
+        table.insert(enemyGuids, enemyGuid)
+    end
+    for _, enemyGuid in ipairs(enemiesFlyingGuids) do
+        table.insert(enemyGuids, enemyGuid)
+    end
 
     if #enemyGuids > 0 then
         for _, enemyGuid in ipairs(enemyGuids) do
@@ -245,6 +254,7 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             local fourth = GROUND_UNITS[FIELD_NAMES.FOURTH].unit :: Part
             -- create obstacles on the next ground unit
             Obstacles.AddObstacles(worldState, fourth, true)
+
             subscribeTrigger(worldState, get_state, FIELD_NAMES.FOURTH, fourth)
             trigger:Destroy()
             local first = GROUND_UNITS[FIELD_NAMES.FIRST].unit :: Part
@@ -406,23 +416,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
         oldPos = DRIVING_BOX_BACK_PART.Position
 
-        -- clone dummies movement
-        -- for i, dummy in CLONES_DUMMY_FOLDER:GetChildren() do
-        --     -- dummy.Anchored = true
-        --     local playerId = dummy:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Clone])
-        --     local playerState = get_state(playerId)
-        --     if not playerState then
-        --         continue
-        --     end
-        --     local playerRootPart = playerState.root :: BasePart
-        --     local pos = playerRootPart.Position
-        --     local cloneCount = tonumber(dummy.Name) :: num
-        --     local clonePos = Misc.GetCloneDummyPos(pos, cloneCount - 1, 0)
-        --     local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
-
-        --     dummy.CFrame = cloneTarget
-        -- end
-
         -- check clones collisions
         for cloneGuid, refId, playerId in worldState:select(W.RefId, W.PlayerId) do
             if Id.kind(refId) == Id.Kind.Clone then
@@ -461,28 +454,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     continue
                 end
 
-                -- with enemies
-                -- for enemyGuid, refId, _hp, enemyPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
-                --     if Id.kind(refId) ~= Id.Kind.Enemy then
-                --         continue
-                --     end                    
-                --     local proximityByX = math.abs(rootPos.X - enemyPos.X)
-                --     local proximityByZ = math.abs(rootPos.Z - enemyPos.Z)
-                --     local enemyTemplate = assert(S.Enemy[refId].meshTemplate)
-                --     local obstWidth = enemyTemplate.Size.X
-                --     local obstLength = enemyTemplate.Size.Z
-                --     if proximityByX < obstWidth and proximityByZ < obstLength then
-                --         Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
-                --         WorldService.RemoveEntity(cloneGuid)
-                --         isCollided = true
-                --         break
-                --     end
-                -- end
-
-                -- if isCollided then
-                --     continue
-                -- end
-
                 -- with obstacles
                 for obstacleGuid, refId, obstaclePos in worldState:select(W.RefId, W.Position) do
                     if Id.kind(refId) ~= Id.Kind.Obstacle then
@@ -509,7 +480,13 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
         -- calculate new enemies' positions
         for enemyGuid, refId, _hp, currentPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
-            if Id.kind(refId) ~= Id.Kind.Enemy then
+            if Id.kind(refId) == Id.Kind.EnemyFlying then
+                -- remove flyers if they "collided" with the driving box's rear
+                if DRIVING_BOX_BACK_PART.Position.Z <= currentPos.Z then
+                    m.DestroyEnemy(enemyGuid :: string)
+                end
+                continue
+            elseif Id.kind(refId) ~= Id.Kind.Enemy then
                 continue
             end
 
@@ -570,7 +547,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                     if player and playerRoot and distToTarget then
                         -- local time_to_target = distToTarget / speed
-                        local critDist = 10--1.5
+                        local critDist = 10 --1.5
                         playerId = player.UserId :: int
                         playerState = get_state(playerId)
                         if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking

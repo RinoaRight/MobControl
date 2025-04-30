@@ -749,9 +749,9 @@ Id.C2S = enum.with_id "Id.C2S" {
     BUY_PLAYER_UPGRADE                = iota'', -- upgrade_id           
     TARGET_HIT                        = iota'', -- {enemy_guids}, bullet_guid
     TOGGLE_PLAYER_FLAG                = iota'', -- bool, flag_id
-    PLAYER_COLLIDED_W_BOOSTER         = iota'', -- booster_guid, triggerer_guid (or player_id)
-    PLAYER_COLLIDED_W_OBSTACLE        = iota'', -- obstacle_guid, triggerer_guid (or player_id)
-    PLAYER_HIT_BY_BOMB                = iota'', -- triggerer_guid (or player_id)
+    -- PLAYER_COLLIDED_W_BOOSTER         = iota'', -- booster_guid, triggerer_guid (or player_id)
+    -- PLAYER_COLLIDED_W_OBSTACLE        = iota'', -- obstacle_guid, triggerer_guid (or player_id)
+    -- PLAYER_HIT_BY_BOMB                = iota'', -- triggerer_guid (or player_id)
     -- PLAYER_HIT_BY_OWN_ROCKET          = iota'', -- triggerer_guid (or player_id)
     PLAYER_READY_TO_START             = iota'',               
 }
