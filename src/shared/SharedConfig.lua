@@ -107,6 +107,7 @@ World.CId = En.with_id("World.CId") {
     ServerInstance = iota'',   -- Instance
     PlayerId       = iota'',   -- number
     WeaponId       = iota'',   -- id
+    OwnerGuid      = iota'',   -- uid
     TTL            = iota'',   -- epoch
     TTE            = iota'',   -- sec (*1)
     Bitset         = iota'',   -- flag

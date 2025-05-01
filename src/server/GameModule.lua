@@ -47,6 +47,7 @@ local rand = require(shared.rand)
 local BoosterServer = require(server.BoosterServer)
 local Obstacles = require(server.Obstacles)
 local ClonesServer = require(server.ClonesServer)
+local Remote = require(shared.Remote)
 
 local CLONES = {}
 
@@ -424,7 +425,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     continue
                 end
                 -- with boosters
-                -- TODO: with obstacles and with enemies
                 local currentGroundUnit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
                 local playerRootPart = playerState.root :: BasePart
                 local rootPos = playerRootPart.Position
@@ -454,21 +454,22 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     continue
                 end
 
-                -- with obstacles
+                -- with obstacles and bombs
                 for obstacleGuid, refId, obstaclePos in worldState:select(W.RefId, W.Position) do
-                    if Id.kind(refId) ~= Id.Kind.Obstacle then
-                        continue
-                    end
-                    local proximityByX = math.abs(rootPos.X - obstaclePos.X)
-                    local proximityByZ = math.abs(rootPos.Z - obstaclePos.Z)
-                    local obstacleTemplate = assert(S.Obstacle[refId].meshTemplateFull)
-                    local obstWidth = obstacleTemplate.Size.X
-                    if proximityByX < obstWidth and proximityByZ < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
-                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
-                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.THUMP_LOCALIZED], clonePos, 0)
-                        WorldService.RemoveEntity(cloneGuid)
-                        isCollided = true
-                        break
+                    if Id.kind(refId) == Id.Kind.Obstacle then
+                        local proximityByX = math.abs(rootPos.X - obstaclePos.X)
+                        local proximityByZ = math.abs(rootPos.Z - obstaclePos.Z)
+                        local obstacleTemplate = assert(S.Obstacle[refId].meshTemplateFull)
+                        local obstWidth = obstacleTemplate.Size.X
+                        if proximityByX < obstWidth and proximityByZ < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
+                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
+                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.THUMP_LOCALIZED], clonePos, 0)
+                            WorldService.RemoveEntity(cloneGuid)
+                            isCollided = true
+                            break
+                        end
+                    elseif Id.kind(refId) == Id.Kind.Bomb then
+                        -- TODO:
                     end
                 end
 
@@ -478,141 +479,201 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             end
         end
 
-        -- calculate new enemies' positions
-        for enemyGuid, refId, _hp, currentPos, _playerId, _bitset in worldState:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
+        -- handle enemies
+        for guid, refId, currentPos in worldState:select(W.RefId, W.Position) do
+            -- flying enemies
             if Id.kind(refId) == Id.Kind.EnemyFlying then
                 -- remove flyers if they "collided" with the driving box's rear
                 if DRIVING_BOX_BACK_PART.Position.Z <= currentPos.Z then
-                    m.DestroyEnemy(enemyGuid :: string)
+                    m.DestroyEnemy(guid :: string)
+                else
+                    local tte = worldState:get(guid, W.TTE)
+                    if tte < roflake.time() then
+                        -- reset tte
+                        local range = assert(S.EnemyFlying[refId].period)
+                        local newTTE = roflake.time() + math.random(range.X, range.Y)
+                        worldState:set(guid, W.TTE, newTTE)
+                        -- spawn bomb
+                        local flyerHeight = assert(S.EnemyFlying[refId].flyerHeight)
+                        local _bombGuid = WorldService.AddBombToState(Id.Bomb.ZOMBALLOON_BOMB, currentPos + Vector3.new(0, flyerHeight, 0), guid)
+                    end
                 end
-                continue
-            elseif Id.kind(refId) ~= Id.Kind.Enemy then
-                continue
-            end
 
-            -- sanity check
-            assert(typeof(enemyGuid) == "string")
-            local flags = worldState:get(enemyGuid, W.Bitset)
-            local enemyRefId = worldState:get(enemyGuid, W.RefId)
-            local enemyTemplate = assert(S.Enemy[enemyRefId].meshTemplate)
-            local speed = log:assert(S.Enemy[enemyRefId].speed, "S.Enemy has no speed for: '%*'", enemyRefId)
-            local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + dt * speed)
-            local distToTarget
-            local playerId
-            local playerState
-            local playersInSession = {}
+            -- bombs
+            elseif Id.kind(refId) == Id.Kind.Bomb then
+                local bombPos = worldState:get(guid, W.Position)
+                if bombPos then
+                    -- update bomb's position
+                    local ownerGuid = worldState:get(guid, W.OwnerGuid)
+                    if not ownerGuid then
+                        log:error("no ownerGuid found for bomb: '%*'", guid)
+                        return
+                    end
+                    local ownerRefId = worldState:get(ownerGuid, W.RefId)
+                    local bombSpeed = 0.1
+                    if ownerRefId then
+                        bombSpeed = assert(S.EnemyFlying[ownerRefId].bombSpeed)
+                    end
+                    worldState:set(guid, W.Position, bombPos - Vector3.new(0, bombSpeed, 0))
 
-            if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
-                local players = game.Players:GetPlayers()
-                for _, player in ipairs(players) do
-                    local weaponId = worldState:get(player.UserId, W.WeaponId)
-                    if weaponId ~= Id.Weapon._NONE then
-                        table.insert(playersInSession, player)
-                    else
-                        -- player is not in session, remove this enemy's lock on him if any
-                        playerId = player.UserId :: int
-                        if worldState:get(enemyGuid, W.PlayerId) == playerId then
-                            worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                    -- check for collisions with the ground
+                    local groundUnit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
+                    local groundUnitPos = groundUnit.Position
+                    local distY = math.abs(bombPos.Y - groundUnitPos.Y)
+                    if distY < 2 then
+                        print("LLLLL", "remove bomb")
+                        WorldService.RemoveEntity(guid)
+                    end
+
+                    -- check for collisions with players
+                    if ownerRefId then
+                        local players = game.Players:GetPlayers()
+                        for _, player in ipairs(players) do
+                            local weaponId = worldState:get(player.UserId, W.WeaponId)
+                            if weaponId ~= Id.Weapon._NONE then
+                                local playerHead = player.Character:FindFirstChild("Head")
+                                if playerHead then
+                                    local playerHeadPos = playerHead.Position
+                                    local dist = (bombPos - playerHeadPos).Magnitude
+                                    if dist < 2 then
+                                        -- harm player, delete bomb
+                                        local dmg = assert(S.EnemyFlying[ownerRefId].damage)
+                                        local playerState = get_state(player.UserId)
+                                        if playerState then
+                                            playerState:DeductHp(dmg, guid)
+                                        end
+                                        WorldService.RemoveEntity(guid)
+                                    end
+                                end
+                            end
                         end
                     end
                 end
-                if #playersInSession > 0 then
-                    local player, playerRoot
-                    if (not worldState:get(enemyGuid, W.PlayerId)) or worldState:get(enemyGuid, W.PlayerId) == SharedConfig.DEFAULT_PLAYER_ID then
-                        -- select a player that is close enough to the enemy
-                        player, playerRoot, distToTarget = selectPlayer(playersInSession, currentPos)
-                        if player then
-                            -- a player that is close enough is selected, set lock to target
+            -- infantry enemies
+            elseif Id.kind(refId) == Id.Kind.Enemy then
+                -- sanity check
+                assert(typeof(guid) == "string")
+                local flags = worldState:get(guid, W.Bitset)
+                local enemyTemplate = assert(S.Enemy[refId].meshTemplate)
+                local speed = log:assert(S.Enemy[refId].speed, "S.Enemy has no speed for: '%*'", refId)
+                local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + dt * speed)
+                local distToTarget
+                local playerId
+                local playerState
+                local playersInSession = {}
+
+                if flags and Id.flag_test(flags, Id.EnemyF.SEEK_ACTIVATED) then
+                    local players = game.Players:GetPlayers()
+                    for _, player in ipairs(players) do
+                        local weaponId = worldState:get(player.UserId, W.WeaponId)
+                        if weaponId ~= Id.Weapon._NONE then
+                            table.insert(playersInSession, player)
+                        else
+                            -- player is not in session, remove this enemy's lock on him if any
                             playerId = player.UserId :: int
-                            worldState:set(enemyGuid, W.PlayerId, playerId)
+                            if worldState:get(guid, W.PlayerId) == playerId then
+                                worldState:set(guid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                            end
                         end
-                    else
-                        -- enemy is already locked on target, assign player, playerRoot and distTotarget
-                        playerId = worldState:get(enemyGuid, W.PlayerId)
-                        player = game.Players:GetPlayerByUserId(playerId)
-                        playerState = get_state(worldState:get(enemyGuid, W.PlayerId))
-                        if playerState then
-                            playerRoot = playerState.root :: BasePart
-                            if not playerRoot then
-                                log:error("No player root found for player: '%*'", worldState:get(enemyGuid, W.PlayerId))
+                    end
+                    if #playersInSession > 0 then
+                        local player, playerRoot
+                        if (not worldState:get(guid, W.PlayerId)) or worldState:get(guid, W.PlayerId) == SharedConfig.DEFAULT_PLAYER_ID then
+                            -- select a player that is close enough to the enemy
+                            player, playerRoot, distToTarget = selectPlayer(playersInSession, currentPos)
+                            if player then
+                                -- a player that is close enough is selected, set lock to target
+                                playerId = player.UserId :: int
+                                worldState:set(guid, W.PlayerId, playerId)
+                            end
+                        else
+                            -- enemy is already locked on target, assign player, playerRoot and distTotarget
+                            playerId = worldState:get(guid, W.PlayerId)
+                            player = game.Players:GetPlayerByUserId(playerId)
+                            playerState = get_state(worldState:get(guid, W.PlayerId))
+                            if playerState then
+                                playerRoot = playerState.root :: BasePart
+                                if not playerRoot then
+                                    log:error("No player root found for player: '%*'", worldState:get(guid, W.PlayerId))
+                                    return
+                                end
+                                local toTarget = currentPos - playerRoot.Position
+                                distToTarget = toTarget.Magnitude
+                            else
+                                log:error("No player state found for player: '%*'", worldState:get(guid, W.PlayerId))
                                 return
                             end
-                            local toTarget = currentPos - playerRoot.Position
-                            distToTarget = toTarget.Magnitude
-                        else
-                            log:error("No player state found for player: '%*'", worldState:get(enemyGuid, W.PlayerId))
-                            return
                         end
-                    end
 
-                    if player and playerRoot and distToTarget then
-                        -- local time_to_target = distToTarget / speed
-                        local critDist = 10 --1.5
-                        playerId = player.UserId :: int
-                        playerState = get_state(playerId)
-                        if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
-                            if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
-                                worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                                worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
-                            end
-                        -- elseif distToTarget < 20 then
-                        elseif currentPos.Z > playerRoot.Position.Z - critDist then
-                            -- enemy is pretty close to player, cancel seeking
-                            if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
-                                worldState:set(enemyGuid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
-                                worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                        if player and playerRoot and distToTarget then
+                            -- local time_to_target = distToTarget / speed
+                            local critDist = 10 --1.5
+                            playerId = player.UserId :: int
+                            playerState = get_state(playerId)
+                            if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
+                                if refId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
+                                    worldState:set(guid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
+                                    worldState:set(guid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                                end
+                            -- elseif distToTarget < 20 then
+                            elseif currentPos.Z > playerRoot.Position.Z - critDist then
+                                -- enemy is pretty close to player, cancel seeking
+                                if refId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
+                                    worldState:set(guid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
+                                    worldState:set(guid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
+                                end
+                            else
+                                -- predict player's position, binomial distribution add some randomness
+                                local playerPos = playerRoot.Position
+                                local targetPos = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z - critDist)
+                                -- local target = targetPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
+                                local dist = (currentPos - targetPos).Magnitude
+                                local t = dist / speed
+                                local target = targetPos + (rand.binomial() * t) * playerRoot.AssemblyLinearVelocity
+                                newPos = currentPos:Lerp(target, dt * speed / dist) -- Move towards the predicted position slightly ahead of the player
                             end
                         else
-                            -- predict player's position, binomial distribution add some randomness
-                            local playerPos = playerRoot.Position
-                            local targetPos = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z - critDist)
-                            -- local target = targetPos + (rand.binomial() * time_to_target) * playerRoot.AssemblyLinearVelocity
-                            local dist = (currentPos - targetPos).Magnitude
-                            local t = dist / speed
-                            local target = targetPos + (rand.binomial() * t) * playerRoot.AssemblyLinearVelocity
-                            newPos = currentPos:Lerp(target, dt * speed / dist) -- Move towards the predicted position slightly ahead of the player
+                            -- no player is close enough, remove lock to target if any
+                            worldState:set(guid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                         end
-                    else
-                        -- no player is close enough, remove lock to target if any
-                        worldState:set(enemyGuid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                     end
                 end
-            end
 
-            -- if distToTarget and playerState then
-            -- check for "collision" with players
-            if #playersInSession > 0 then
-                for _, player in ipairs(playersInSession) do
-                    local thisPlayerState = get_state(player.UserId)
-                    if thisPlayerState then
-                        local root = thisPlayerState.root :: BasePart
-                        local proximity = (currentPos - root.Position).Magnitude
-                        local thickness = enemyTemplate.Size.Z / 2
-                        if proximity < thickness then
-                            -- enemy is critically close to player, harm them, then die (boss is an exception)
-                            local enemyDamage = S.Enemy[enemyRefId].damage
-                            thisPlayerState:DeductHp(enemyDamage)
-                            if enemyRefId ~= Id.Enemy.OCTOBOSS then
-                                -- TODO: effects
-                                m.DestroyEnemy(enemyGuid)
+                -- if distToTarget and playerState then
+                -- check for "collision" with players
+                if #playersInSession > 0 then
+                    for _, player in ipairs(playersInSession) do
+                        local thisPlayerState = get_state(player.UserId)
+                        if thisPlayerState then
+                            local root = thisPlayerState.root :: BasePart
+                            local proximity = (currentPos - root.Position).Magnitude
+                            local thickness = enemyTemplate.Size.Z / 2
+                            if proximity < thickness then
+                                -- enemy is critically close to player, harm them, then die (boss is an exception)
+                                local enemyDamage = S.Enemy[refId].damage
+                                thisPlayerState:DeductHp(enemyDamage)
+                                if refId ~= Id.Enemy.OCTOBOSS then
+                                    -- TODO: effects
+                                    m.DestroyEnemy(guid)
+                                end
                             end
                         end
                     end
                 end
-            end
 
-            if worldState:has(enemyGuid) then
-                -- update enemy's position
-                worldState:set(enemyGuid, W.Position, newPos)
+                if worldState:has(guid) then
+                    -- update enemy's position
+                    worldState:set(guid, W.Position, newPos)
 
-                if DRIVING_BOX_BACK_PART.Position.Z <= currentPos.Z then
-                    -- destroy enemy if it collided with the driving box's rear
-                    if enemyRefId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
-                        m.DestroyEnemy(enemyGuid)
+                    if DRIVING_BOX_BACK_PART.Position.Z <= currentPos.Z then
+                        -- destroy enemy if it collided with the driving box's rear
+                        if refId ~= Id.Enemy.OCTOBOSS then -- boss is an exception
+                            m.DestroyEnemy(guid)
+                        end
+                    elseif DRIVING_BOX_FRONT.Position.Z <= currentPos.Z then
+                        -- activate seek mode on collision with the driver box's front
+                        worldState:set(guid, W.Bitset, Id.flag_or(flags, Id.EnemyF.SEEK_ACTIVATED))
                     end
-                elseif DRIVING_BOX_FRONT.Position.Z <= currentPos.Z then
-                    -- activate seek mode on collision with the driver box's front
-                    worldState:set(enemyGuid, W.Bitset, Id.flag_or(flags, Id.EnemyF.SEEK_ACTIVATED))
                 end
             end
         end

@@ -191,11 +191,20 @@ function m.AddEnemyToState(id: id, pos)
     return guid
 end
 
-local _enemy_flying = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset)
+local _enemy_flying = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.TTE, W.Bitset)
 function m.AddEnemyFlyingToState(id: id, pos: v3)
     local hp = S.EnemyFlying[id].health
     local guid = _roflake.uida()
-    _enemy_flying(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, Id.EnemyF.NONE)
+    local range = assert(S.EnemyFlying[id].period)
+    local tte = _roflake.time() + math.random(range.X, range.Y)
+    _enemy_flying(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, tte, Id.EnemyF.NONE)
+    return guid
+end
+
+local _bomb = m.world:constructor(W.RefId, W.Position, W.OwnerGuid)
+function m.AddBombToState(id: id, pos: v3, ownerGuid: uid)
+    local guid = _roflake.uida()
+    _bomb(guid, id, pos, ownerGuid)
     return guid
 end
 

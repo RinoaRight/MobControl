@@ -53,6 +53,7 @@ local Kind = table.freeze {
     Struct          = enum.iota'',
     ServerError     = enum.iota'',
     Boost           = enum.iota'',
+    Bomb            = enum.iota'',
     Achievement     = enum.iota'',
     Animation       = enum.iota'',
     Product         = enum.iota'',
@@ -586,6 +587,16 @@ export type Obstacle = typeof(Id.Obstacle)
 
 -- stylua: ignore
 -----------------------------
+-- Bomb
+-----------------------------
+Id.Bomb = enum.with_id "Id.Bomb" {
+    _NONE = iota(Id.Kind.Bomb, 0),
+    ZOMBALLOON_BOMB = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Bomb] = Id.Bomb
+export type Bomb = typeof(Id.Bomb)
+
+-- stylua: ignore
 -- Timed event
 -----------------------------
 Id.TimedEvent = enum.with_id "Id.TimedEvent" {
@@ -784,6 +795,7 @@ Id.S2CC = enum.with_id "Id.S2CC" {
     PLAYER_STARTED_SESSION     = iota'', -- player_id, player_hp
     PLAYER_STOPPED_SESSION     = iota'', -- player_id
     PLAYER_CHANGED_WEAPON      = iota'', -- player_id, weapon_id
+    -- SPAWN_BOMB                 = iota'', -- enemy_guid
 }
 KIND_TO_ENUM[Id.Kind.S2CC] = Id.S2CC
 export type S2CC = typeof(Id.S2CC)

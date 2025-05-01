@@ -1031,6 +1031,8 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
     elseif Id.kind(newValue) == Id.Kind.EnemyFlying and WORLD:get(guid, W.PlayerId) then
         EnemiesFlying.OnFlyerAdded(WORLD, PLAYER_STATE, guid :: string, LOCAL_HUMANOID_ROOT_PART)
+    elseif Id.kind(newValue) == Id.Kind.Bomb and WORLD:get(guid, W.OwnerGuid) then
+        EnemiesFlying.OnBombActivated(WORLD, guid :: string)
     elseif Id.kind(newValue) == Id.Kind.Clone and WORLD:get(guid, W.PlayerId) then
         -- create clones if any new clones appeared (if the option for others' clones is turned off, for local player only)
         local playerId = WORLD:get(guid, W.PlayerId)
@@ -1088,7 +1090,13 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
             clientInstance:Destroy()
         end
         EnemiesFlying.CleanupClientFlyer(WORLD, guid :: string)
+    elseif Id.kind(oldValue) == Id.Kind.Bomb then
+        local clientInstance = ENEMY_FLYERS_FOLDER:FindFirstChild(guid, true)
+        if clientInstance then
+            clientInstance:Destroy()
+        end
     end
+
 end)
 
 PLAYER_STATE:set_on_modify(C.TTE, function(guid: guid, newValue: num, oldValue: num) end)
