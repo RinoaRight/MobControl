@@ -108,7 +108,7 @@ local function animateBomb(worldState: state.Replica, signPos: Vector3, flyer: B
         local tween1 = TweenService:Create(imageLabel, tweenInfo1, { ImageTransparency = 0.2, Size = targetSize })
         local tween2 = TweenService:Create(imageLabel, tweenInfo1, { ImageTransparency = 0, Size = origSize })
         for i = 1, times1 do
-            if worldState:has(flyer.Name) then 
+            if worldState:has(flyer.Name) then
                 tween1:Play()
                 task.wait(duration1)
                 tween2:Play()
@@ -238,7 +238,7 @@ m.OnFlyerAdded = function(worldState: state.Replica, playerState: state.Replica,
         parentFolder.Name = SharedConfig.FLYERS_FOLDER_NAME
     end
     flyerInstance.Position = flyerPos
-    flyerInstance.CFrame = CFrame.new(flyerPos)-- * CFrame.Angles(0, math.pi, 0)
+    flyerInstance.CFrame = CFrame.new(flyerPos) -- * CFrame.Angles(0, math.pi, 0)
     flyerInstance.Parent = parentFolder
 
     worldState:set(instanceGuid, W.ClientInstance, flyerInstance)
@@ -247,22 +247,23 @@ m.OnFlyerAdded = function(worldState: state.Replica, playerState: state.Replica,
 end
 
 m.OnBombActivated = function(worldState: state.Replica, bombGuid: str)
-        -- TODO: misslie SFX
-        local bomb = Instance.new("Part")
-        bomb.Shape = Enum.PartType.Ball
-        bomb.Name = bombGuid
-        bomb.CanCollide = false
-        bomb.Anchored = false
-        bomb.Color = Color3.fromRGB(255, 0, 0)
-        bomb.Size = Vector3.new(1, 1, 1)
-        local ownerGuid = worldState:get(bombGuid, W.OwnerGuid)
-        local ownerInstance = worldState:get(ownerGuid, W.ClientInstance)
-        if not ownerInstance then
-            return
-        end
-        bomb.Parent = ownerInstance
-        local pos = worldState:get(bombGuid, W.Position)
-        bomb.Position = pos
+    print("LLLLLLLLL bomb activated client")
+    -- TODO: misslie SFX
+    local bomb = Instance.new("Part")
+    bomb.Shape = Enum.PartType.Ball
+    bomb.Name = bombGuid
+    bomb.CanCollide = false
+    bomb.Anchored = false
+    bomb.Color = Color3.fromRGB(255, 0, 0)
+    bomb.Size = Vector3.new(1, 1, 1)
+    local ownerGuid = worldState:get(bombGuid, W.OwnerGuid)
+    local ownerInstance = worldState:get(ownerGuid, W.ClientInstance)
+    if not ownerInstance then
+        return
+    end
+    bomb.Parent = ownerInstance
+    local pos = worldState:get(bombGuid, W.Position)
+    bomb.Position = pos
 end
 
 m.CleanupClientFlyer = function(worldState: state.Replica, instanceGuid: str)

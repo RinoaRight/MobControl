@@ -145,16 +145,25 @@ local function onPlayerSessionFinishedWorld(player_state, playerId)
 
     -- check if any player is still in the session. If not, stop the session altogether.
     local isAnyoneInSession = false
-    local total_players = Players:GetPlayers()
-    for _, player in ipairs(total_players) do
-        local thisPlayerState = get_state(player.UserId)
-        if thisPlayerState then
-            local thisPlayerNonPersFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-            if thisPlayerNonPersFlags then
-                if Id.flag_test(thisPlayerNonPersFlags, Id.PlayerF.READY) then
-                    isAnyoneInSession = true
-                    break
-                end
+    -- local total_players = Players:GetPlayers()
+    -- for _, player in ipairs(total_players) do
+    --     local thisPlayerState = get_state(player.UserId)
+    --     if thisPlayerState then
+    --         local thisPlayerNonPersFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    --         if thisPlayerNonPersFlags then
+    --             if Id.flag_test(thisPlayerNonPersFlags, Id.PlayerF.READY) then
+    --                 isAnyoneInSession = true
+    --                 break
+    --             end
+    --         end
+    --     end
+    -- end
+    for playerId, playerState in pairs(STATES) do
+        local thisPlayerNonPersFlags = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+        if thisPlayerNonPersFlags then
+            if Id.flag_test(thisPlayerNonPersFlags, Id.PlayerF.READY) then
+                isAnyoneInSession = true
+                break
             end
         end
     end
@@ -273,20 +282,28 @@ end
 
 stopGameSession = function(exception_player_id: num?)
     -- kill other active players
-    local total_players = Players:GetPlayers()
-    for _, player in ipairs(total_players) do
-        local userId = player.UserId
+    -- local total_players = Players:GetPlayers()
+    -- for _, player in ipairs(total_players) do
+    --     local userId = player.UserId
+    --     -- skip the player who ended the session to avoid recursion
+    --     if exception_player_id and userId ~= exception_player_id then
+    --         continue
+    --     end
+    --     local thisPlayerState = get_state(userId)
+    --     if thisPlayerState then
+    --         thisPlayerState:DeductHp(thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value))
+    --         -- onPlayerSessionFinishedPlayerState(thisPlayerState)
+    --     else
+    --         log:error("Player state not found", debug.traceback())
+    --     end
+    -- end
+    for playerId, playerState in pairs(STATES) do
         -- skip the player who ended the session to avoid recursion
-        if exception_player_id and userId ~= exception_player_id then
+        if exception_player_id and playerId ~= exception_player_id then
             continue
         end
-        local thisPlayerState = get_state(userId)
-        if thisPlayerState then
-            thisPlayerState:DeductHp(thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value))
-            -- onPlayerSessionFinishedPlayerState(thisPlayerState)
-        else
-            log:error("Player state not found", debug.traceback())
-        end
+        playerState:DeductHp(playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value))
+        -- onPlayerSessionFinishedPlayerState(thisPlayerState)
     end
 
     workerMaid.worldLoop = nil
@@ -299,19 +316,26 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
 
     -- boss killer leaderboard
     Leaderboards.SpawnWinner(boss_killer_player_state, Id.Achievement.BOSS_KILLER)
-    local total_players = Players:GetPlayers()
+    -- local total_players = Players:GetPlayers()
 
     -- most damage leaderboard
     local playerWithMostDamageState
     local mostDamageInflicted = 0
-    for _, player in ipairs(total_players) do
-        local thisPlayerState = get_state(player.UserId)
-        if thisPlayerState then
-            local damage = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
-            if damage and (damage > mostDamageInflicted) then
-                mostDamageInflicted = damage
-                playerWithMostDamageState = thisPlayerState
-            end
+    -- for _, player in ipairs(total_players) do
+    --     local thisPlayerState = get_state(player.UserId)
+    --     if thisPlayerState then
+    --         local damage = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
+    --         if damage and (damage > mostDamageInflicted) then
+    --             mostDamageInflicted = damage
+    --             playerWithMostDamageState = thisPlayerState
+    --         end
+    --     end
+    -- end
+    for playerId, playerState in pairs(STATES) do
+        local damage = playerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
+        if damage and (damage > mostDamageInflicted) then
+            mostDamageInflicted = damage
+            playerWithMostDamageState = playerState
         end
     end
     if playerWithMostDamageState then
@@ -321,14 +345,21 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     -- most enemies leaderboard
     local playerWithMostKillsState
     local mostKills = 0
-    for _, player in ipairs(total_players) do
-        local thisPlayerState = get_state(player.UserId)
-        if thisPlayerState then
-            local kills = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
-            if kills and (kills > mostKills) then
-                mostKills = kills
-                playerWithMostKillsState = thisPlayerState
-            end
+    -- for _, player in ipairs(total_players) do
+    --     local thisPlayerState = get_state(player.UserId)
+    --     if thisPlayerState then
+    --         local kills = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+    --         if kills and (kills > mostKills) then
+    --             mostKills = kills
+    --             playerWithMostKillsState = thisPlayerState
+    --         end
+    --     end
+    -- end
+    for playerId, playerState in pairs(STATES) do
+        local kills = playerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+        if kills and (kills > mostKills) then
+            mostKills = kills
+            playerWithMostKillsState = playerState
         end
     end
     if playerWithMostKillsState then

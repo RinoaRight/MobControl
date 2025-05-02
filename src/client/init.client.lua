@@ -793,13 +793,12 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 
-    -- move enemies
+    -- move enemies and bombs
     local enemies = {}
     local enemyTargets = {}
-    for enemyGuid, refId, _hp, newPos, _playerId, _bitset in WORLD:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
+    for guid, refId, newPos in WORLD:select(W.RefId, W.Position) do
         if Id.kind(refId) == Id.Kind.Enemy then
-            -- local enemyInstance = ENEMIES_FOLDER:FindFirstChild(enemyGuid)
-            local enemyInstance = WORLD:get(enemyGuid, W.ClientInstance)
+            local enemyInstance = WORLD:get(guid, W.ClientInstance)
             if not enemyInstance then
                 continue
             end
@@ -819,6 +818,12 @@ RunService.Heartbeat:Connect(function(dt)
             lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
             local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
             table.insert(enemyTargets, newCframe)
+        elseif Id.kind(refId) == Id.Kind.Bomb then
+            local bombInstance = WORLD:get(guid, W.ClientInstance)
+            if not bombInstance then
+                continue
+            end
+            bombInstance.Position = newPos
         end
     end
     if #enemies > 0 then

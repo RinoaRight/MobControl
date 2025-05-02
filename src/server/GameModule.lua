@@ -521,7 +521,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     local groundUnitPos = groundUnit.Position
                     local distY = math.abs(bombPos.Y - groundUnitPos.Y)
                     if distY < 2 then
-                        print("LLLLL", "remove bomb")
                         WorldService.RemoveEntity(guid)
                     end
 
