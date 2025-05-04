@@ -36,6 +36,7 @@ local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local Misc = require(shared.Misc)
 local S = require(shared.StaticData)
+local Rand = require(shared.rand)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
@@ -46,49 +47,6 @@ local TaskPool = require(shared.TaskPool)
 local TweenService = game:GetService("TweenService")
 local _roflake = require(shared.roflake)
 local TARGET_SIGN_TEMPLATE = assert(ReplicatedStorage:WaitForChild("TargetSign"))
-
-local function onPlayerCollisionWithBomb(worldState: state.Replica)
-    -- TODO:
-    print("LLLLLLLLL player collided with bomb client")
-end
-
-local function subscribeBomb(worldState: state.Replica, bombInstance: BasePart)
-    local sub = bombInstance.Touched:Connect(function(triggerer)
-        if triggerer.Name ~= "Head" then
-            local character = triggerer.Parent
-            assert(character and character:IsA("Model")) -- sanity check
-
-            bombInstance:Destroy()
-
-            local triggererId
-            local isClone, playerId = Misc.CloneOrPlayer(worldState, character)
-            if playerId and playerId == LOCAL_PLAYER.UserId then
-                if isClone then
-                    -- player's clone collided with the instance
-                    Misc.DestroyClientClone(character)
-                    triggererId = character.Name
-                else
-                    -- player themselves collided with the instance for the first time
-                    triggererId = LOCAL_PLAYER.UserId
-                end
-
-                bombInstance:Destroy()
-
-                -- handle client instance
-                onPlayerCollisionWithBomb(worldState)
-
-                -- signal to server
-                -- Signal.Fire(Id.C2S.PLAYER_HIT_BY_BOMB, triggererId)
-            end
-        elseif triggerer.Name == SharedConfig.GROUND_UNIT_NAME then
-            bombInstance:Destroy()
-        end
-    end)
-
-    bombInstance.Destroying:Once(function()
-        sub:Disconnect()
-    end)
-end
 
 local function animateBomb(worldState: state.Replica, signPos: Vector3, flyer: BasePart)
     TaskPool.spawn(function()
@@ -198,14 +156,14 @@ local function animateFlyer(worldState: state.Replica, flyer: BasePart, serverPo
         local targetPos1 = Vector3.new(serverPos.X, serverPos.Y + flyerHeight, serverPos.Z)
         local targetPos2 = Vector3.new(targetPos1.X, targetPos1.Y - targetYOffset, targetPos1.Z)
 
-        local duration1 = math.random(6.0, 8.0)
+        local duration1 = Rand.uniform(SharedConfig.FIRST_BOMB_DELAY - 2, SharedConfig.FIRST_BOMB_DELAY)
         local tweenInfo1 = TweenInfo.new(duration1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         local tween0 = TweenService:Create(flyer, tweenInfo1, { Position = targetPos1 })
 
         tween0:Play()
         task.wait(duration1)
 
-        local duration2 = math.random(1.1, 2.0)
+        local duration2 = Rand.uniform(1.1, 2.0)
         local tweenInfo2 = TweenInfo.new(duration2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
         local tween1 = TweenService:Create(flyer, tweenInfo2, {
@@ -247,7 +205,6 @@ m.OnFlyerAdded = function(worldState: state.Replica, playerState: state.Replica,
 end
 
 m.OnBombActivated = function(worldState: state.Replica, bombGuid: str)
-    print("LLLLLLLLL bomb activated client")
     -- TODO: misslie SFX
     local bomb = Instance.new("Part")
     bomb.Shape = Enum.PartType.Ball
@@ -255,7 +212,7 @@ m.OnBombActivated = function(worldState: state.Replica, bombGuid: str)
     bomb.CanCollide = false
     bomb.Anchored = false
     bomb.Color = Color3.fromRGB(255, 0, 0)
-    bomb.Size = Vector3.new(1, 1, 1)
+    bomb.Size = Vector3.new(5, 5, 5)
     local ownerGuid = worldState:get(bombGuid, W.OwnerGuid)
     local ownerInstance = worldState:get(ownerGuid, W.ClientInstance)
     if not ownerInstance then
@@ -264,6 +221,8 @@ m.OnBombActivated = function(worldState: state.Replica, bombGuid: str)
     bomb.Parent = ownerInstance
     local pos = worldState:get(bombGuid, W.Position)
     bomb.Position = pos
+    worldState:set(bombGuid, W.ClientFlags, false) -- set "bomb exploded" flag to false
+    worldState:set(bombGuid, W.ClientInstance, bomb)
 end
 
 m.CleanupClientFlyer = function(worldState: state.Replica, instanceGuid: str)

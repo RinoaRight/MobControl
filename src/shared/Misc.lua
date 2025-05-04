@@ -156,6 +156,16 @@ m.ShowCollidableHP = function(worldState, targetGuids, killables, weapon_id, gui
     end
 end
 
+m.SpawnExplosion = function(target: BasePart, explosionSize: Vector3)
+    local explosionInstance = Instance.new("Explosion")
+    explosionInstance.Position = target.Position
+    explosionInstance.BlastRadius = explosionSize.X * 3 --explosionSize.X / 2
+    explosionInstance.BlastPressure = 0
+    explosionInstance.ExplosionType = Enum.ExplosionType.NoCraters
+    explosionInstance.DestroyJointRadiusPercent = 0
+    explosionInstance.Parent = workspace
+end
+
 m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
     local blockcastParams = RaycastParams.new()
     blockcastParams.FilterDescendantsInstances = blacklist

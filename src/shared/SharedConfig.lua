@@ -76,6 +76,7 @@ m.DEFAULT_PLAYER_ID = -100
 m.ENEMY_SIGHT_RADIUS = 100
 m.STARTING_CLONE_AMOUNT = 0
 m.COLLISION_PROXIMITY_TO_OBSTACLE = 1.5
+m.FIRST_BOMB_DELAY = 8.0
 m.DRIVING_BOX_STARTING_POS = Vector3.new(0, 50, 255)
 m.GRAVE_SIZE_MULT = 1.5
 m.GRAVE_Z_DISTRIBUTION_RANDOMNESS = Vector3.new(10, 20)
@@ -126,7 +127,7 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(W)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PlayerId, W.WeaponId, W.TTL, W.Bitset)
+        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PlayerId, W.WeaponId, W.OwnerGuid, W.TTL, W.TTE, W.Bitset)
         :set_destructor(W.ServerInstance, disposer.dispose)
         :build_with_replica()
 

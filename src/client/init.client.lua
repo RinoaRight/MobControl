@@ -727,23 +727,6 @@ RunService.Heartbeat:Connect(function(dt)
         return
     end
 
-    -- -- update TTE for all currently shown damage GUIs
-    -- for targetGuid, tte in WORLD:select(W.ClientTTE) do
-    --     if tte <= 0 then
-    --         local refId = WORLD:get(targetGuid, W.RefId)
-    --         if Id.kind(refId) ~= Id.Kind.Enemy and Id.kind(refId) ~= Id.Kind.Obstacle then
-    --             continue
-    --         end
-    --         local target = WORLD:get(targetGuid, W.ClientInstance)
-    --         local hpGui = target:FindFirstChild(COLLIDABLES_HP_GUI_NAME) :: BillboardGui
-    --         if not hpGui then
-    --             continue
-    --         end
-    --         hpGui:Destroy()
-    --     end
-    --     WORLD:set(targetGuid, W.ClientTTE, tte - dt)
-    -- end
-
     -- move clones
     local clonesRootParts = {}
     local clonesTargets = {}
@@ -824,6 +807,12 @@ RunService.Heartbeat:Connect(function(dt)
                 continue
             end
             bombInstance.Position = newPos
+            -- spawn explosion if the bomb is below the player root
+            if newPos.Y < playerRootPart.Position.Y and not WORLD:get(guid, W.ClientFlags) then
+                local explosionSize = assert(S.Weapon[Id.Weapon.ROCKET].explosionSize)
+                Misc.SpawnExplosion(bombInstance, explosionSize)
+                WORLD:set(guid, W.ClientFlags, true) 
+            end
         end
     end
     if #enemies > 0 then
@@ -837,7 +826,6 @@ RunService.Heartbeat:Connect(function(dt)
     for i, bulletData in ipairs(activeBulletsDataTable) do
         -- check for collisions
         local bullet = bulletData.bullet :: Part
-        -- local booster = bulletData.booster
         local owner = bulletData.owner
         local ttl = bulletData.ttl
         local rot = bulletData.rotation
@@ -861,7 +849,8 @@ RunService.Heartbeat:Connect(function(dt)
             elseif Id.kind(targetRefId) == Id.Kind.Boost then
                 target_pos = target.Position
             elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
-                target_pos = target.Position
+                target_pos = WORLD:get(target.Name, W.Position)
+                -- target_pos = target.Position
             end
             hit_z = target_pos.Z + targetThickness + 1
             if weapon_id == Id.Weapon.ROCKET then
@@ -874,23 +863,14 @@ RunService.Heartbeat:Connect(function(dt)
             if owner == LOCAL_PLAYER then
                 if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy or Id.kind(targetRefId) == Id.Kind.Obstacle then
                     if Id.kind(targetRefId) == Id.Kind.Obstacle then
-                        -- TODO:not every collision with obtsacle registers (clone bullets?)
+                        -- TODO:not every collision with obstacle registers. Add bigger hitboxes?
                         Obstacles.OnCollisionWithObstacle(WORLD, target.Name)
                     end
                     local targetGuids = { target.Name }
-                    -- local killables = { target }
                     if weapon_id == Id.Weapon.ROCKET then
                         -- animate the explosion
                         local explosionSize = assert(S.Weapon[weapon_id].explosionSize)
-                        -- if S.VFX[Id.VFX.EXPLOSION] then
-                        local explosionInstance = Instance.new("Explosion")
-                        -- local explosionInstance = S.VFX[Id.VFX.EXPLOSION]:Clone()
-                        explosionInstance.Position = target.Position
-                        explosionInstance.BlastRadius = explosionSize.X * 3 --explosionSize.X / 2
-                        explosionInstance.BlastPressure = 0
-                        explosionInstance.ExplosionType = Enum.ExplosionType.NoCraters
-                        explosionInstance.DestroyJointRadiusPercent = 0
-                        explosionInstance.Parent = workspace
+                        Misc.SpawnExplosion(target, explosionSize)
 
                         -- check if there other targets hit by the explosion
                         local otherTargets = Misc.GetBulletCollidablesInRadius(target.CFrame, explosionSize)
@@ -904,7 +884,6 @@ RunService.Heartbeat:Connect(function(dt)
                                         or Id.kind(otherTargetRefId) == Id.Kind.Obstacle
                                     then
                                         table.insert(targetGuids, otherTarget.Name)
-                                        -- table.insert(killables, otherTarget)
                                         if Id.kind(targetRefId) == Id.Kind.Obstacle then
                                             Obstacles.OnCollisionWithObstacle(WORLD, otherTarget.Name)
                                         end
@@ -1077,10 +1056,6 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
         if cloneInstance then
             cloneInstance:Destroy()
         end
-    -- elseif Id.kind(oldValue) == Id.Kind.Boost then
-    --     local instanceGuid = guid :: string
-    --     PLAYER_STATE:delete(instanceGuid)
-    --     Boosters.CancelBoosterSubscription(instanceGuid)
     elseif Id.kind(oldValue) == Id.Kind.Obstacle then
         local instanceGuid = guid :: string
         Obstacles.CleanupClientObstacle(WORLD, instanceGuid)
@@ -1101,7 +1076,6 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
             clientInstance:Destroy()
         end
     end
-
 end)
 
 PLAYER_STATE:set_on_modify(C.TTE, function(guid: guid, newValue: num, oldValue: num) end)

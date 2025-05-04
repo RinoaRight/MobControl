@@ -125,10 +125,11 @@ m.EnemyFlying = {
     [Id.EnemyFlying.ZOMBALLOON] = {
         damage = 40,
         health = 10,
-        period = Vector2.new(1.5, 2.0),
-        bombSpeed = .1,
+        period = Vector2.new(1.5, 3.0),
+        bombSpeed = 1,
         flyerHeight = 50,
         reward = 3,
+        explosionSize = Vector3.new(10, 10, 10),
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_9"),
     },
 }

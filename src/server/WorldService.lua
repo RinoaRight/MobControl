@@ -195,8 +195,7 @@ local _enemy_flying = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId,
 function m.AddEnemyFlyingToState(id: id, pos: v3)
     local hp = S.EnemyFlying[id].health
     local guid = _roflake.uida()
-    local range = assert(S.EnemyFlying[id].period)
-    local tte = _roflake.time() + math.random(range.X, range.Y)
+    local tte = _roflake.time() + SharedConfig.FIRST_BOMB_DELAY
     _enemy_flying(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, tte, Id.EnemyF.NONE)
     return guid
 end

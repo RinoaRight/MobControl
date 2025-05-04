@@ -48,6 +48,7 @@ local BoosterServer = require(server.BoosterServer)
 local Obstacles = require(server.Obstacles)
 local ClonesServer = require(server.ClonesServer)
 local Remote = require(shared.Remote)
+local Rand = require(shared.rand)
 
 local CLONES = {}
 
@@ -490,8 +491,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     local tte = worldState:get(guid, W.TTE)
                     if tte < roflake.time() then
                         -- reset tte
-                        local range = assert(S.EnemyFlying[refId].period)
-                        local newTTE = roflake.time() + math.random(range.X, range.Y)
+                        local period = assert(S.EnemyFlying[refId].period)
+                        local newTTE = roflake.time() + Rand.uniform(period.X, period.Y)
                         worldState:set(guid, W.TTE, newTTE)
                         -- spawn bomb
                         local flyerHeight = assert(S.EnemyFlying[refId].flyerHeight)
@@ -534,7 +535,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                 if playerHead then
                                     local playerHeadPos = playerHead.Position
                                     local dist = (bombPos - playerHeadPos).Magnitude
-                                    if dist < 2 then
+                                    local explosionSize = assert(S.EnemyFlying[ownerRefId].explosionSize)
+                                    if dist < explosionSize.X then
                                         -- harm player, delete bomb
                                         local dmg = assert(S.EnemyFlying[ownerRefId].damage)
                                         local playerState = get_state(player.UserId)

@@ -59,7 +59,7 @@ local Z_DISTRIBUTION_RANDOMNESS = Vector2.new(10, 40)
 
 -- TODO: add more waves. Only even waves are handled
 local ENEMIES_DATA_TABLE = {
-    { count = 6, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
+    { count = 20, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
 }
 local m = {}
 
