@@ -39,6 +39,13 @@ local blacklist = {} :: { Instance }
 
 m.AddInstanceToRaycastFilter = function(instance)
     table.insert(blacklist, instance)
+    -- if math.random() < 0.01 then
+    --     local count = 0
+    --     for _, instance in blacklist do
+    --         count += 1
+    --     end
+    --     warn("~coolisions~ blacklist ", #blacklist, count)
+    -- end
 end
 
 local function playFlickerAnim(textBox, mult, value, isToDestroy)
@@ -166,11 +173,41 @@ m.SpawnExplosion = function(target: BasePart, explosionSize: Vector3)
     explosionInstance.Parent = workspace
 end
 
+
+-- DEBUG:
+-- local counters = table.create(5, 0)
+-- local RC_COUNT = 1
+-- local RC_TPC_PRE = 2
+-- local RC_TPC_DO = 3
+-- local RC_TPC_CALC = 4
+-- local RC_TPC_WALL = 5
+-- counters[RC_TPC_WALL] = os.clock()
+
+-- local dump_counters = function()
+--     local micro = 1e6
+--     local total = counters[RC_COUNT]/micro -- for microseconds
+--     print(fmt("~coolisions~ %d calls, %.3f pre, %.3f do, %.3f calc,",
+--         total, counters[RC_TPC_PRE] / total, counters[RC_TPC_DO] / total, counters[RC_TPC_CALC] / total))
+--     print("~coolisions~ II ", counters[RC_COUNT], 
+--         counters[RC_TPC_PRE]*micro, counters[RC_TPC_DO]*micro, counters[RC_TPC_CALC]*micro,
+--         os.clock() - counters[RC_TPC_WALL])
+--     counters[RC_COUNT] = 0
+--     counters[RC_TPC_PRE] = 0
+--     counters[RC_TPC_DO] = 0
+--     counters[RC_TPC_CALC] = 0
+--     counters[RC_TPC_WALL] = os.clock()
+-- end
+
+local blockcastParams = RaycastParams.new()
+blockcastParams.FilterDescendantsInstances = blacklist
 m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
-    local blockcastParams = RaycastParams.new()
-    blockcastParams.FilterDescendantsInstances = blacklist
+    -- counters[RC_COUNT] += 1
+    -- local t = os.clock()
+    -- local t0 = t
     local rayDirection = Vector3.new(0, 0, -bulletRange)
+    -- counters[RC_TPC_PRE] += os.clock() - t; t = os.clock()
     local blockcastResult = workspace:Blockcast(bulletCFrame, bulletSize, rayDirection, blockcastParams)
+    -- counters[RC_TPC_DO] += os.clock() - t; t = os.clock()
     -- if "debug" then
     --     local ray = Instance.new("Part")
     --     ray.CanCollide = false
@@ -190,7 +227,11 @@ m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bul
             target = blockcastInstance
             distance = (blockcastResult.Position - bulletCFrame.Position).Magnitude
         end
+        -- counters[RC_TPC_CALC] += os.clock() - t; t = os.clock()
     end
+    -- if t0 - counters[RC_TPC_WALL] >= 1.0 then
+    --     dump_counters()
+    -- end
     return target, distance
 end
 

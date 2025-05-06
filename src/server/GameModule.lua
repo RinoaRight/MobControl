@@ -385,7 +385,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 shot_tte -= dt
                 player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
 
-                -- check obstacle collision for player
+                -- check obstacle collision for player and driver
                 local playerRootPart = player_state.root :: BasePart
                 for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
                     if Id.kind(refId) == Id.Kind.Obstacle then
@@ -404,6 +404,13 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                 end
                             end
                         end
+                        -- check if the driver back part is colliding with the obstacle
+                        local driverPos = DRIVING_BOX_BACK_PART.Position
+                        if driverPos then
+                            if driverPos.Z < obstPos.Z then
+                                WorldService.RemoveEntity(guid)
+                            end
+                        end
                     end
                 end
             end
@@ -416,6 +423,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         else
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.1))
         end
+        -- TODO: stop it altogether after some time when boss fight is on to prevent new unit generation and lock player on the current unit
         oldPos = DRIVING_BOX_BACK_PART.Position
 
         -- check clones collisions

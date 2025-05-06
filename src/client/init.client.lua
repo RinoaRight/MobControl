@@ -105,6 +105,11 @@ local LOCAL_CHARACTER = LOCAL_PLAYER.Character
 local LOCAL_HUMANOID = LOCAL_PLAYER.Character:WaitForChild("Humanoid")
 local LOCAL_HUMANOID_ROOT_PART = assert(LOCAL_PLAYER.Character:WaitForChild("HumanoidRootPart"))
 local LOCAL_HUMANOID_HEAD = assert(LOCAL_PLAYER.Character:WaitForChild("Head"))
+-- for _, child in LOCAL_PLAYER.Character:GetDescendants() do
+--     if child:IsA("BasePart") then
+--         Misc.AddInstanceToRaycastFilter(child)
+--     end
+-- end
 
 local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
@@ -423,7 +428,7 @@ repeat
     wait()
 until DRIVING_BOX_INSTANCE
 local DRIVING_BOX_BACK_PART = DRIVING_BOX_INSTANCE:FindFirstChild("DrivingBoxBackPart")
-Misc.AddInstanceToRaycastFilter(DRIVING_BOX_BACK_PART)
+-- Misc.AddInstanceToRaycastFilter(DRIVING_BOX_BACK_PART)
 local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local DRIVING_BOX_ATT = DRIVING_BOX_FRONT.Attachment
@@ -572,7 +577,7 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     -- set bullet's position
     local pos = rootPart.Position + rootPart.CFrame.LookVector * (bulletSize.Z / 2 + SharedConfig.BULLET_RAYCAST_START_MULT)
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
-    Misc.AddInstanceToRaycastFilter(bullet)
+    -- Misc.AddInstanceToRaycastFilter(bullet)
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
     local range = SharedConfig.BULLET_BASE_DISTANCE
     if S.Weapon[weapon_id].range then
@@ -863,7 +868,6 @@ RunService.Heartbeat:Connect(function(dt)
             if owner == LOCAL_PLAYER then
                 if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy or Id.kind(targetRefId) == Id.Kind.Obstacle then
                     if Id.kind(targetRefId) == Id.Kind.Obstacle then
-                        -- TODO:not every collision with obstacle registers. Add bigger hitboxes?
                         Obstacles.OnCollisionWithObstacle(WORLD, target.Name)
                     end
                     local targetGuids = { target.Name }
