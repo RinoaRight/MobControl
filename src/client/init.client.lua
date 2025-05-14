@@ -247,7 +247,7 @@ on[Id.S2C.SHOW_POPUP_SERVER] = function(state: state.Replica, event_id: id)
             text = "Max number of players reached =(\nWait for the next round!",
             ok = function() end,
         })
-    elseif event_id == Id.C2S.BUY_PLAYER_UPGRADE then
+    elseif event_id == Id.C2S.BUY_PLAYER_UPGRADE_PERS then
         Signal.Broadcast(Id.C2C.SHOW_POPUP_CLIENT, {
             text = "You can't buy this upgrade :(\n\n",
             ok = function() end,
@@ -274,13 +274,6 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
     if player_id == LOCAL_PLAYER.UserId then
         -- disable jumping
         LOCAL_HUMANOID.JumpPower = 0
-
-        -- NOTE: moved to server
-        -- create attachement for clones
-        -- local playerAtt = Instance.new("Attachment") :: Attachment
-        -- playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
-        -- playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
-        -- playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
 
         -- start running animation
         startRunAnim(LOCAL_CHARACTER)
@@ -404,7 +397,7 @@ local load = function(fire: FireServer, snapshot)
     PLAYER_STATE:init(snapshot)
     PLAYER_STATE:env(ENV_FIRE_SERVER, fire)
     PLAYER_STATE:env(ENV_READY, true)
-    log:debug("~~~", PLAYER_STATE:format_state("*"))
+    log:info("~~~> client\n", PLAYER_STATE:format_state("*"))
     RemoteClient.ConnectToBroadcast(on_cc)
     for _, id in Id.C2S:ids() do
         maid:Add(Signal.Connect(id, function(...)
@@ -816,7 +809,7 @@ RunService.Heartbeat:Connect(function(dt)
             if newPos.Y < playerRootPart.Position.Y and not WORLD:get(guid, W.ClientFlags) then
                 local explosionSize = assert(S.Weapon[Id.Weapon.ROCKET].explosionSize)
                 Misc.SpawnExplosion(bombInstance, explosionSize)
-                WORLD:set(guid, W.ClientFlags, true) 
+                WORLD:set(guid, W.ClientFlags, true)
             end
         end
     end
@@ -1082,4 +1075,15 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
     end
 end)
 
-PLAYER_STATE:set_on_modify(C.TTE, function(guid: guid, newValue: num, oldValue: num) end)
+PLAYER_STATE:set_on_modify(C.ValueNonPers, function(guid: guid, newValue: num, oldValue: num)
+    if type(guid) == "number" then
+        if Id.kind(guid) == Id.Kind.PlayerUpgradeNonPersistent then
+            UIPlayerUpgrades.OnModify(PLAYER_STATE, LOCAL_CHARACTER)
+        end
+    end
+end)
+
+PLAYER_STATE:set_on_modify(C.PlayerRank, function(guid: guid, newValue: num, oldValue: num)
+    -- TODO: on rank change, offer upgrade selection and, when selected, send the choice to the server
+end)
+

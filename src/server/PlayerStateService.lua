@@ -95,10 +95,13 @@ export type PlayerState = {
     NotifyClient: (self: PlayerState, event_id: id, ...any) -> (),
     AddBooster: (self: PlayerState, instanceGuid: string) -> (),
     AddObstacle: (self: PlayerState, refId: id, pos: Vector3) -> uid,
-    AddCountable: (self: PlayerState, id: id, count: int) -> (),
+    AddCountableNonPersistent: (self: PlayerState, id: id, count: int) -> (),
+    AddCountablePersistent: (self: PlayerState, id: id, count: int) -> (),
     AddHp: (self: PlayerState, amount: num) -> (num, num),
-    DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
+    DeductCountableNonPersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
+    DeductCountablePersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
     ResetCountable: (self: PlayerState, id: id) -> (),
+    ResetPlayerUpgrade: (self: PlayerState, id: id) -> (),
     DeductHp: (self: PlayerState, amount: num, cause: id | uid?) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
@@ -124,24 +127,30 @@ local function update_ids(main: state.Main)
         end
     end
 
-    local _countable = main:constructor(C.Value, C.Total)
-    merge(Id.Countable, function(id)
-        _countable(id, 0, 0)
+    local _countable_non_persistent = main:constructor(C.ValueNonPers, C.Total)
+    merge(Id.CountableNonPersistent, function(id)
+        _countable_non_persistent(id, 0, 0)
     end)
 
-    local _game_session_params = main:constructor(C.RefId, C.TTE, C.Value, C.Bitset, C.BitsetNonPers) -- weapon_id, weapon_tte, hp, pers_flags, non_pers_flags
-    merge(Id.PlayerSpecs, function(id)
-        _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE, Id.PlayerF.NONE)
-    end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
-
     local _countable_persistent = main:constructor(C.ValuePers, C.Total)
-    merge(Id.Countable, function(id)
+    merge(Id.CountablePersistent, function(id)
         _countable_persistent(id, 0, 0)
     end)
 
-    local _player_upgrade_non_persistent = main:constructor(C.Value)
-    merge(Id.PlayerUpgrade, function(id)
-        _player_upgrade_non_persistent(id, false)
+    -- weapon_id, weapon_tte, rank, hp, rank, pers_flags, non_pers_flags
+    local _game_session_params = main:constructor(C.RefId, C.TTE, C.ValueNonPers, C.PlayerRank, C.Bitset, C.BitsetNonPers)
+    merge(Id.PlayerSpecs, function(id)
+        _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE, Id.PlayerF.NONE)
+    end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
+
+    local _player_upgrade_non_persistent = main:constructor(C.TTL, C.ValueNonPers)
+    merge(Id.PlayerUpgradeNonPersistent, function(id)
+        _player_upgrade_non_persistent(id, 0xffff_ffff, false)
+    end)
+
+    local _player_upgrade_persistent = main:constructor(C.ValuePers)
+    merge(Id.PlayerUpgradePersistent, function(id)
+        _player_upgrade_persistent(id, false)
     end)
 end
 
@@ -213,7 +222,7 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
         nullary_transient = state:constructor("transient"),
     }, PlayerState)) :: any
     fill_state(player_state)
-    log:trace("~~~>\n", player_state, debug.traceback)
+    log:trace("~~~> server\n", player_state, debug.traceback)
     local snapshot = state:snapshot("discard-log")
     return player_state, snapshot
 end
@@ -245,27 +254,40 @@ function PlayerState.NotifyClient(self: PlayerState, event_id: id, ...: any): ()
     self.fire_client(event_id, nil, ...)
 end
 
-function PlayerState.AddCountable(self: PlayerState, countable_id: id, amount: int): ()
-    log:assert(Id.kind(countable_id) == Id.Kind.Countable, "not a countable id", countable_id)
+function PlayerState.AddCountableNonPersistent(self: PlayerState, countable_id: id, amount: int): ()
+    log:assert(Id.kind(countable_id) == Id.Kind.CountableNonPersistent, "not a countable id", countable_id)
     log:assert(type(amount) == "number", "count must be a number")
     if amount == 0 then
         return -- do nothing
     end
     log:assert(amount > 0, "count always positive number")
-    local current = self.state:get(countable_id, C.Value)
+    local current = self.state:get(countable_id, C.ValueNonPers)
     local total = self.state:get(countable_id, C.Total)
-    self.state:set(countable_id, C.Value, current + amount)
+    self.state:set(countable_id, C.ValueNonPers, current + amount)
     self.state:set(countable_id, C.Total, total + amount)
 end
 
-function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount: int): (bool, id?, id?)
-    log:assert(Id.kind(countable_id) == Id.Kind.Countable, "not a countable id", countable_id)
+function PlayerState.AddCountablePersistent(self: PlayerState, countable_id: id, amount: int): ()
+    log:assert(Id.kind(countable_id) == Id.Kind.CountablePersistent, "not a countable id", countable_id)
+    log:assert(type(amount) == "number", "count must be a number")
+    if amount == 0 then
+        return -- do nothing
+    end
+    log:assert(amount > 0, "count always positive number")
+    local current = self.state:get(countable_id, C.ValuePers)
+    local total = self.state:get(countable_id, C.Total)
+    self.state:set(countable_id, C.ValuePers, current + amount)
+    self.state:set(countable_id, C.Total, total + amount)
+end
+
+function PlayerState.DeductCountableNonPersistent(self: PlayerState, countable_id: id, amount: int): (bool, id?, id?)
+    log:assert(Id.kind(countable_id) == Id.Kind.CountablePersistent, "not a countable id", countable_id)
     log:assert(type(amount) == "number", "count must be a number")
     if amount == 0 then
         return true
     end
     log:assert(amount > 0, "count always positive number")
-    local current = self.state:get(countable_id, C.Value)
+    local current = self.state:get(countable_id, C.ValueNonPers)
     if current < amount then
         return false, Id.ServerError.NOT_ENOUGH, countable_id
     end
@@ -273,8 +295,30 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
     return true
 end
 
+function PlayerState.DeductCountablePersistent(self: PlayerState, countable_id: id, amount: int): (bool, id?, id?)
+    log:assert(Id.kind(countable_id) == Id.Kind.CountablePersistent, "not a countable id", countable_id)
+    log:assert(type(amount) == "number", "count must be a number")
+    if amount == 0 then
+        return true
+    end
+    log:assert(amount > 0, "count always positive number")
+    local current = self.state:get(countable_id, C.ValuePers)
+    if current < amount then
+        return false, Id.ServerError.NOT_ENOUGH, countable_id
+    end
+    self.state:set(countable_id, C.ValuePers, current - amount)
+    return true
+end
+
 function PlayerState.ResetCountable(self: PlayerState, countable_id: id): ()
     self.state:set(countable_id, 0)
+end
+
+function PlayerState.ResetPlayerUpgrade(self: PlayerState, upgrade_id: id): ()
+    self.state:set(upgrade_id, C.ValueNonPers, false)
+    if self.state:get(upgrade_id, C.TTL) then
+        self.state:set(upgrade_id, C.TTL, 0xffff_ffff)
+    end
 end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
@@ -288,16 +332,21 @@ function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
 end
 
 function PlayerState.AddHp(self: PlayerState, howMuch: num)
-    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
+    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
     local new_hp = math.min(current + howMuch, SharedConfig.PLAYER_BASE_HP)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, new_hp)
     return current, new_hp
 end
 
 function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
-    local current_hp = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
+    -- check if player is invincible
+    if not self.state:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.ValueNonPers) then
+        return 0
+    end
+
+    local current_hp = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
     local new_hp = math.max(current_hp - howMuch, 0)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, new_hp)
     if new_hp <= 0 then
         Signal.Fire(Id.S2S.PLAYER_DIED, self.player_id, current_hp, cause)
     else
@@ -307,16 +356,16 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
 end
 
 function PlayerState.UpdateSessionDamageStats(self: PlayerState, dmg: num): int
-    local oldVal = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
+    local oldVal = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
     local newVal = oldVal + dmg
-    self.state:set(Id.PlayerSpecs.SESSION_DAMAGE, C.Value, newVal)
+    self.state:set(Id.PlayerSpecs.SESSION_DAMAGE, C.ValueNonPers, newVal)
     return newVal
 end
 
 function PlayerState.UpdateSessionEnemyKills(self: PlayerState): int
-    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.ValueNonPers)
     local newVal = oldVal + 1
-    self.state:set(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value, newVal)
+    self.state:set(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.ValueNonPers, newVal)
     return newVal
 end
 

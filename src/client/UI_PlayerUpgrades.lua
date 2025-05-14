@@ -75,11 +75,11 @@ end
 
 local function onPurchaseBtnPressed(playerState, upgradeId)
     SFX.PLAY_SOUND(Id.Sound.CLICK)
-    local itemPrice = assert(S.PlayerUpgrade[upgradeId].price)
-    local currencyId = assert(S.PlayerUpgrade[upgradeId].currency)
+    local itemPrice = assert(S.PlayerUpgradePersistent[upgradeId].price)
+    local currencyId = assert(S.PlayerUpgradePersistent[upgradeId].currency)
 
     -- check if player already has this upgrade
-    local isBoughtAlready = playerState:get(upgradeId, C.Value)
+    local isBoughtAlready = playerState:get(upgradeId, C.ValueNonPers)
     if isBoughtAlready then
         SFX.PLAY_SOUND(Id.Sound.ERROR)
         local msg = "You already bought this upgrade!\n\n"
@@ -92,7 +92,7 @@ local function onPurchaseBtnPressed(playerState, upgradeId)
 
     -- check if player has enough funds
     if Misc.IsEnoughFunds(playerState, itemPrice, currencyId) then
-        Signal.Fire(Id.C2S.BUY_PLAYER_UPGRADE, upgradeId)
+        Signal.Fire(Id.C2S.BUY_PLAYER_UPGRADE_PERS, upgradeId)
 
         -- hide the slot for the tier player bought, show the next one, if any
         local nextTierId = Misc.IsUpgradeNextTier(upgradeId)
@@ -111,6 +111,52 @@ local function onPurchaseBtnPressed(playerState, upgradeId)
     end
 end
 
+local function createInvincibilityAura(playerState: state.Replica)
+    local aura = S.VFX[Id.VFX.INVINCIBILITY_AURA]:Clone()
+    local localPlayer = game.Players.LocalPlayer
+    local playerCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+    aura.Parent = playerCharacter
+    aura.Name = SharedConfig.INVINCIBILITY_AURA_NAME
+    local upperTorso = playerCharacter:FindFirstChild("UpperTorso")
+    local constraint = Instance.new("WeldConstraint")
+    constraint.Parent = aura
+    constraint.Part0 = upperTorso
+    constraint.Part1 = aura
+    aura.Position = upperTorso.Position
+end
+
+local dur1 = .1
+local dur2 = .05
+local tweenInfo1 = TweenInfo.new(dur1, Enum.EasingStyle.Linear)
+local tweenInfo2 = TweenInfo.new(dur2, Enum.EasingStyle.Linear)
+local function destroyInvincibilityAura(playerState: state.Replica, localCharacter: Model)
+    local aura = localCharacter:FindFirstChild(SharedConfig.INVINCIBILITY_AURA_NAME)::BasePart
+    local initTransparency = aura.Transparency
+    local targetTransparency = 1
+    local tween1 = TweenService:Create(aura, tweenInfo1, { Transparency = targetTransparency})
+    local tween2 = TweenService:Create(aura, tweenInfo1, { Transparency = initTransparency })
+    local tween3 = TweenService:Create(aura, tweenInfo2, { Transparency = targetTransparency})
+    local tween4 = TweenService:Create(aura, tweenInfo2, { Transparency = initTransparency })
+    if aura then
+        -- flicker then destroy
+        TaskPool.spawn(function()
+            for i = 1, 4 do
+                tween1:Play()
+                task.wait(dur1)
+                tween2:Play()
+                task.wait(dur2)
+            end
+            for i = 1, 8 do
+                tween3:Play()
+                task.wait(dur2)
+                tween4:Play()
+                task.wait(dur2)
+            end
+            aura:Destroy()
+        end)
+    end
+end
+
 local m = {}
 
 function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, localRoot)
@@ -122,79 +168,79 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
     -- fill in data
     -- TODO: others
     upgradesData = {
-        [Id.PlayerUpgrade.FIREPOWER_1] = {
+        [Id.PlayerUpgradePersistent.FIREPOWER_1] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_1_Firepower", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.FIREPOWER_2] = {
+        [Id.PlayerUpgradePersistent.FIREPOWER_2] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_2_Firepower", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.FIREPOWER_3] = {
+        [Id.PlayerUpgradePersistent.FIREPOWER_3] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_3_Firepower", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.FIREPOWER_4] = {
+        [Id.PlayerUpgradePersistent.FIREPOWER_4] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_4_Firepower", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.FIREPOWER_5] = {
+        [Id.PlayerUpgradePersistent.FIREPOWER_5] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_5_Firepower", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.HITPOINTS_1] = {
+        [Id.PlayerUpgradePersistent.HITPOINTS_1] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_1_Hitpoints", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.HITPOINTS_2] = {
+        [Id.PlayerUpgradePersistent.HITPOINTS_2] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_2_Hitpoints", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.HITPOINTS_3] = {
+        [Id.PlayerUpgradePersistent.HITPOINTS_3] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_3_Hitpoints", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.HITPOINTS_4] = {
+        [Id.PlayerUpgradePersistent.HITPOINTS_4] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_4_Hitpoints", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.HITPOINTS_5] = {
+        [Id.PlayerUpgradePersistent.HITPOINTS_5] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_5_Hitpoints", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.INIT_CLONE_1] = {
+        [Id.PlayerUpgradePersistent.INIT_CLONE_1] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_1_Clones", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.INIT_CLONE_2] = {
+        [Id.PlayerUpgradePersistent.INIT_CLONE_2] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_2_Clones", true)),
             isName = true,
             isDescription = true,
         },
-        [Id.PlayerUpgrade.INIT_CLONE_3] = {
+        [Id.PlayerUpgradePersistent.INIT_CLONE_3] = {
             panel = assert(SHOP_SCROLLING_FRAME:FindFirstChild("A_Upgrades_1")),
             slot = assert(SHOP_SCROLLING_FRAME:FindFirstChild("Frame_3_Clones", true)),
             isName = true,
@@ -204,7 +250,7 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
 
     -- fill in info
     for id, v in pairs(upgradesData) do
-        local entry = S.PlayerUpgrade[id]
+        local entry = S.PlayerUpgradePersistent[id]
         if not entry then
             log:error("No entry for upgrade id %s", id, debug.traceback())
             return
@@ -241,7 +287,11 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
 
         -- define which upgrades to show
         -- TODO: others
-        if id == Id.PlayerUpgrade.FIREPOWER_1 or id == Id.PlayerUpgrade.HITPOINTS_1 or id == Id.PlayerUpgrade.INIT_CLONE_1 then
+        if
+            id == Id.PlayerUpgradePersistent.FIREPOWER_1
+            or id == Id.PlayerUpgradePersistent.HITPOINTS_1
+            or id == Id.PlayerUpgradePersistent.INIT_CLONE_1
+        then
             upgradesData[id].slot.Visible = true
         else
             upgradesData[id].slot.Visible = false
@@ -249,6 +299,15 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
     end
 
     subscribeTokenShopCollider(playerState, worldState, shopGui, localRoot)
+end
+
+function m.OnModify(playerState: state.Replica, localCharacter)
+    local isInvincible = playerState:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.ValueNonPers)
+    if isInvincible then
+        createInvincibilityAura(playerState)
+    else
+        destroyInvincibilityAura(playerState, localCharacter)
+    end
 end
 
 return m

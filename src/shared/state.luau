@@ -1350,11 +1350,11 @@ function MainState.constructor(self: MainInternal, ...: cid | attribute)
     local function ctor(u: uid | gen, ...: component): uid
         local n = select("#", ...)
         if n ~= arity then
-            error(`{arity} args after 'uid' expected, got {n}`)
+            error(debug.traceback(`{arity} args after 'uid' expected, got {n}`))
         end
         local uid = if type(u) == "function" then u() else u
         if uid == nil or self._masks[uid] then
-            error(`uid is nil or non-unique: {self:format_uid(uid)}`)
+            error(debug.traceback(`uid is nil or non-unique: {self:format_uid(uid)}`))
         end
         self._masks[uid] = mask
         self._metas[uid] = meta

@@ -58,7 +58,7 @@ export type IdCount = {
 
 local Products:map<id, IdCount> = table.freeze {
     -- Countables
-    [Id.Product.NONE] = { id = Id.Countable._NONE; count = 1},
+    [Id.Product.NONE] = { id = Id.CountablePersistent._NONE; count = 1},
     -- TODO: add other products
 } :: any
 

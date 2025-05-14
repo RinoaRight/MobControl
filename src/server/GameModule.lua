@@ -295,7 +295,7 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
     end)
 end
 
-local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (Player?, BasePart?, num?)
+local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3, enemyRefId: id): (Player?, BasePart?, num?)
     -- local totalPlayers = #playersInSession
     -- local ind = 0
     -- local distToTarget = 150
@@ -307,7 +307,9 @@ local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (P
         local char = p.Character :: Model
         local playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
         local distToTarget = (enemyPos - playerRoot.Position).Magnitude
-        if distToTarget < 150 then
+        if enemyRefId == Id.Enemy.OCTOBOSS then
+            table.insert(playerPool, { player = p, playerRoot = playerRoot, distToTarget = distToTarget })
+        elseif distToTarget < 150 then
             table.insert(playerPool, { player = p, playerRoot = playerRoot, distToTarget = distToTarget })
         end
     end
@@ -344,6 +346,20 @@ local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3): (P
     return selectedPlayer, playerRoot, distToTarget
 end
 
+local function handlePlayerUpgrades(player_state: PSS.PlayerState)
+    for _, upgrade_id in Id.PlayerUpgradeNonPersistent:ids() do
+        local isActive = player_state.state:get(upgrade_id, C.ValueNonPers)
+        if isActive then
+            local currentTTL = player_state.state:get(upgrade_id, C.TTL)
+            if currentTTL then
+                if currentTTL < roflake.time() then
+                    player_state:ResetPlayerUpgrade(upgrade_id)
+                end
+            end
+        end
+    end
+end
+
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     m.get_state = get_state
     -- init first batch of ground units and fill in the data table
@@ -378,6 +394,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             if not player_state then
                 continue
             end
+            handlePlayerUpgrades(player_state)
             local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
             if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
                 -- weapon cooldown
@@ -589,7 +606,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         local player, playerRoot
                         if (not worldState:get(guid, W.PlayerId)) or worldState:get(guid, W.PlayerId) == SharedConfig.DEFAULT_PLAYER_ID then
                             -- select a player that is close enough to the enemy
-                            player, playerRoot, distToTarget = selectPlayer(playersInSession, currentPos)
+                            player, playerRoot, distToTarget = selectPlayer(playersInSession, currentPos, refId)
                             if player then
                                 -- a player that is close enough is selected, set lock to target
                                 playerId = player.UserId :: int
@@ -695,37 +712,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
     end
 end
-
--- function m.StartMainLoopPlayer(player_state: PSS.PlayerState): (num) -> ()
---     return function(dt)
---         -- local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
---         -- if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
---         --     -- weapon cooldown
---         --     local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
---         --     shot_tte -= dt
---         --     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
-
---         --     -- check obstacle collision
---         --     local playerRootPart = player_state.root :: BasePart
---         --     for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
---         --         if Id.kind(refId) == Id.Kind.Obstacle then
---         --             -- check if the player is colliding with the obstacle
---         --             local rootPos = playerRootPart.Position
---         --             if rootPos then
---         --                 local dist = (rootPos - obstPos).Magnitude
---         --                 if dist < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
---         --                     if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
---         --                         Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
---         --                         local dmg = assert(S.Obstacle[refId].damage)
---         --                         player_state:DeductHp(dmg, guid)
---         --                     end
---         --                 end
---         --             end
---         --         end
---         --     end
---         -- end
---     end
--- end
 
 m.DestroyEnemy = function(guid, playerId: num?)
     -- TODO: effects

@@ -444,7 +444,7 @@ function m.OnUIElementClickedDo(input, playerGui: StarterGui, ui_element: GuiObj
 end
 
 function m.IsEnoughFunds(playerState, itemPrice: num, currencyId: int)
-    local playerFunds = playerState:get(currencyId, C.Value)
+    local playerFunds = playerState:get(currencyId, C.ValuePers)
     if playerFunds >= itemPrice then
         return true
     end
@@ -455,9 +455,9 @@ function m.IsUpgradePreviousTier(upgradeId: int)
     -- TODO: other multi-tiered upgrades
     local previousTierId
     if
-        upgradeId <= Id.PlayerUpgrade.FIREPOWER_5 and upgradeId > Id.PlayerUpgrade.FIREPOWER_1
-        or upgradeId <= Id.PlayerUpgrade.HITPOINTS_5 and upgradeId > Id.PlayerUpgrade.HITPOINTS_1
-        or upgradeId <= Id.PlayerUpgrade.INIT_CLONE_3 and upgradeId > Id.PlayerUpgrade.INIT_CLONE_2
+        upgradeId <= Id.PlayerUpgradePersistent.FIREPOWER_5 and upgradeId > Id.PlayerUpgradePersistent.FIREPOWER_1
+        or upgradeId <= Id.PlayerUpgradePersistent.HITPOINTS_5 and upgradeId > Id.PlayerUpgradePersistent.HITPOINTS_1
+        or upgradeId <= Id.PlayerUpgradePersistent.INIT_CLONE_3 and upgradeId > Id.PlayerUpgradePersistent.INIT_CLONE_2
     then
         previousTierId = upgradeId - 1
     end
@@ -468,9 +468,9 @@ function m.IsUpgradeNextTier(upgradeId: int)
     -- TODO: other multi-tiered upgrades
     local nextTierId
     if
-        upgradeId < Id.PlayerUpgrade.FIREPOWER_5 and upgradeId >= Id.PlayerUpgrade.FIREPOWER_1
-        or upgradeId < Id.PlayerUpgrade.HITPOINTS_5 and upgradeId >= Id.PlayerUpgrade.HITPOINTS_1
-        or upgradeId < Id.PlayerUpgrade.INIT_CLONE_3 and upgradeId >= Id.PlayerUpgrade.INIT_CLONE_1
+        upgradeId < Id.PlayerUpgradePersistent.FIREPOWER_5 and upgradeId >= Id.PlayerUpgradePersistent.FIREPOWER_1
+        or upgradeId < Id.PlayerUpgradePersistent.HITPOINTS_5 and upgradeId >= Id.PlayerUpgradePersistent.HITPOINTS_1
+        or upgradeId < Id.PlayerUpgradePersistent.INIT_CLONE_3 and upgradeId >= Id.PlayerUpgradePersistent.INIT_CLONE_1
     then
         nextTierId = upgradeId + 1
     end
@@ -479,8 +479,8 @@ end
 
 function m.IsFirepowerUpgrade(playerState): int | nil
     local id
-    for i = Id.PlayerUpgrade.FIREPOWER_1, Id.PlayerUpgrade.FIREPOWER_5 do
-        if playerState.state:get(i, C.Value) then
+    for i = Id.PlayerUpgradePersistent.FIREPOWER_1, Id.PlayerUpgradePersistent.FIREPOWER_5 do
+        if playerState.state:get(i, C.ValueNonPers) then
             id = i
         end
     end
@@ -489,8 +489,8 @@ end
 
 function m.IsHpUpgrade(playerState): int | nil
     local id
-    for i = Id.PlayerUpgrade.HITPOINTS_1, Id.PlayerUpgrade.HITPOINTS_5 do
-        if playerState:get(i, C.Value) then
+    for i = Id.PlayerUpgradePersistent.HITPOINTS_1, Id.PlayerUpgradePersistent.HITPOINTS_5 do
+        if playerState:get(i, C.ValueNonPers) then
             id = i
         end
     end
@@ -499,8 +499,8 @@ end
 
 function m.IsCloneUpgrade(playerState): int | nil
     local id
-    for i = Id.PlayerUpgrade.INIT_CLONE_1, Id.PlayerUpgrade.INIT_CLONE_3 do
-        if playerState.state:get(i, C.Value) then
+    for i = Id.PlayerUpgradePersistent.INIT_CLONE_1, Id.PlayerUpgradePersistent.INIT_CLONE_3 do
+        if playerState.state:get(i, C.ValueNonPers) then
             id = i
         end
     end

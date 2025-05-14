@@ -75,7 +75,7 @@ m.Weapon = {
         damage = 50,
         cooldown = 1.2,
         bulletSize = Vector3.new(4, 4, 6),
-        explosionSize = Vector3.new(10, 10, 10),
+        explosionSize = Vector3.new(30, 30, 30),
         -- TODO: change model
         instance = WEAPONS_ROOT.PistolModel,
         name = "Rocket",
@@ -85,14 +85,14 @@ m.Weapon = {
 -- stylua: ignore
 m.Boost = {
     -- TODO: real values
-    [Id.Boost.ADD_CLONE]         = {valueRange = {2, 2}, baseReward = 1, hpRange = {50, 100}},
-    [Id.Boost.CHANGE_WEAPON]     = {valueRange = {0, 0}, baseReward = 1, hpRange = {50, 100}, contentsRange = {Id.Weapon.SMG, Id.Weapon.ROCKET}},
-    [Id.Boost.FIRST_AID_KIT]     = {valueRange = {20, 50}, baseReward = 1, hpRange = {50, 100}},
+    [Id.Boost.ADD_CLONE]         = {valueRange = {2, 2}, baseReward = 1, xp = 1, hpRange = {50, 100}},
+    [Id.Boost.CHANGE_WEAPON]     = {valueRange = {0, 0}, baseReward = 1, xp = 1, hpRange = {50, 100}, contentsRange = {Id.Weapon.SMG, Id.Weapon.ROCKET}},
+    [Id.Boost.FIRST_AID_KIT]     = {valueRange = {20, 50}, baseReward = 1, xp = 1, hpRange = {50, 100}},
     -- [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}},
 }
 
 m.Countable = {
-    [Id.Countable.COIN] = {
+    [Id.CountablePersistent.COIN] = {
         name = "Token",
     },
 }
@@ -103,13 +103,15 @@ m.Enemy = {
         health = 10,
         speed = 30.0,
         reward = 1,
+        xp = 1,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_1"),
-    }, -- hp, hp, studs/sec, coins, assetId
+    }, -- hp, hp, studs/sec, coins, xp, assetId
     [Id.Enemy.CRAZOMBIE] = {
         damage = 15,
         health = 15,
         speed = 40.0,
         reward = 1,
+        xp = 1,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_3"),
     },
     [Id.Enemy.OCTOBOSS] = {
@@ -117,6 +119,7 @@ m.Enemy = {
         health = 1000,
         speed = 20.0,
         reward = 10,
+        xp = 10,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),
     },
 }
@@ -129,6 +132,7 @@ m.EnemyFlying = {
         bombSpeed = 1,
         flyerHeight = 50,
         reward = 3,
+        xp = 10,
         explosionSize = Vector3.new(10, 10, 10),
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_9"),
     },
@@ -144,108 +148,118 @@ m.Obstacle = {
         damage = 20,
         hp = 20,
         reward = 1,
+        xp = 1,
         meshTemplateFull = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall1"),
         meshTemplateHalf = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall2"),
         meshTemplateLast = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall3"),
     },
 }
 
-m.PlayerUpgrade = {
-    [Id.PlayerUpgrade.FIREPOWER_1] = {
+m.PlayerUpgradePersistent = {
+    [Id.PlayerUpgradePersistent.FIREPOWER_1] = {
         value = 1.1, -- %
         price = 50,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Firepower I",
         descr = string.format("+%d%% firepower", getValuePercent(1.1)),
     },
-    [Id.PlayerUpgrade.FIREPOWER_2] = {
+    [Id.PlayerUpgradePersistent.FIREPOWER_2] = {
         value = 1.2, -- %
         price = 120,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Firepower II",
         descr = string.format("+%d%% firepower", getValuePercent(1.2)),
     },
-    [Id.PlayerUpgrade.FIREPOWER_3] = {
+    [Id.PlayerUpgradePersistent.FIREPOWER_3] = {
         value = 1.3, -- %
         price = 250,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Firepower III",
         descr = string.format("+%d%% firepower", getValuePercent(1.3)),
     },
-    [Id.PlayerUpgrade.FIREPOWER_4] = {
+    [Id.PlayerUpgradePersistent.FIREPOWER_4] = {
         value = 1.4, -- %
         price = 500,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Firepower IV",
         descr = string.format("+%d%% firepower", getValuePercent(1.4)),
     },
-    [Id.PlayerUpgrade.FIREPOWER_5] = {
+    [Id.PlayerUpgradePersistent.FIREPOWER_5] = {
         value = 1.5, -- %
         price = 800,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Firepower V",
         descr = string.format("+%d%% firepower", getValuePercent(1.5)),
     },
-    [Id.PlayerUpgrade.HITPOINTS_1] = {
+    [Id.PlayerUpgradePersistent.HITPOINTS_1] = {
         value = 1.1, -- %
         price = 40,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Hitpoints I",
         descr = string.format("+%d%% hitpoints", getValuePercent(1.1)),
     },
-    [Id.PlayerUpgrade.HITPOINTS_2] = {
+    [Id.PlayerUpgradePersistent.HITPOINTS_2] = {
         value = 1.2, -- %
         price = 100,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Hitpoints II",
         descr = string.format("+%d%% hitpoints", getValuePercent(1.2)),
     },
-    [Id.PlayerUpgrade.HITPOINTS_3] = {
+    [Id.PlayerUpgradePersistent.HITPOINTS_3] = {
         value = 1.3, -- %
         price = 200,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Hitpoints III",
         descr = string.format("+%d%% hitpoints", getValuePercent(1.3)),
     },
-    [Id.PlayerUpgrade.HITPOINTS_4] = {
+    [Id.PlayerUpgradePersistent.HITPOINTS_4] = {
         value = 1.4, -- %
         price = 400,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Hitpoints IV",
         descr = string.format("+%d%% hitpoints", getValuePercent(1.4)),
     },
-    [Id.PlayerUpgrade.HITPOINTS_5] = {
+    [Id.PlayerUpgradePersistent.HITPOINTS_5] = {
         value = 1.5, -- %
         price = 700,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Hitpoints V",
         descr = string.format("+%d%% hitpoints", getValuePercent(1.5)),
     },
-    [Id.PlayerUpgrade.INIT_CLONE_1] = {
+    [Id.PlayerUpgradePersistent.INIT_CLONE_1] = {
         value = 1, -- unit
         price = 100,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Clones I",
         descr = string.format("1 clone at the start"),
     },
-    [Id.PlayerUpgrade.INIT_CLONE_2] = {
+    [Id.PlayerUpgradePersistent.INIT_CLONE_2] = {
         value = 2, -- unit
         price = 300,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Clones II",
         descr = string.format("2 clones at the start"),
     },
-    [Id.PlayerUpgrade.INIT_CLONE_3] = {
+    [Id.PlayerUpgradePersistent.INIT_CLONE_3] = {
         value = 3, -- unit
         price = 600,
-        currency = Id.Countable.COIN,
+        currency = Id.CountablePersistent.COIN,
         name = "Clones III",
         descr = string.format("3 clones at the start"),
     },
 }
 
+m.PlayerUpgradeNonPersistent = {
+    [Id.PlayerUpgradeNonPersistent.INVINCIBILITY] = {
+        ttl = 2, -- sec
+    },
+}
+
+
+
 m.Sound = {
     [Id.Sound.BELL] = assert(SOUNDS_ROOT:WaitForChild("Bell")),
+    [Id.Sound.BELL_SUCCESS] = assert(SOUNDS_ROOT:WaitForChild("BellSuccess")),
     [Id.Sound.CLICK] = assert(SOUNDS_ROOT:WaitForChild("Click")),
     [Id.Sound.COIN_DROP] = assert(SOUNDS_ROOT:WaitForChild("CoinDrop")),
     [Id.Sound.CREAK_METAL] = assert(SOUNDS_ROOT:WaitForChild("CreakMetalHeavy")),
@@ -264,6 +278,7 @@ m.Sound = {
 m.VFX = {
     -- TODO: FIXIT. Explosion doesn't appear in Replicated Storage of a player outside the editor
     -- [Id.VFX.EXPLOSION] = assert(VFX_ROOT:WaitForChild("Explosion")),
+    [Id.VFX.INVINCIBILITY_AURA] = assert(VFX_ROOT:WaitForChild("InvinvibilityAuraTemplate")),
 }
 
 return m

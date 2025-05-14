@@ -47,7 +47,7 @@ m.BULLET_BASE_DISTANCE = 240 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP = 100
 m.CONTROL_DISTANCE_TO_TARGET = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT = 2
-m.BOSS_WAVE_NUMBER = 15
+m.FINAL_BOSS_WAVE_NUMBER = 15
 m.MOVEMENT_LINEAR_VELOCITY_REG = 30
 m.MOVEMENT_LINEAR_VELOCITY_BOSS = 20
 m.BOOSTERS_IN_UNIT = 12
@@ -70,6 +70,7 @@ m.BULLET_COLLIDABLE_COLLISION_GROUP_NAME = "BulletCollidable"
 m.OBSTACLE_FOLDER_NAME = "Obstacles"
 m.FLYERS_FOLDER_NAME = "EnemiesFlying"
 m.GROUND_UNIT_NAME = "GroundUnit"
+m.INVINCIBILITY_AURA_NAME = "InvincibilityAura"
 m.DEFAULT_WEAPON_ID = Id.Weapon.BASIC
 m.DISTANCE_FROM_MID_TO_BOOSTER = 50
 m.DEFAULT_PLAYER_ID = -100
@@ -127,7 +128,8 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(W)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PlayerId, W.WeaponId, W.OwnerGuid, W.TTL, W.TTE, W.Bitset)
+        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PlayerId)
+        :set_replication_flag(W.WeaponId, W.OwnerGuid, W.TTL, W.TTE, W.Bitset)
         :set_destructor(W.ServerInstance, disposer.dispose)
         :build_with_replica()
 
@@ -157,7 +159,8 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     TTE                  = iota'', -- sec (*1)
     -- values
     ValuePers            = iota'', -- number
-    Value                = iota'', -- number
+    ValueNonPers         = iota'', -- number
+    PlayerRank           = iota'', -- number
     Total                = iota'', -- number
     Bitset               = iota'', -- flag
     BitsetNonPers        = iota'', -- flag
@@ -179,8 +182,8 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset, C.BitsetNonPers)
-        -- :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_replication_flag(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Total, C.Bitset, C.BitsetNonPers)
+        :set_replication_flag(C.ValuePers, C.PlayerRank)
         :set_persistent_flag(C.ValuePers, C.Total, C.Bitset)
         :build_with_replica()
 

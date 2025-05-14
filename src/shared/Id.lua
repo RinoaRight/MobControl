@@ -49,43 +49,45 @@ Id.__index = Id
 -----------------------------
 -- stylua: ignore
 local Kind = table.freeze {
-    NONE            = enum.iota(idk.MIN_KIND, 1, idk.MAX_KIND),
-    Struct          = enum.iota'',
-    ServerError     = enum.iota'',
-    Boost           = enum.iota'',
-    Bomb            = enum.iota'',
-    Achievement     = enum.iota'',
-    Animation       = enum.iota'',
-    Product         = enum.iota'',
-    Pass            = enum.iota'',
-    PassF           = enum.iota'',
-    PlayerF         = enum.iota'',
-    WorldF          = enum.iota'',
-    EnemyF          = enum.iota'',
-    PlayerUpgrade   = enum.iota'',
-    Countable       = enum.iota'',
-    Clone           = enum.iota'',
-    Weapon          = enum.iota'',
-    Enemy           = enum.iota'',
-    EnemyFlying     = enum.iota'',
-    Obstacle        = enum.iota'',
-    PlayerSpecs     = enum.iota'',
-    WorldSpecs      = enum.iota'',
-    TimedEvent      = enum.iota'',
-    Sound           = enum.iota'',
-    VFX             = enum.iota'',
-    STMState        = enum.iota'',
+    NONE                         = enum.iota(idk.MIN_KIND, 1, idk.MAX_KIND),
+    Struct                       = enum.iota'',
+    ServerError                  = enum.iota'',
+    Boost                        = enum.iota'',
+    Bomb                         = enum.iota'',
+    Achievement                  = enum.iota'',
+    Animation                    = enum.iota'',
+    Product                      = enum.iota'',
+    Pass                         = enum.iota'',
+    PassF                        = enum.iota'',
+    PlayerF                      = enum.iota'',
+    WorldF                       = enum.iota'',
+    EnemyF                       = enum.iota'',
+    PlayerUpgradePersistent      = enum.iota'',
+    PlayerUpgradeNonPersistent   = enum.iota'',
+    CountablePersistent          = enum.iota'',
+    CountableNonPersistent       = enum.iota'',
+    Clone                        = enum.iota'',
+    Weapon                       = enum.iota'',
+    Enemy                        = enum.iota'',
+    EnemyFlying                  = enum.iota'',
+    Obstacle                     = enum.iota'',
+    PlayerSpecs                  = enum.iota'',
+    WorldSpecs                   = enum.iota'',
+    TimedEvent                   = enum.iota'',
+    Sound                        = enum.iota'',
+    VFX                          = enum.iota'',
+    STMState                     = enum.iota'',
     -- protocol:
-    S2S             = enum.iota(110, 1, idk.MAX_KIND),
-    S2C             = enum.iota'',
-    S2CC            = enum.iota'',
-    C2S             = enum.iota'',
-    C2C             = enum.iota'',
-    US2SS           = enum.iota'', -- unreliable broadcast
-    RS2SS           = enum.iota'', -- reliable broadcast
+    S2S                          = enum.iota(110, 1, idk.MAX_KIND),
+    S2C                          = enum.iota'',
+    S2CC                         = enum.iota'',
+    C2S                          = enum.iota'',
+    C2C                          = enum.iota'',
+    US2SS                        = enum.iota'', -- unreliable broadcast
+    RS2SS                        = enum.iota'', -- reliable broadcast
     -- states:
-    Quest           = "Quest",
-    TestF           = enum.iota''
+    Quest                        = "Quest",
+    TestF                        = enum.iota''
 }
 Id.Kind = Kind
 
@@ -395,10 +397,10 @@ export type Boost = typeof(Id.Boost)
 
 -- stylua: ignore
 -----------------------------
--- PlayerUpgrade
+-- PlayerUpgradePersistent
 -----------------------------
-Id.PlayerUpgrade = enum.with_id "Id.PlayerUpgrade" {
-    NONE               = iota(Id.Kind.PlayerUpgrade, 0),
+Id.PlayerUpgradePersistent = enum.with_id "Id.PlayerUpgradePersistent" {
+    NONE               = iota(Id.Kind.PlayerUpgradePersistent, 0),
     FIREPOWER_1        = iota'',
     FIREPOWER_2        = iota'',
     FIREPOWER_3        = iota'',
@@ -414,8 +416,20 @@ Id.PlayerUpgrade = enum.with_id "Id.PlayerUpgrade" {
     INIT_CLONE_3       = iota'',
 }
 -- TODO: add all-players upgrades? weapon unlocks? drones?
-KIND_TO_ENUM[Id.Kind.PlayerUpgrade] = Id.PlayerUpgrade
-export type PlayerUpgrade = typeof(Id.PlayerUpgrade)
+KIND_TO_ENUM[Id.Kind.PlayerUpgradePersistent] = Id.PlayerUpgradePersistent
+export type PlayerUpgradePersistent = typeof(Id.PlayerUpgradePersistent)
+
+-- stylua: ignore
+-----------------------------
+-- PlayerUpgradeNonPersistent
+-----------------------------
+Id.PlayerUpgradeNonPersistent = enum.with_id "Id.PlayerUpgradeNonPersistent" {
+    NONE               = iota(Id.Kind.PlayerUpgradeNonPersistent, 0),
+    INVINCIBILITY      = iota'',
+}
+-- TODO: add all-players upgrades? weapon unlocks? drones?
+KIND_TO_ENUM[Id.Kind.PlayerUpgradeNonPersistent] = Id.PlayerUpgradeNonPersistent
+export type PlayerUpgradeNonPersistent = typeof(Id.PlayerUpgradeNonPersistent)
 
 -- stylua: ignore
 -----------------------------
@@ -498,18 +512,26 @@ export type Product = typeof(Id.Product)
 
 -- stylua: ignore
 -----------------------------
--- Countable
+-- CountablePersistent
 -----------------------------
-Id.Countable = enum.with_id "Id.Countable" {
-    _NONE = iota(Id.Kind.Countable, 0),
-    CLONE = iota'',
+Id.CountablePersistent = enum.with_id "Id.CountablePersistent" {
+    _NONE = iota(Id.Kind.CountablePersistent, 0),
     COIN = iota'',
-    TOKEN = iota'',
-    _PERSISTENT = iota'',
+}
+KIND_TO_ENUM[Id.Kind.CountablePersistent] = Id.CountablePersistent
+export type CountablePersistent = typeof(Id.CountablePersistent)
+
+-- stylua: ignore
+-----------------------------
+-- CountableNonPersistent
+-----------------------------
+Id.CountableNonPersistent = enum.with_id "Id.CountableNonPersistent" {
+    _NONE = iota(Id.Kind.CountableNonPersistent, 0),
+    CLONE = iota'',
     XP    = iota'',
 }
-KIND_TO_ENUM[Id.Kind.Countable] = Id.Countable
-export type Countable = typeof(Id.Countable)
+KIND_TO_ENUM[Id.Kind.CountableNonPersistent] = Id.CountableNonPersistent
+export type CountableNonPersistent = typeof(Id.CountableNonPersistent)
 
 -- stylua: ignore
 -----------------------------
@@ -625,6 +647,7 @@ export type Animation = typeof(Id.Animation)
 Id.Sound = enum.with_id "Id.Sound" {
     _NONE                 = iota(Id.Kind.Sound, 0),
     BELL                  = iota'',
+    BELL_SUCCESS          = iota'',
     CLICK                 = iota'',
     COIN_DROP             = iota'',
     CREAK_METAL           = iota'',
@@ -648,6 +671,7 @@ export type Sound = typeof(Id.Sound)
 Id.VFX = enum.with_id "Id.VFX" {
     _NONE                 = iota(Id.Kind.VFX, 0),
     EXPLOSION             = iota'',
+    INVINCIBILITY_AURA    = iota'',
 }
 KIND_TO_ENUM[Id.Kind.VFX] = Id.VFX
 export type VFX = typeof(Id.VFX)
@@ -757,13 +781,10 @@ export type C2C = typeof(Id.C2C)
 Id.C2S = enum.with_id "Id.C2S" {
     _NONE                             = iota(Id.Kind.C2S, 0),
     BULLET_SHOT                       = iota'', -- {bullet_guids}, bullet_weapon_id
-    BUY_PLAYER_UPGRADE                = iota'', -- upgrade_id           
+    BUY_PLAYER_UPGRADE_PERS           = iota'', -- upgrade_id           
+    GET_PLAYER_UPGRADE_NON_PERS       = iota'', -- upgrade_id           
     TARGET_HIT                        = iota'', -- {enemy_guids}, bullet_guid
     TOGGLE_PLAYER_FLAG                = iota'', -- bool, flag_id
-    -- PLAYER_COLLIDED_W_BOOSTER         = iota'', -- booster_guid, triggerer_guid (or player_id)
-    -- PLAYER_COLLIDED_W_OBSTACLE        = iota'', -- obstacle_guid, triggerer_guid (or player_id)
-    -- PLAYER_HIT_BY_BOMB                = iota'', -- triggerer_guid (or player_id)
-    -- PLAYER_HIT_BY_OWN_ROCKET          = iota'', -- triggerer_guid (or player_id)
     PLAYER_READY_TO_START             = iota'',               
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S

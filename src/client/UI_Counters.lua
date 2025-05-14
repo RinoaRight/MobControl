@@ -41,12 +41,22 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local COIN_TEXTBOX
 local COIN_IMG
+local RANK_TEXT_BOX
+local RANK_PROGRESS_BAR
 
 local _maid = disposer.new()
 
 local DEFAULT_SCALE_MONEY_TEXTBOX = UDim2.fromScale(1, 1)
-local DEFAULT_SCALE_MONEY_IMG = UDim2.fromScale(.7, .7)
+local DEFAULT_SCALE_MONEY_IMG = UDim2.fromScale(0.7, 0.7)
 local TARGET_SCALE = UDim2.fromScale(DEFAULT_SCALE_MONEY_TEXTBOX.X.Scale, DEFAULT_SCALE_MONEY_TEXTBOX.Y.Scale * 1.5)
+
+local RANK_PROGRESS_BAR_INIT_SIZE = UDim2.fromScale(1, 1)
+local RANK_TEXT_INIT_SIZE = UDim2.fromScale(1, 0.7)
+local RANK_TEXT_TARGET_SIZE = UDim2.fromScale(1, 1)
+local COLOR_RANK_CHANGED = Color3.fromHex("35d876")
+local COLOR_RANK_REGULAR = Color3.fromHex("e3c100")
+
+local function onPlayerRankUpdate(state: state.Replica) end
 
 local m = {}
 m.__index = m
@@ -55,24 +65,33 @@ m.Init = function(playerState: state.Replica, guiPanel)
     local coinFrame = assert(guiPanel:WaitForChild("MoneyFrame"))
     COIN_TEXTBOX = assert(coinFrame.BG.TextLabel)
     COIN_IMG = assert(coinFrame.MoneyIcon)
-    local coinsValue = playerState:get(Id.Countable.COIN, C.Value)
+    local coinsValue = playerState:get(Id.CountablePersistent.COIN, C.ValuePers)
     COIN_TEXTBOX.Text = NumFormat.format_ectos(coinsValue)
 
-    for _, refId in Id.Countable:ids() do
-        local currentValue = playerState:get(refId, C.Value)
+    local xpFrame = assert(guiPanel:WaitForChild("RankFrame"))
+    RANK_TEXT_BOX = assert(xpFrame.TextLabel)
+    RANK_PROGRESS_BAR = assert(xpFrame.InsideBarBGFrame.InsideBarSliderFrame)
+
+    for _, refId in Id.CountablePersistent:ids() do
+        local currentValue = playerState:get(refId, C.ValuePers) or 0
+        playerState:set(refId, C.ValueView, currentValue)
+    end
+    for _, refId in Id.CountableNonPersistent:ids() do
+        local currentValue = playerState:get(refId, C.ValueNonPers) or 0
         playerState:set(refId, C.ValueView, currentValue)
     end
 end
 
 m.OnStateUpdate = function(playerState: state.Replica)
-    for _, refId in Id.Countable:ids() do
+    -- coins
+    for _, refId in Id.CountablePersistent:ids() do
         local valueView = playerState:get(refId, C.ValueView)
-        local value = playerState:get(refId, C.Value)
+        local value = playerState:get(refId, C.ValuePers)
 
         if value == valueView then
             continue
         elseif value > valueView then
-            if refId == Id.Countable.COIN then
+            if refId == Id.CountablePersistent.COIN then
                 Sounds.PLAY_SOUND(Id.Sound.COIN_DROP)
             end
         elseif value < valueView then
@@ -97,5 +116,21 @@ m.OnStateUpdate = function(playerState: state.Replica)
 
         playerState:set(refId, C.ValueView, value)
     end
+
+    -- xp
+    local currentProgress = playerState:get(Id.CountableNonPersistent.XP, C.ValueNonPers)
+    -- local valueView = playerState:get(Id.CountableNonPersistent.XP, C.ValueView)
+    -- if currentProgress == valueView then
+    -- elseif currentProgress > valueView then
+    -- elseif currentProgress < valueView then
+    -- end
+
+    -- clamp min value to avoid visual artifacts
+    local currentProgressBarValue = math.max(currentProgress, 0.05)
+    RANK_PROGRESS_BAR.Size = UDim2.fromScale(currentProgressBarValue, RANK_PROGRESS_BAR_INIT_SIZE.Y.Scale)
+    if currentProgress >= 100 then
+        -- TODO: suggets a choice
+    end
+    playerState:set(Id.CountableNonPersistent.XP, C.ValueView, currentProgress)
 end
 return m

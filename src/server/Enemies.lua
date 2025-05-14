@@ -83,13 +83,16 @@ local m = {}
 
 function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, waveNumber :int)
     local enemiesGuids = {}
-    if waveNumber == SharedConfig.BOSS_WAVE_NUMBER then
+    if waveNumber == SharedConfig.FINAL_BOSS_WAVE_NUMBER then
         local bossGuid = spawnBoss(Id.Enemy.OCTOBOSS, groundUnit.Position)
         table.insert(enemiesGuids, bossGuid)
-        return enemiesGuids 
-    elseif waveNumber > #ENEMIES_DATA_TABLE then
+        return enemiesGuids
+    end
+
+    if waveNumber > #ENEMIES_DATA_TABLE then
         waveNumber = #ENEMIES_DATA_TABLE
     end
+
     local numberOfEnemies = ENEMIES_DATA_TABLE[waveNumber].count
     if numberOfEnemies <= 0 then
         return enemiesGuids

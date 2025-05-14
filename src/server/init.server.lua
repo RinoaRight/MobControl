@@ -50,6 +50,7 @@ local disposer = require(shared.disposer)
 local Leaderboards = require(server.Leaderboards)
 local Obstacles = require(server.Obstacles)
 local BoosterServer = require(server.BoosterServer)
+local roflake = require(shared.roflake)
 local workerMaid = disposer.new()
 local ClonesServer = require(server.ClonesServer)
 if game.PhysicsService then
@@ -116,11 +117,11 @@ local function resetHp(player_state)
 
     -- check for hp upgrades
     local hpUpgrade = Misc.IsHpUpgrade(player_state.state) :: num
-    if hpUpgrade and S.PlayerUpgrade[hpUpgrade].value then
-        hp *= S.PlayerUpgrade[hpUpgrade].value
+    if hpUpgrade and S.PlayerUpgradePersistent[hpUpgrade].value then
+        hp *= S.PlayerUpgradePersistent[hpUpgrade].value
     end
 
-    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, hp)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, hp)
     WorldService.world:set(player_state.player_id, W.HP, SharedConfig.PLAYER_BASE_HP)
 
     return hp
@@ -180,7 +181,10 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
         return
     end
 
-    -- ClonesServer.RemovePlayerCloneDummies(player_state)
+    -- reset non-persistent updates
+    for _, upgrade_id in Id.PlayerUpgradeNonPersistent:ids() do
+        player_state:ResetPlayerUpgrade(upgrade_id)
+    end
 
     local attachement = player_state.root:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
     if attachement then
@@ -204,7 +208,7 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
     -- workerMaid.playerLoop = nil -- stop updating weapon ttl
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, 0)
-    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, 0)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, 0)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.flag_set(nonPersFlags, Id.PlayerF.READY, false))
 
     onPlayerSessionFinishedWorld(player_state, player_state.player_id)
@@ -281,29 +285,14 @@ local function startGameSession()
 end
 
 stopGameSession = function(exception_player_id: num?)
-    -- kill other active players
-    -- local total_players = Players:GetPlayers()
-    -- for _, player in ipairs(total_players) do
-    --     local userId = player.UserId
-    --     -- skip the player who ended the session to avoid recursion
-    --     if exception_player_id and userId ~= exception_player_id then
-    --         continue
-    --     end
-    --     local thisPlayerState = get_state(userId)
-    --     if thisPlayerState then
-    --         thisPlayerState:DeductHp(thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value))
-    --         -- onPlayerSessionFinishedPlayerState(thisPlayerState)
-    --     else
-    --         log:error("Player state not found", debug.traceback())
-    --     end
-    -- end
     for playerId, playerState in pairs(STATES) do
-        -- skip the player who ended the session to avoid recursion
+        -- reset xp  for all players
+        playerState:ResetCountable(Id.CountableNonPersistent.XP)
+        -- kill off everyone who's alive; skip the player who ended the session to avoid recursion
         if exception_player_id and playerId ~= exception_player_id then
             continue
         end
-        playerState:DeductHp(playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value))
-        -- onPlayerSessionFinishedPlayerState(thisPlayerState)
+        playerState:DeductHp(playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers))
     end
 
     workerMaid.worldLoop = nil
@@ -324,7 +313,7 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     -- for _, player in ipairs(total_players) do
     --     local thisPlayerState = get_state(player.UserId)
     --     if thisPlayerState then
-    --         local damage = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
+    --         local damage = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.ValueNonPers)
     --         if damage and (damage > mostDamageInflicted) then
     --             mostDamageInflicted = damage
     --             playerWithMostDamageState = thisPlayerState
@@ -332,7 +321,7 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     --     end
     -- end
     for playerId, playerState in pairs(STATES) do
-        local damage = playerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.Value)
+        local damage = playerState.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.ValueNonPers)
         if damage and (damage > mostDamageInflicted) then
             mostDamageInflicted = damage
             playerWithMostDamageState = playerState
@@ -348,7 +337,7 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     -- for _, player in ipairs(total_players) do
     --     local thisPlayerState = get_state(player.UserId)
     --     if thisPlayerState then
-    --         local kills = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+    --         local kills = thisPlayerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.ValueNonPers)
     --         if kills and (kills > mostKills) then
     --             mostKills = kills
     --             playerWithMostKillsState = thisPlayerState
@@ -356,7 +345,7 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     --     end
     -- end
     for playerId, playerState in pairs(STATES) do
-        local kills = playerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+        local kills = playerState.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.ValueNonPers)
         if kills and (kills > mostKills) then
             mostKills = kills
             playerWithMostKillsState = playerState
@@ -364,6 +353,14 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     end
     if playerWithMostKillsState then
         Leaderboards.SpawnWinner(playerWithMostKillsState, Id.Achievement.MOST_ENEMIES)
+    end
+end
+
+local function setPlayerUpgradeNonPers(player_state, upgrade_id: id)
+    if upgrade_id == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
+        player_state.state:set(upgrade_id, C.ValueNonPers, true)
+        local ttl = S.PlayerUpgradeNonPersistent[upgrade_id].ttl or 0
+        player_state.state:set(upgrade_id, C.TTL, roflake.time() + ttl)
     end
 end
 
@@ -412,20 +409,21 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
     -- preiousWeaponsInfo[playerId] = current_weapon_id
 end
 
-on[Id.C2S.BUY_PLAYER_UPGRADE] = function(player_state, upgrade_id: id, ...)
+on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
     -- check if it is a valid upgrade id
-    if Id.kind(upgrade_id) ~= Id.Kind.PlayerUpgrade then
+    if Id.kind(upgrade_id) ~= Id.Kind.PlayerUpgradePersistent then
         log:error("Not a player upgrade", upgrade_id, debug.traceback())
         return
     end
 
-    local itemPrice = assert(S.PlayerUpgrade[upgrade_id].price)
-    local currencyId = assert(S.PlayerUpgrade[upgrade_id].currency)
+    local itemPrice = assert(S.PlayerUpgradePersistent[upgrade_id].price)
+    local currencyId = assert(S.PlayerUpgradePersistent[upgrade_id].currency)
 
     -- check if the previous upgrade of the same kind has been bought
     local previousUpgradeId = Misc.IsUpgradePreviousTier(upgrade_id)
     if previousUpgradeId then
-        local isBoughtPrevious = player_state.state:get(previousUpgradeId, C.Value)
+        local isBoughtPrevious
+        isBoughtPrevious = player_state.state:get(previousUpgradeId, C.ValuePers)
         if not isBoughtPrevious then
             log:error("Previous upgrade not bought", previousUpgradeId, debug.traceback())
             return
@@ -433,19 +431,34 @@ on[Id.C2S.BUY_PLAYER_UPGRADE] = function(player_state, upgrade_id: id, ...)
     end
 
     -- check if the player already has this upgrade
-    if player_state.state:get(upgrade_id, C.Value) then
+    if player_state.state:get(upgrade_id, C.ValuePers) then
         return
     end
 
     -- check if there is enough funds
     if not Misc.IsEnoughFunds(player_state.state, itemPrice, currencyId) then
-        player_state:NotifyClient(Id.S2C.SHOW_POPUP_SERVER, Id.C2S.BUY_PLAYER_UPGRADE)
+        player_state:NotifyClient(Id.S2C.SHOW_POPUP_SERVER, Id.C2S.BUY_PLAYER_UPGRADE_PERS)
         return
     end
 
     -- all checks done, buy upgrade
-    player_state:DeductCountable(currencyId, itemPrice)
-    player_state.state:set(upgrade_id, C.Value, true)
+    player_state:DeductCountablePersistent(currencyId, itemPrice)
+    player_state.state:set(upgrade_id, C.ValuePers, true)
+end
+
+on[Id.C2S.GET_PLAYER_UPGRADE_NON_PERS] = function(player_state, upgrade_id: id, ...)
+    -- check if it is a valid upgrade id
+    if Id.kind(upgrade_id) ~= Id.Kind.PlayerUpgradeNonPersistent then
+        log:error("Not a player upgrade", upgrade_id, debug.traceback())
+        return
+    end
+
+    -- check if the player already has this upgrade
+    if player_state.state:get(upgrade_id, C.ValueNonPers) then
+        return
+    end
+
+    setPlayerUpgradeNonPers(player_state, upgrade_id)
 end
 
 on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
@@ -504,7 +517,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
             local firepowerId = Misc.IsFirepowerUpgrade(playerState)
             local firepowerBonus = 1
             if firepowerId then
-                firepowerBonus = assert(S.PlayerUpgrade[firepowerId].value)
+                firepowerBonus = assert(S.PlayerUpgradePersistent[firepowerId].value)
             end
 
             if Id.kind(targetRefId) == Id.Kind.Enemy then
@@ -524,7 +537,11 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                     if S.Enemy[targetRefId].reward then
                         bounty = S.Enemy[targetRefId].reward
                     end
-                    playerState:AddCountable(Id.Countable.COIN, bounty)
+                    playerState:AddCountablePersistent(Id.CountablePersistent.COIN, bounty)
+
+                    -- give XP for killing enemies
+                    local xp = S.Enemy[targetRefId].xp or 0
+                    playerState:AddCountableNonPersistent(Id.CountableNonPersistent.XP, xp)
 
                     GameModule.DestroyEnemy(targetGuid, playerState.player_id)
 
@@ -556,7 +573,11 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
 
                     -- give reward for killing booster
                     local reward = S.Boost[targetRefId].baseReward or 0
-                    playerState:AddCountable(Id.Countable.COIN, reward)
+                    playerState:AddCountablePersistent(Id.CountablePersistent.COIN, reward)
+
+                    -- give XP for killing booster
+                    local xp = S.Boost[targetRefId].xp or 0
+                    playerState:AddCountableNonPersistent(Id.CountableNonPersistent.XP, xp)
 
                     GameModule.HandleBoosterDeath(playerState, targetGuid, targetRefId, value, boostContentId)
                 else
@@ -571,8 +592,12 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                     local _ = playerState:UpdateSessionDamageStats(newHP)
                     -- give reward for destroying obstacle
                     local reward = S.Obstacle[targetRefId].reward or 0
-                    playerState:AddCountable(Id.Countable.COIN, reward)
+                    playerState:AddCountablePersistent(Id.CountablePersistent.COIN, reward)
                     WorldService.world:delete(targetGuid)
+
+                    -- give XP for destroying obstacle
+                    local xp = S.Obstacle[targetRefId].xp or 0
+                    playerState:AddCountableNonPersistent(Id.CountableNonPersistent.XP, xp)
                 else
                     local _ = playerState:UpdateSessionDamageStats(dmg)
                     WorldService.world:set(targetGuid, W.HP, newHP)
@@ -586,71 +611,6 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
     -- delete bullet entity
     WorldService.RemoveEntity(bulletGuid)
 end
-
--- on[Id.C2S.PLAYER_COLLIDED_W_BOOSTER] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
---     if not triggerer_id then
---         log:error("Collision triggerer id is not defined")
---     end
---     local is_player = type(triggerer_id) == "number"
-
---     local instance_ref_id = WorldService.world:get(instance_guid, W.RefId)
---     if not instance_ref_id then
---         log:error("Instance ref id is not defined")
---     end
---     if Id.kind(instance_ref_id) ~= Id.Kind.Boost then
---         log:error("Instance ref id is not a booster")
---         return
---     end
-
---     -- all checks done, do the logic
---     local hp = WorldService.world:get(instance_guid, W.HP)
---     if is_player then
---         player_state:DeductHp(hp)
---     else
---         -- TODO: "delete booster"??
---         -- delete booster
---         WorldService.world:delete(instance_guid)
---     end
--- end
-
--- on[Id.C2S.PLAYER_COLLIDED_W_OBSTACLE] = function(player_state, instance_guid: str, triggerer_id: num | str, ...)
---     if not triggerer_id then
---         log:error("Collision triggerer id is not defined")
---     end
---     local is_player = type(triggerer_id) == "number"
-
---     local instance_ref_id = WorldService.world:get(instance_guid, W.RefId)
---     if not instance_ref_id then
---         log:error("Instance ref id is not defined")
---     end
---     if Id.kind(instance_ref_id) ~= Id.Kind.Obstacle then
---         log:error("Instance ref id is not an obstacle")
---         return
---     end
---     local dmg = assert(S.Obstacle[instance_ref_id].damage)
-
---     if is_player then
---         player_state:DeductHp(dmg)
---     else
---         -- delete clone
---         WorldService.world:delete(triggerer_id)
---     end
--- end
-
--- on[Id.C2S.PLAYER_HIT_BY_OWN_ROCKET] = function(player_state, triggerer_id: num | str, ...)
---     if not triggerer_id then
---         log:error("Collision triggerer id is not defined")
---     end
---     local isPlayer = type(triggerer_id) == "number"
---     -- local player_hp = player_state.state:get(Id.PlayerStats.GAME_SESSION_PARAMS, C.Value)
---     local damage = S.Weapon[Id.Weapon.ROCKET].damage * SharedConfig.ROCKET_SELF_HARM_MULT
---     if isPlayer then
---         player_state:DeductHp(damage)
---     else
---         -- delete clone
---         WorldService.world:delete(triggerer_id)
---     end
--- end
 
 on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     local playerId = player_state.player_id
@@ -684,25 +644,18 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         startGameSession()
     end
 
-    -- initialize player's loop
-    -- local _main_loop_player_handler = ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
-    -- ServerSupervisor:start(GameModule.StartMainLoopPlayer(player_state))
-    -- log:trace("player's session started")
-    -- workerMaid.playerLoop = function()
-    --     TaskPool.defer(function()
-    --         ServerSupervisor:cancel(_main_loop_player_handler)
-    --         log:trace("player's loop canceled")
-    --     end)
-    -- end
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id, playerHp)
+
+    -- give invincibility upgrade
+    setPlayerUpgradeNonPers(player_state, Id.PlayerUpgradeNonPersistent.INVINCIBILITY)
 
     -- ClonesServer.AttachCloneDummies(player_state)
 
     -- initialize player clones if any
     local cloneUpgradeId = Misc.IsCloneUpgrade(player_state)
     if cloneUpgradeId then
-        local value = S.PlayerUpgrade[cloneUpgradeId].value
+        local value = S.PlayerUpgradePersistent[cloneUpgradeId].value
         if value then
             for i = 1, value do
                 local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
@@ -744,16 +697,16 @@ end
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
-        local _session_enemy_kills = player_state.state:constructor(C.Value)
+        local _session_enemy_kills = player_state.state:constructor(C.ValueNonPers)
         _session_enemy_kills(Id.PlayerSpecs.SESSION_ENEMY_KILLS, 0)
-        local _session_damage_stats = player_state.state:constructor(C.Value)
+        local _session_damage_stats = player_state.state:constructor(C.ValueNonPers)
         _session_damage_stats(Id.PlayerSpecs.SESSION_DAMAGE, 0)
         local persFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_BULLETS_ON)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_CLONES_ON)
         player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, persFlags)
         -- NOTE: not needed currently, this is for future purposes
-        player_state:ResetCountable(Id.Countable.COIN)
+        -- player_state:ResetCountable(Id.Countable.COIN)
     end
 end
 

@@ -75,6 +75,10 @@ function m.CreateCloneInstance(worldState, playerId: int, cloneGuid: num | str)
         for _, instance in cloneInstance:GetDescendants() do
             if instance:IsA("BasePart") then
                 instance.CollisionGroup = "DriverNonCollidable"
+                -- remove invinvibility aura if any
+                if instance.Name == SharedConfig.INVINCIBILITY_AURA_NAME then
+                    instance:Destroy()
+                end
             end
         end
 
