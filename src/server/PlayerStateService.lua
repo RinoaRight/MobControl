@@ -105,6 +105,8 @@ export type PlayerState = {
     DeductHp: (self: PlayerState, amount: num, cause: id | uid?) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
+    UpdatePlayerXP: (self: PlayerState, xp: int) -> (int, int),
+    ResetPlayerXP: (self: PlayerState) -> (),
     UpdateSessionDamageStats: (self: PlayerState, dmg: num) -> int,
     UpdateSessionEnemyKills: (self: PlayerState) -> int,
     nullary_local: (state.uid_or_gen) -> uid,
@@ -367,6 +369,26 @@ function PlayerState.UpdateSessionEnemyKills(self: PlayerState): int
     local newVal = oldVal + 1
     self.state:set(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.ValueNonPers, newVal)
     return newVal
+end
+
+function PlayerState.UpdatePlayerXP(self: PlayerState, received_xp: int): (int, int)
+    local current_rank = self.state:get(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank)
+    local current_xp = self.state:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers)
+    local next_rank = current_rank
+    local next_xp = current_xp + received_xp
+    local xp_required = SharedConfig.PLAYER_RANK_XP_REQUIRED + current_rank * SharedConfig.PLAYER_RANK_XP_INCREMENT
+    if next_xp >= xp_required then
+        next_rank = current_rank + 1
+        next_xp = next_xp - xp_required
+    end
+    self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank, next_rank)
+    self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers, next_xp)
+    return next_rank, next_xp
+end
+
+function PlayerState.ResetPlayerXP(self: PlayerState): ()
+    self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank, 0)
+    self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers, 0)
 end
 
 function PlayerState.GetCloneAmount(self: PlayerState, id: id): int

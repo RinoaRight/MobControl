@@ -528,7 +528,7 @@ export type CountablePersistent = typeof(Id.CountablePersistent)
 Id.CountableNonPersistent = enum.with_id "Id.CountableNonPersistent" {
     _NONE = iota(Id.Kind.CountableNonPersistent, 0),
     CLONE = iota'',
-    XP    = iota'',
+    -- XP    = iota'',
 }
 KIND_TO_ENUM[Id.Kind.CountableNonPersistent] = Id.CountableNonPersistent
 export type CountableNonPersistent = typeof(Id.CountableNonPersistent)
@@ -683,6 +683,7 @@ export type VFX = typeof(Id.VFX)
 Id.PlayerSpecs = enum.with_id "Id.PlayerSpecs" {
     _NONE                = iota(Id.Kind.PlayerSpecs, 0),
     GAME_SESSION_PARAMS  = iota'',
+    XP_PROGRESS          = iota'',
     SESSION_DAMAGE       = iota'',
     SESSION_ENEMY_KILLS  = iota'',
 }

@@ -287,7 +287,7 @@ end
 stopGameSession = function(exception_player_id: num?)
     for playerId, playerState in pairs(STATES) do
         -- reset xp  for all players
-        playerState:ResetCountable(Id.CountableNonPersistent.XP)
+        playerState:ResetPlayerXP()
         -- kill off everyone who's alive; skip the player who ended the session to avoid recursion
         if exception_player_id and playerId ~= exception_player_id then
             continue
@@ -541,7 +541,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
 
                     -- give XP for killing enemies
                     local xp = S.Enemy[targetRefId].xp or 0
-                    playerState:AddCountableNonPersistent(Id.CountableNonPersistent.XP, xp)
+                    playerState:UpdatePlayerXP(xp)
 
                     GameModule.DestroyEnemy(targetGuid, playerState.player_id)
 
@@ -577,7 +577,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
 
                     -- give XP for killing booster
                     local xp = S.Boost[targetRefId].xp or 0
-                    playerState:AddCountableNonPersistent(Id.CountableNonPersistent.XP, xp)
+                    playerState:UpdatePlayerXP(xp)
 
                     GameModule.HandleBoosterDeath(playerState, targetGuid, targetRefId, value, boostContentId)
                 else
@@ -597,7 +597,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
 
                     -- give XP for destroying obstacle
                     local xp = S.Obstacle[targetRefId].xp or 0
-                    playerState:AddCountableNonPersistent(Id.CountableNonPersistent.XP, xp)
+                    playerState:UpdatePlayerXP(xp)
                 else
                     local _ = playerState:UpdateSessionDamageStats(dmg)
                     WorldService.world:set(targetGuid, W.HP, newHP)
@@ -697,6 +697,8 @@ end
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
+        local _playerRank = player_state.state:constructor(C.ValueNonPers, C.PlayerRank)
+        _playerRank(Id.PlayerSpecs.XP_PROGRESS, 0, 0)
         local _session_enemy_kills = player_state.state:constructor(C.ValueNonPers)
         _session_enemy_kills(Id.PlayerSpecs.SESSION_ENEMY_KILLS, 0)
         local _session_damage_stats = player_state.state:constructor(C.ValueNonPers)

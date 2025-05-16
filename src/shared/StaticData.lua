@@ -255,8 +255,6 @@ m.PlayerUpgradeNonPersistent = {
     },
 }
 
-
-
 m.Sound = {
     [Id.Sound.BELL] = assert(SOUNDS_ROOT:WaitForChild("Bell")),
     [Id.Sound.BELL_SUCCESS] = assert(SOUNDS_ROOT:WaitForChild("BellSuccess")),

@@ -118,19 +118,20 @@ m.OnStateUpdate = function(playerState: state.Replica)
     end
 
     -- xp
-    local currentProgress = playerState:get(Id.CountableNonPersistent.XP, C.ValueNonPers)
-    -- local valueView = playerState:get(Id.CountableNonPersistent.XP, C.ValueView)
-    -- if currentProgress == valueView then
-    -- elseif currentProgress > valueView then
-    -- elseif currentProgress < valueView then
-    -- end
+    local currentRank = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank)
+    local currentXP = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers)
+    local xpToNextRank = SharedConfig.PLAYER_RANK_XP_REQUIRED + currentRank * SharedConfig.PLAYER_RANK_XP_INCREMENT
+    local currentXpInPercent = currentXP / xpToNextRank
+
+    local rankValueView = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueView) or 0
+    if currentRank > rankValueView then
+        -- TODO: suggest a choice
+    end
+    playerState:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueView, currentRank)
 
     -- clamp min value to avoid visual artifacts
-    local currentProgressBarValue = math.max(currentProgress, 0.05)
+    local currentProgressBarValue = math.max(currentXpInPercent, 0.05)
     RANK_PROGRESS_BAR.Size = UDim2.fromScale(currentProgressBarValue, RANK_PROGRESS_BAR_INIT_SIZE.Y.Scale)
-    if currentProgress >= 100 then
-        -- TODO: suggets a choice
-    end
-    playerState:set(Id.CountableNonPersistent.XP, C.ValueView, currentProgress)
+    
 end
 return m
