@@ -38,6 +38,13 @@ local Misc = require(shared.Misc)
 local Sounds = require(script.Parent.SFX)
 local S = require(shared.StaticData)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Util = require(shared.util)
+local SFX = require(script.Parent.SFX)
+local TweenService = game:GetService("TweenService")
+local TaskPool = require(shared.TaskPool)
+local UserInputService = game:GetService("UserInputService")
+
+local maid = disposer.new()
 
 local COIN_TEXTBOX
 local COIN_IMG
@@ -56,19 +63,82 @@ local RANK_TEXT_TARGET_SIZE = UDim2.fromScale(1, 1)
 local COLOR_RANK_CHANGED = Color3.fromHex("35d876")
 local COLOR_RANK_REGULAR = Color3.fromHex("e3c100")
 
-local function onPlayerRankUpdate(state: state.Replica) end
+local PERK_SELECTION_GUI
+local PERK_SELECTION_GUI_PANEL
+local PERK_1_SLOT
+local PERK_1_SLOT_BG
+local PERK_1_SLOT_BTN
+local PERK_1_SLOT_IMG
+local PERK_2_SLOT
+local PERK_2_SLOT_BG
+local PERK_2_SLOT_BTN
+local PERK_2_SLOT_IMG
+
+local function hidePerkPanel()
+    local tweenTimeUp = 0.5
+    local tweenUpInfo = TweenInfo.new(tweenTimeUp, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+    local tweenUp = TweenService:Create(PERK_SELECTION_GUI_PANEL, tweenUpInfo, { Position = UDim2.fromScale(0.5, 0) })
+    TaskPool.spawn(function()
+        tweenUp:Play()
+        task.wait(tweenTimeUp + 0.1)
+        maid.waitingForExit = nil
+        PERK_SELECTION_GUI.Enabled = false
+    end)
+end
+
+local function onPerkBtnPressed(state: state.Replica, whichBtn: TextButton)
+    SFX.PLAY_SOUND(Id.Sound.CLICK)
+    -- TODO: flicker scale of the selected perk, signal to server
+    hidePerkPanel()
+end
+
+local function onPlayerRankUpdate(state: state.Replica) 
+    -- TODO: fill in selection slots (image + description + colors). Perk selection is to be defined server-side
+    -- subscribe perk buttons, show panel
+    maid.slot1Btn = Signal.Connect(PERK_1_SLOT_BTN.Activated, function()
+        onPerkBtnPressed(state, PERK_1_SLOT_BTN)
+    end)
+    maid.slot2Btn = Signal.Connect(PERK_2_SLOT_BTN.Activated, function()
+        onPerkBtnPressed(state, PERK_2_SLOT_BTN)
+    end)
+    PERK_SELECTION_GUI.Enabled = true
+    local tweenTimeDown = 1.2
+    local tweenDownInfo = TweenInfo.new(tweenTimeDown, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+    local tweenDown = TweenService:Create(PERK_SELECTION_GUI_PANEL, tweenDownInfo, { Position = UDim2.fromScale(0.5, 0.5) })
+    TaskPool.spawn(function()
+        tweenDown:Play()
+        task.wait(tweenTimeDown)
+        -- close the panel after 2 seconds
+        task.wait(2)
+        if PERK_SELECTION_GUI.Enabled then
+            hidePerkPanel()
+        end
+    end)
+end
 
 local m = {}
 m.__index = m
 
-m.Init = function(playerState: state.Replica, guiPanel)
-    local coinFrame = assert(guiPanel:WaitForChild("MoneyFrame"))
+m.Init = function(playerState: state.Replica, mainGuiPanel, perkSelectionGui)
+    PERK_SELECTION_GUI = perkSelectionGui
+    PERK_SELECTION_GUI_PANEL = assert(PERK_SELECTION_GUI:WaitForChild("ContainerFrame"))
+    local PERK_FRAME = assert(PERK_SELECTION_GUI_PANEL:WaitForChild("Frame"))
+    PERK_1_SLOT = assert(PERK_FRAME:WaitForChild("1"))
+    PERK_1_SLOT_BG = assert(PERK_1_SLOT:WaitForChild("BG"))
+    PERK_1_SLOT_BTN = assert(PERK_1_SLOT:WaitForChild("SelectButton")):: TextButton
+    PERK_1_SLOT_IMG = assert(PERK_1_SLOT_BG:WaitForChild("SelectedIcon"))
+    PERK_2_SLOT = assert(PERK_FRAME:WaitForChild("2"))
+    PERK_2_SLOT_BG = assert(PERK_2_SLOT:WaitForChild("BG"))
+    PERK_2_SLOT_BTN = assert(PERK_2_SLOT:WaitForChild("SelectButton")):: TextButton
+    PERK_2_SLOT_IMG = assert(PERK_2_SLOT_BG:WaitForChild("SelectedIcon"))
+
+    local coinFrame = assert(mainGuiPanel:WaitForChild("MoneyFrame"))
     COIN_TEXTBOX = assert(coinFrame.BG.TextLabel)
     COIN_IMG = assert(coinFrame.MoneyIcon)
     local coinsValue = playerState:get(Id.CountablePersistent.COIN, C.ValuePers)
     COIN_TEXTBOX.Text = NumFormat.format_ectos(coinsValue)
 
-    local xpFrame = assert(guiPanel:WaitForChild("RankFrame"))
+    local xpFrame = assert(mainGuiPanel:WaitForChild("RankFrame"))
     RANK_TEXT_BOX = assert(xpFrame.TextLabel)
     RANK_PROGRESS_BAR = assert(xpFrame.InsideBarBGFrame.InsideBarSliderFrame)
 
@@ -80,6 +150,8 @@ m.Init = function(playerState: state.Replica, guiPanel)
         local currentValue = playerState:get(refId, C.ValueNonPers) or 0
         playerState:set(refId, C.ValueView, currentValue)
     end
+
+    PERK_SELECTION_GUI_PANEL.Position = UDim2.fromScale(0.5, 0)
 end
 
 m.OnStateUpdate = function(playerState: state.Replica)
@@ -125,7 +197,7 @@ m.OnStateUpdate = function(playerState: state.Replica)
 
     local rankValueView = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueView) or 0
     if currentRank > rankValueView then
-        -- TODO: suggest a choice
+        -- TODO: sound a sound and suggest a choice
     end
     playerState:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueView, currentRank)
 

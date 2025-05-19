@@ -127,6 +127,8 @@ local TOP_RIGHT_PANEL = assert(MAIN_GUI:WaitForChild("TopRightPanel"))
 local COLLIDABLES_HP_GUI_NAME = "CollidableHpGui"
 local COLLIDABLES_HP_GUI_TEMPLATE = assert(PLAYER_GUI:WaitForChild(COLLIDABLES_HP_GUI_NAME)) :: BillboardGui
 
+local PERK_SELECTION_GUI = assert(PLAYER_GUI:WaitForChild("PerkSelectionGUI"))
+
 -- forward declarations
 local playRunAnimTrack
 local startRunAnim
@@ -406,7 +408,7 @@ local load = function(fire: FireServer, snapshot)
     end
     Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_PANEL, SETTINGS_MENU_GUI)
     Popup:Init(POPUP_GUI)
-    UICounters.Init(state, TOP_RIGHT_PANEL)
+    UICounters.Init(state, TOP_RIGHT_PANEL, PERK_SELECTION_GUI)
     UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, LOCAL_HUMANOID_ROOT_PART)
 
     MAIN_GUI.Enabled = true
