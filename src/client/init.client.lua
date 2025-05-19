@@ -254,6 +254,11 @@ on[Id.S2C.SHOW_POPUP_SERVER] = function(state: state.Replica, event_id: id)
             text = "You can't buy this upgrade :(\n\n",
             ok = function() end,
         })
+    elseif event_id == Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS then
+        Signal.Broadcast(Id.C2C.SHOW_POPUP_CLIENT, {
+            text = "This perk is maxed out :(\n\n",
+            ok = function() end,
+        })
     end
 end
 

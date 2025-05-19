@@ -100,8 +100,9 @@ export type PlayerState = {
     AddHp: (self: PlayerState, amount: num) -> (num, num),
     DeductCountableNonPersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
     DeductCountablePersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
+    GetPerkChoice: (self: PlayerState) -> Vector3,
     ResetCountable: (self: PlayerState, id: id) -> (),
-    ResetPlayerUpgrade: (self: PlayerState, id: id) -> (),
+    ResetPlayerUpgradeNonPers: (self: PlayerState, id: id) -> (),
     DeductHp: (self: PlayerState, amount: num, cause: id | uid?) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
@@ -145,14 +146,14 @@ local function update_ids(main: state.Main)
         _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE, Id.PlayerF.NONE)
     end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
 
-    local _player_upgrade_non_persistent = main:constructor(C.TTL, C.ValueNonPers)
+    local _player_upgrade_non_persistent = main:constructor(C.TTL, C.ValueNonPers, C.Bitset) -- ttl, stage number, flag
     merge(Id.PlayerUpgradeNonPersistent, function(id)
-        _player_upgrade_non_persistent(id, 0xffff_ffff, false)
+        _player_upgrade_non_persistent(id, 0xffff_ffff, 0, Id.PlayerF.NONE)
     end)
 
-    local _player_upgrade_persistent = main:constructor(C.ValuePers)
+    local _player_upgrade_persistent = main:constructor(C.ValuePers, C.Bitset) -- stage number, flag
     merge(Id.PlayerUpgradePersistent, function(id)
-        _player_upgrade_persistent(id, false)
+        _player_upgrade_persistent(id, 0, Id.PlayerF.NONE)
     end)
 end
 
@@ -316,8 +317,9 @@ function PlayerState.ResetCountable(self: PlayerState, countable_id: id): ()
     self.state:set(countable_id, 0)
 end
 
-function PlayerState.ResetPlayerUpgrade(self: PlayerState, upgrade_id: id): ()
-    self.state:set(upgrade_id, C.ValueNonPers, false)
+function PlayerState.ResetPlayerUpgradeNonPers(self: PlayerState, upgrade_id: id): ()
+    self.state:set(upgrade_id, C.ValueNonPers, 0)
+    self.state:set(upgrade_id, C.Bitset, Id.PlayerF.NONE)
     if self.state:get(upgrade_id, C.TTL) then
         self.state:set(upgrade_id, C.TTL, 0xffff_ffff)
     end
@@ -342,7 +344,9 @@ end
 
 function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
     -- check if player is invincible
-    if not self.state:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.ValueNonPers) then
+    local flags = self.state:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset)
+    local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+    if isInvincible then
         return 0
     end
 
@@ -404,6 +408,12 @@ end
 function PlayerState.AddBooster(self: PlayerState, instanceGuid: string): ()
     local _booster = self.state:constructor(C.BitsetNonPers)
     _booster(instanceGuid, Id.PlayerF.NONE)
+end
+
+function PlayerState.GetPerkChoice(self: PlayerState): Vector3
+    -- TODO: implement
+    local perk_choice = Vector3.new(0, 0, 0)
+    return perk_choice
 end
 
 function PlayerState.__tostring(self: PlayerState): str

@@ -126,11 +126,11 @@ m.Init = function(playerState: state.Replica, mainGuiPanel, perkSelectionGui)
     PERK_1_SLOT = assert(PERK_FRAME:WaitForChild("1"))
     PERK_1_SLOT_BG = assert(PERK_1_SLOT:WaitForChild("BG"))
     PERK_1_SLOT_BTN = assert(PERK_1_SLOT:WaitForChild("SelectButton")):: TextButton
-    PERK_1_SLOT_IMG = assert(PERK_1_SLOT_BG:WaitForChild("SelectedIcon"))
+    PERK_1_SLOT_IMG = assert(PERK_1_SLOT_BG:WaitForChild("ImageLabel"))
     PERK_2_SLOT = assert(PERK_FRAME:WaitForChild("2"))
     PERK_2_SLOT_BG = assert(PERK_2_SLOT:WaitForChild("BG"))
     PERK_2_SLOT_BTN = assert(PERK_2_SLOT:WaitForChild("SelectButton")):: TextButton
-    PERK_2_SLOT_IMG = assert(PERK_2_SLOT_BG:WaitForChild("SelectedIcon"))
+    PERK_2_SLOT_IMG = assert(PERK_2_SLOT_BG:WaitForChild("ImageLabel"))
 
     local coinFrame = assert(mainGuiPanel:WaitForChild("MoneyFrame"))
     COIN_TEXTBOX = assert(coinFrame.BG.TextLabel)

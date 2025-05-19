@@ -183,7 +183,7 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
 
     -- reset non-persistent updates
     for _, upgrade_id in Id.PlayerUpgradeNonPersistent:ids() do
-        player_state:ResetPlayerUpgrade(upgrade_id)
+        player_state:ResetPlayerUpgradeNonPers(upgrade_id)
     end
 
     local attachement = player_state.root:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
@@ -358,7 +358,8 @@ end
 
 local function setPlayerUpgradeNonPers(player_state, upgrade_id: id)
     if upgrade_id == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
-        player_state.state:set(upgrade_id, C.ValueNonPers, true)
+        local flags = player_state.state:get(upgrade_id, C.Bitset)
+        player_state.state:set(upgrade_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACTIVE))
         local ttl = S.PlayerUpgradeNonPersistent[upgrade_id].ttl or 0
         player_state.state:set(upgrade_id, C.TTL, roflake.time() + ttl)
     end
@@ -446,17 +447,25 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
     player_state.state:set(upgrade_id, C.ValuePers, true)
 end
 
-on[Id.C2S.GET_PLAYER_UPGRADE_NON_PERS] = function(player_state, upgrade_id: id, ...)
+on[Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS] = function(player_state, upgrade_id: id, ...)
     -- check if it is a valid upgrade id
     if Id.kind(upgrade_id) ~= Id.Kind.PlayerUpgradeNonPersistent then
         log:error("Not a player upgrade", upgrade_id, debug.traceback())
         return
     end
 
-    -- check if the player already has this upgrade
-    if player_state.state:get(upgrade_id, C.ValueNonPers) then
+    -- check if the player already has this upgrade maxed out
+    local upgradeStage = player_state.state:get(upgrade_id, C.ValueNonPers)
+    if upgradeStage >= S.PlayerUpgradeNonPersistent[upgrade_id].maxStage then
+        player_state:NotifyClient(Id.S2C.SHOW_POPUP_SERVER, Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS)
         return
     end
+
+    -- -- check if the player already has this upgrade
+    -- local flags = player_state.state:get(upgrade_id, C.Bitset)
+    -- if Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE) then
+    --     return
+    -- end
 
     setPlayerUpgradeNonPers(player_state, upgrade_id)
 end

@@ -79,7 +79,8 @@ local function onPurchaseBtnPressed(playerState, upgradeId)
     local currencyId = assert(S.PlayerUpgradePersistent[upgradeId].currency)
 
     -- check if player already has this upgrade
-    local isBoughtAlready = playerState:get(upgradeId, C.ValueNonPers)
+    local flags = playerState:get(upgradeId, C.Bitset)
+    local isBoughtAlready = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
     if isBoughtAlready then
         SFX.PLAY_SOUND(Id.Sound.ERROR)
         local msg = "You already bought this upgrade!\n\n"
@@ -302,7 +303,8 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
 end
 
 function m.OnModify(playerState: state.Replica, localCharacter)
-    local isInvincible = playerState:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.ValueNonPers)
+    local flags = playerState:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset)
+    local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
     if isInvincible then
         createInvincibilityAura(playerState)
     else

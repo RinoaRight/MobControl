@@ -252,6 +252,7 @@ m.PlayerUpgradePersistent = {
 m.PlayerUpgradeNonPersistent = {
     [Id.PlayerUpgradeNonPersistent.INVINCIBILITY] = {
         ttl = 2, -- sec
+        maxStage = 0, -- one stage only
     },
 }
 

@@ -467,6 +467,7 @@ Id.PlayerF = enum.with_id "Id.PlayerF" {
     _NON_PERSISTENT    = flag'', 
     READY              = flag'',
     BOOSTER_TOUCHED    = flag'',
+    PERK_ACTIVE    = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
@@ -783,7 +784,7 @@ Id.C2S = enum.with_id "Id.C2S" {
     _NONE                             = iota(Id.Kind.C2S, 0),
     BULLET_SHOT                       = iota'', -- {bullet_guids}, bullet_weapon_id
     BUY_PLAYER_UPGRADE_PERS           = iota'', -- upgrade_id           
-    GET_PLAYER_UPGRADE_NON_PERS       = iota'', -- upgrade_id           
+    REQUEST_PLAYER_UPGRADE_NON_PERS   = iota'', -- upgrade_id           
     TARGET_HIT                        = iota'', -- {enemy_guids}, bullet_guid
     TOGGLE_PLAYER_FLAG                = iota'', -- bool, flag_id
     PLAYER_READY_TO_START             = iota'',               
