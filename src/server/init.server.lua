@@ -116,7 +116,7 @@ local function resetHp(player_state)
     local hp = SharedConfig.PLAYER_BASE_HP
 
     -- check for hp upgrades
-    local hpUpgrade = Misc.IsHpUpgrade(player_state.state) :: num
+    local hpUpgrade = Misc.IsHpUpgrade(player_state) :: num
     if hpUpgrade and S.PlayerUpgradePersistent[hpUpgrade].value then
         hp *= S.PlayerUpgradePersistent[hpUpgrade].value
     end
@@ -424,7 +424,8 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
     local previousUpgradeId = Misc.IsUpgradePreviousTier(upgrade_id)
     if previousUpgradeId then
         local isBoughtPrevious
-        isBoughtPrevious = player_state.state:get(previousUpgradeId, C.ValuePers)
+        local prevUpgradeflags = player_state.state:get(previousUpgradeId, C.Bitset)
+        isBoughtPrevious = Id.flag_test(prevUpgradeflags, Id.PlayerF.PERK_ACTIVE)
         if not isBoughtPrevious then
             log:error("Previous upgrade not bought", previousUpgradeId, debug.traceback())
             return
@@ -432,7 +433,9 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
     end
 
     -- check if the player already has this upgrade
-    if player_state.state:get(upgrade_id, C.ValuePers) then
+    local flags = player_state.state:get(upgrade_id, C.Bitset)
+    local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+    if isActive then
         return
     end
 
@@ -444,7 +447,7 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
 
     -- all checks done, buy upgrade
     player_state:DeductCountablePersistent(currencyId, itemPrice)
-    player_state.state:set(upgrade_id, C.ValuePers, true)
+    player_state.state:set(upgrade_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACTIVE))
 end
 
 on[Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS] = function(player_state, upgrade_id: id, ...)
@@ -470,7 +473,7 @@ on[Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS] = function(player_state, upgrade_id: 
     setPlayerUpgradeNonPers(player_state, upgrade_id)
 end
 
-on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
+on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { uid }, bulletGuid: uid, ...)
     if not WorldService.world:has(bulletGuid) then
         return
     end
@@ -552,7 +555,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                     local xp = S.Enemy[targetRefId].xp or 0
                     playerState:UpdatePlayerXP(xp)
 
-                    GameModule.DestroyEnemy(targetGuid, playerState.player_id)
+                    GameModule.DestroyEnemy((targetGuid::str), playerState.player_id)
 
                     -- check if the enemy was the final boss, if yes, finish round
                     if targetRefId == Id.Enemy.OCTOBOSS then
@@ -577,7 +580,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                     -- give boost to the player who killed the booster
                     local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
                     local value = WorldService.world:get(targetGuid, W.Value)
-                    BoosterServer.DeleteBooster(WorldService.world, targetGuid, get_state)
+                    BoosterServer.DeleteBooster(WorldService.world, (targetGuid:: str), get_state)
                     local _ = playerState:UpdateSessionDamageStats(booster_hp)
 
                     -- give reward for killing booster
@@ -588,7 +591,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState, targetGuids, bulletGuid, ...)
                     local xp = S.Boost[targetRefId].xp or 0
                     playerState:UpdatePlayerXP(xp)
 
-                    GameModule.HandleBoosterDeath(playerState, targetGuid, targetRefId, value, boostContentId)
+                    GameModule.HandleBoosterDeath(playerState, (targetGuid::str), targetRefId, value, boostContentId)
                 else
                     local _ = playerState:UpdateSessionDamageStats(dmg)
                     WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)

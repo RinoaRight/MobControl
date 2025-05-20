@@ -151,9 +151,9 @@ local function update_ids(main: state.Main)
         _player_upgrade_non_persistent(id, 0xffff_ffff, 0, Id.PlayerF.NONE)
     end)
 
-    local _player_upgrade_persistent = main:constructor(C.ValuePers, C.Bitset) -- stage number, flag
+    local _player_upgrade_persistent = main:constructor(C.Bitset) -- flag
     merge(Id.PlayerUpgradePersistent, function(id)
-        _player_upgrade_persistent(id, 0, Id.PlayerF.NONE)
+        _player_upgrade_persistent(id, Id.PlayerF.NONE)
     end)
 end
 

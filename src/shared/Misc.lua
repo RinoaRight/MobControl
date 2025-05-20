@@ -455,9 +455,9 @@ function m.IsUpgradePreviousTier(upgradeId: int)
     -- TODO: other multi-tiered upgrades
     local previousTierId
     if
-        upgradeId <= Id.PlayerUpgradePersistent.FIREPOWER_5 and upgradeId > Id.PlayerUpgradePersistent.FIREPOWER_1
-        or upgradeId <= Id.PlayerUpgradePersistent.HITPOINTS_5 and upgradeId > Id.PlayerUpgradePersistent.HITPOINTS_1
-        or upgradeId <= Id.PlayerUpgradePersistent.INIT_CLONE_3 and upgradeId > Id.PlayerUpgradePersistent.INIT_CLONE_2
+        (upgradeId <= Id.PlayerUpgradePersistent.FIREPOWER_5 and upgradeId > Id.PlayerUpgradePersistent.FIREPOWER_1)
+        or (upgradeId <= Id.PlayerUpgradePersistent.HITPOINTS_5 and upgradeId > Id.PlayerUpgradePersistent.HITPOINTS_1)
+        or (upgradeId <= Id.PlayerUpgradePersistent.INIT_CLONE_3 and upgradeId > Id.PlayerUpgradePersistent.INIT_CLONE_2)
     then
         previousTierId = upgradeId - 1
     end
@@ -468,9 +468,9 @@ function m.IsUpgradeNextTier(upgradeId: int)
     -- TODO: other multi-tiered upgrades
     local nextTierId
     if
-        upgradeId < Id.PlayerUpgradePersistent.FIREPOWER_5 and upgradeId >= Id.PlayerUpgradePersistent.FIREPOWER_1
-        or upgradeId < Id.PlayerUpgradePersistent.HITPOINTS_5 and upgradeId >= Id.PlayerUpgradePersistent.HITPOINTS_1
-        or upgradeId < Id.PlayerUpgradePersistent.INIT_CLONE_3 and upgradeId >= Id.PlayerUpgradePersistent.INIT_CLONE_1
+        (upgradeId < Id.PlayerUpgradePersistent.FIREPOWER_5 and upgradeId >= Id.PlayerUpgradePersistent.FIREPOWER_1)
+        or (upgradeId < Id.PlayerUpgradePersistent.HITPOINTS_5 and upgradeId >= Id.PlayerUpgradePersistent.HITPOINTS_1)
+        or (upgradeId < Id.PlayerUpgradePersistent.INIT_CLONE_3 and upgradeId >= Id.PlayerUpgradePersistent.INIT_CLONE_1)
     then
         nextTierId = upgradeId + 1
     end
@@ -480,7 +480,9 @@ end
 function m.IsFirepowerUpgrade(playerState): int | nil
     local id
     for i = Id.PlayerUpgradePersistent.FIREPOWER_1, Id.PlayerUpgradePersistent.FIREPOWER_5 do
-        if playerState.state:get(i, C.ValueNonPers) then
+        local flags = playerState.state:get(i, C.Bitset)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+        if isActive then
             id = i
         end
     end
@@ -490,7 +492,9 @@ end
 function m.IsHpUpgrade(playerState): int | nil
     local id
     for i = Id.PlayerUpgradePersistent.HITPOINTS_1, Id.PlayerUpgradePersistent.HITPOINTS_5 do
-        if playerState:get(i, C.ValueNonPers) then
+        local flags = playerState.state:get(i, C.Bitset)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+        if isActive then
             id = i
         end
     end
@@ -500,7 +504,9 @@ end
 function m.IsCloneUpgrade(playerState): int | nil
     local id
     for i = Id.PlayerUpgradePersistent.INIT_CLONE_1, Id.PlayerUpgradePersistent.INIT_CLONE_3 do
-        if playerState.state:get(i, C.ValueNonPers) then
+        local flags = playerState.state:get(i, C.Bitset)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+        if isActive then
             id = i
         end
     end
