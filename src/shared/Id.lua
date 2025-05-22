@@ -414,6 +414,7 @@ Id.PlayerUpgradePersistent = enum.with_id "Id.PlayerUpgradePersistent" {
     INIT_CLONE_1       = iota'',
     INIT_CLONE_2       = iota'',
     INIT_CLONE_3       = iota'',
+    XP_MULT              = iota'',
 }
 -- TODO: add all-players upgrades? weapon unlocks? drones?
 KIND_TO_ENUM[Id.Kind.PlayerUpgradePersistent] = Id.PlayerUpgradePersistent
@@ -424,8 +425,16 @@ export type PlayerUpgradePersistent = typeof(Id.PlayerUpgradePersistent)
 -- PlayerUpgradeNonPersistent
 -----------------------------
 Id.PlayerUpgradeNonPersistent = enum.with_id "Id.PlayerUpgradeNonPersistent" {
-    NONE               = iota(Id.Kind.PlayerUpgradeNonPersistent, 0),
-    INVINCIBILITY      = iota'',
+    NONE                 = iota(Id.Kind.PlayerUpgradeNonPersistent, 0),
+    INVINCIBILITY        = iota'',
+    FIREPOWER            = iota'',
+    SHIELD               = iota'',
+    -- DRONES               = iota'',
+    BULLET_SPEED_MULT    = iota'',
+    CLONE_FACTORY        = iota'',
+    SHIELD_RECHARGE      = iota'',
+    SHIELD_DAMAGE        = iota'',
+    SHIELD_COOLDOWN_MULT = iota'',
 }
 -- TODO: add all-players upgrades? weapon unlocks? drones?
 KIND_TO_ENUM[Id.Kind.PlayerUpgradeNonPersistent] = Id.PlayerUpgradeNonPersistent
@@ -467,7 +476,7 @@ Id.PlayerF = enum.with_id "Id.PlayerF" {
     _NON_PERSISTENT    = flag'', 
     READY              = flag'',
     BOOSTER_TOUCHED    = flag'',
-    PERK_ACTIVE    = flag'',
+    PERK_ACQUIRED      = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)

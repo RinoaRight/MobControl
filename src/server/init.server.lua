@@ -359,8 +359,8 @@ end
 local function setPlayerUpgradeNonPers(player_state, upgrade_id: id)
     if upgrade_id == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
         local flags = player_state.state:get(upgrade_id, C.Bitset)
-        player_state.state:set(upgrade_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACTIVE))
-        local ttl = S.PlayerUpgradeNonPersistent[upgrade_id].ttl or 0
+        player_state.state:set(upgrade_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED))
+        local ttl = S.PlayerUpgradeNonPersistent[upgrade_id].ttl or 0xffff_ffff
         player_state.state:set(upgrade_id, C.TTL, roflake.time() + ttl)
     end
 end
@@ -425,7 +425,7 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
     if previousUpgradeId then
         local isBoughtPrevious
         local prevUpgradeflags = player_state.state:get(previousUpgradeId, C.Bitset)
-        isBoughtPrevious = Id.flag_test(prevUpgradeflags, Id.PlayerF.PERK_ACTIVE)
+        isBoughtPrevious = Id.flag_test(prevUpgradeflags, Id.PlayerF.PERK_ACQUIRED)
         if not isBoughtPrevious then
             log:error("Previous upgrade not bought", previousUpgradeId, debug.traceback())
             return
@@ -434,7 +434,7 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
 
     -- check if the player already has this upgrade
     local flags = player_state.state:get(upgrade_id, C.Bitset)
-    local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+    local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
     if isActive then
         return
     end
@@ -447,7 +447,7 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
 
     -- all checks done, buy upgrade
     player_state:DeductCountablePersistent(currencyId, itemPrice)
-    player_state.state:set(upgrade_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACTIVE))
+    player_state.state:set(upgrade_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED))
 end
 
 on[Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS] = function(player_state, upgrade_id: id, ...)

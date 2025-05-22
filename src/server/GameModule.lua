@@ -349,7 +349,7 @@ end
 local function handlePlayerUpgrades(player_state: PSS.PlayerState)
     for _, upgrade_id in Id.PlayerUpgradeNonPersistent:ids() do
         local flags = player_state.state:get(upgrade_id, C.Bitset)
-        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
         if isActive then
             local currentTTL = player_state.state:get(upgrade_id, C.TTL)
             if currentTTL then
@@ -402,6 +402,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
                 shot_tte -= dt
                 player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
+
+                -- TODO: upgrade ttl and cooldowns
 
                 -- check obstacle collision for player and driver
                 local playerRootPart = player_state.root :: BasePart

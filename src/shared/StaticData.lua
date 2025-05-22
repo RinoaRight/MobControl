@@ -247,12 +247,63 @@ m.PlayerUpgradePersistent = {
         name = "Clones III",
         descr = string.format("3 clones at the start"),
     },
+    [Id.PlayerUpgradePersistent.XP_MULT] = {
+        value = 1.1, -- %
+        price = 100,
+        currency = Id.CountablePersistent.COIN,
+        name = "XP Multiplier",
+        descr = string.format("+%d%% XP", getValuePercent(1.1)),
+    },
 }
 
 m.PlayerUpgradeNonPersistent = {
     [Id.PlayerUpgradeNonPersistent.INVINCIBILITY] = {
         ttl = 2, -- sec
-        maxStage = 0, -- one stage only
+        maxStage = 1, 
+        isRenewable = true
+    },
+    [Id.PlayerUpgradeNonPersistent.FIREPOWER] = {
+        ttl = -1, 
+        maxStage = 5, 
+        isRenewable = false,
+        multiplier = 1.1, -- percent
+    },
+    [Id.PlayerUpgradeNonPersistent.SHIELD] = {
+        ttl = 10,
+        maxStage = 1,
+        isRenewable = true,
+    },
+    -- [Id.PlayerUpgradeNonPersistent.DRONES] = {
+    --     ttl = 0,
+    --     maxStage = 0,
+    --     prerequisite = 0,
+    -- },
+    [Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT] = {
+        ttl = 0xffff_ffff,
+        maxStage = 3,
+        isRenewable = false,
+        multiplier = 1.1,
+    },
+    [Id.PlayerUpgradeNonPersistent.CLONE_FACTORY] = {
+        ttl = 10,
+        maxStage = 3,
+        isRenewable = false,
+    },
+    [Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE] = {
+        ttl = 10,
+        maxStage = 1,
+        isRenewable = false,
+    },
+    [Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE] = {
+        ttl = 0xffff_ffff,
+        maxStage = 3,
+        isRenewable = false,
+    },
+    [Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT] = {
+        ttl = 0xffff_ffff,
+        maxStage = 1,
+        isRenewable = false,
+        multiplier = 1.1,
     },
 }
 

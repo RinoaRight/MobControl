@@ -481,7 +481,7 @@ function m.IsFirepowerUpgrade(playerState): int | nil
     local id
     for i = Id.PlayerUpgradePersistent.FIREPOWER_1, Id.PlayerUpgradePersistent.FIREPOWER_5 do
         local flags = playerState.state:get(i, C.Bitset)
-        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
         if isActive then
             id = i
         end
@@ -493,7 +493,7 @@ function m.IsHpUpgrade(playerState): int | nil
     local id
     for i = Id.PlayerUpgradePersistent.HITPOINTS_1, Id.PlayerUpgradePersistent.HITPOINTS_5 do
         local flags = playerState.state:get(i, C.Bitset)
-        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
         if isActive then
             id = i
         end
@@ -505,7 +505,7 @@ function m.IsCloneUpgrade(playerState): int | nil
     local id
     for i = Id.PlayerUpgradePersistent.INIT_CLONE_1, Id.PlayerUpgradePersistent.INIT_CLONE_3 do
         local flags = playerState.state:get(i, C.Bitset)
-        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
         if isActive then
             id = i
         end

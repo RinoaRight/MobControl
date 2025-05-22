@@ -345,7 +345,7 @@ end
 function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
     -- check if player is invincible
     local flags = self.state:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset)
-    local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+    local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
     if isInvincible then
         return 0
     end
