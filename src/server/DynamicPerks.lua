@@ -57,8 +57,8 @@ local isMax = function(playerState: PSS.PlayerState, perkId: id)
     return true
 end
 
--- NOTE: Shield should not be suggested after shield recharge is purchased
-local function selectPerks(playerState: PSS.PlayerState)
+local m = {}
+m.SelectPerks = function(playerState: PSS.PlayerState)
     local selectedPerks = Vector3.new(0, 0, 0)
     -- if shield is not yet selected, suggest it and nothing more
     local shieldFlags = playerState.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
@@ -89,8 +89,6 @@ local function selectPerks(playerState: PSS.PlayerState)
 
     local shieldRechargeFlags = playerState.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
     local isShieldRechargable = Id.flag_test(shieldRechargeFlags, Id.PlayerF.PERK_ACQUIRED)
-
-    local shieldDamageFlags = playerState.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
 
     -- add shield to the pool, if shield is not rechargeable yet
     if not isShieldRechargable then
@@ -124,6 +122,5 @@ local function selectPerks(playerState: PSS.PlayerState)
     return selectedPerks
 end
 
-local m = {}
 
 return m

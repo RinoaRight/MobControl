@@ -53,6 +53,7 @@ local BoosterServer = require(server.BoosterServer)
 local roflake = require(shared.roflake)
 local workerMaid = disposer.new()
 local ClonesServer = require(server.ClonesServer)
+local Perks = require(server.DynamicPerks)
 if game.PhysicsService then
     local phys = game.PhysicsService
     log:debug("PhysicsService:IsCollisionGroupRegistered('Clones')", phys.IsCollisionGroupRegistered, phys, "Clones")
@@ -365,6 +366,24 @@ local function setPlayerUpgradeNonPers(player_state, upgrade_id: id)
     end
 end
 
+local function updatePlayerXP(playerState: PSS.PlayerState, received_xp: int): (int, int)
+    local current_rank = playerState.state:get(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank)
+    local current_xp = playerState.state:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers)
+    local next_rank = current_rank
+    local next_xp = current_xp + received_xp
+    local xp_required = SharedConfig.PLAYER_RANK_XP_REQUIRED + current_rank * SharedConfig.PLAYER_RANK_XP_INCREMENT
+    if next_xp >= xp_required then
+        -- rank up
+        next_rank = current_rank + 1
+        next_xp = next_xp - xp_required
+        local choice = Perks.SelectPerks(playerState)
+        playerState.state:set(Id.PlayerSpecs.XP_PROGRESS, C.V3, choice)
+    end
+    playerState.state:set(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank, next_rank)
+    playerState.state:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers, next_xp)
+    return next_rank, next_xp
+end
+
 ----------------------------
 -- Event Handling
 -----------------------------
@@ -553,9 +572,9 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
 
                     -- give XP for killing enemies
                     local xp = S.Enemy[targetRefId].xp or 0
-                    playerState:UpdatePlayerXP(xp)
+                    updatePlayerXP(playerState, xp)
 
-                    GameModule.DestroyEnemy((targetGuid::str), playerState.player_id)
+                    GameModule.DestroyEnemy(targetGuid :: str, playerState.player_id)
 
                     -- check if the enemy was the final boss, if yes, finish round
                     if targetRefId == Id.Enemy.OCTOBOSS then
@@ -580,7 +599,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
                     -- give boost to the player who killed the booster
                     local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
                     local value = WorldService.world:get(targetGuid, W.Value)
-                    BoosterServer.DeleteBooster(WorldService.world, (targetGuid:: str), get_state)
+                    BoosterServer.DeleteBooster(WorldService.world, targetGuid :: str, get_state)
                     local _ = playerState:UpdateSessionDamageStats(booster_hp)
 
                     -- give reward for killing booster
@@ -589,9 +608,9 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
 
                     -- give XP for killing booster
                     local xp = S.Boost[targetRefId].xp or 0
-                    playerState:UpdatePlayerXP(xp)
+                    updatePlayerXP(playerState, xp)
 
-                    GameModule.HandleBoosterDeath(playerState, (targetGuid::str), targetRefId, value, boostContentId)
+                    GameModule.HandleBoosterDeath(playerState, targetGuid :: str, targetRefId, value, boostContentId)
                 else
                     local _ = playerState:UpdateSessionDamageStats(dmg)
                     WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
@@ -609,7 +628,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
 
                     -- give XP for destroying obstacle
                     local xp = S.Obstacle[targetRefId].xp or 0
-                    playerState:UpdatePlayerXP(xp)
+                    updatePlayerXP(playerState, xp)
                 else
                     local _ = playerState:UpdateSessionDamageStats(dmg)
                     WorldService.world:set(targetGuid, W.HP, newHP)
@@ -703,14 +722,18 @@ s2s[Id.S2S.PLAYER_DIED] = function(player_state, deducted_hp: int, cause_id: id 
     onPlayerSessionFinishedPlayerState(player_state)
 end
 
+-- s2s[Id.S2S.RANK_UP] = function(player_state, next_rank: int, next_xp: int, ...)
+
+-- end
+
 -----------------------------
 -- Player Connect
 -----------------------------
 -- place here all the logic that needs to be executed on player connect
 local function init_player(player_state: PlayerState)
     return function()
-        local _playerRank = player_state.state:constructor(C.ValueNonPers, C.PlayerRank)
-        _playerRank(Id.PlayerSpecs.XP_PROGRESS, 0, 0)
+        local _playerRank = player_state.state:constructor(C.ValueNonPers, C.PlayerRank, C.V3)
+        _playerRank(Id.PlayerSpecs.XP_PROGRESS, 0, 0, Vector3.new(0, 0, 0))
         local _session_enemy_kills = player_state.state:constructor(C.ValueNonPers)
         _session_enemy_kills(Id.PlayerSpecs.SESSION_ENEMY_KILLS, 0)
         local _session_damage_stats = player_state.state:constructor(C.ValueNonPers)

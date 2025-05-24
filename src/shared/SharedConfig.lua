@@ -76,7 +76,8 @@ m.DISTANCE_FROM_MID_TO_BOOSTER = 50
 m.DEFAULT_PLAYER_ID = -100
 m.ENEMY_SIGHT_RADIUS = 100
 m.STARTING_CLONE_AMOUNT = 0
-m.PLAYER_RANK_XP_REQUIRED = 50
+-- TODO: revert to 30 (or less?)
+m.PLAYER_RANK_XP_REQUIRED = 5--30
 m.PLAYER_RANK_XP_INCREMENT = m.PLAYER_RANK_XP_REQUIRED / 10
 m.COLLISION_PROXIMITY_TO_OBSTACLE = 1.5
 m.FIRST_BOMB_DELAY = 8.0
@@ -166,6 +167,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     Total                = iota'', -- number
     Bitset               = iota'', -- flag
     BitsetNonPers        = iota'', -- flag
+    V3                   = iota'', -- Vector3
     Instance             = iota'', -- Instance(client)
     WorldGui             = iota'', -- any
     -- client-only
@@ -185,7 +187,7 @@ do
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
         :set_replication_flag(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Total, C.Bitset, C.BitsetNonPers)
-        :set_replication_flag(C.ValuePers, C.PlayerRank)
+        :set_replication_flag(C.ValuePers, C.PlayerRank, C.V3)
         :set_persistent_flag(C.ValuePers, C.Total, C.Bitset)
         :build_with_replica()
 

@@ -260,7 +260,7 @@ m.PlayerUpgradeNonPersistent = {
     [Id.PlayerUpgradeNonPersistent.INVINCIBILITY] = {
         ttl = 2, -- sec
         maxStage = 1, 
-        isRenewable = true
+        isRenewable = true,
     },
     [Id.PlayerUpgradeNonPersistent.FIREPOWER] = {
         ttl = -1, 
@@ -285,6 +285,7 @@ m.PlayerUpgradeNonPersistent = {
         multiplier = 1.1,
     },
     [Id.PlayerUpgradeNonPersistent.CLONE_FACTORY] = {
+        -- + 1 for every stage
         ttl = 10,
         maxStage = 3,
         isRenewable = false,
@@ -303,7 +304,7 @@ m.PlayerUpgradeNonPersistent = {
         ttl = 0xffff_ffff,
         maxStage = 1,
         isRenewable = false,
-        multiplier = 1.1,
+        multiplier = 1.5,
     },
 }
 

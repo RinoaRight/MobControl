@@ -33,6 +33,7 @@ local fmt = string.format
 
 --[[ stylua: ignore]] game = game or require("game")
 local shared = game.ReplicatedStorage.shared
+local server = game.ServerScriptService.server
 local enum = require(shared.enum)
 local _iota = enum.iota
 local Id = require(shared.Id)
@@ -106,7 +107,7 @@ export type PlayerState = {
     DeductHp: (self: PlayerState, amount: num, cause: id | uid?) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
-    UpdatePlayerXP: (self: PlayerState, xp: int) -> (int, int),
+    -- UpdatePlayerXP: (self: PlayerState, xp: int) -> (int, int),
     ResetPlayerXP: (self: PlayerState) -> (),
     UpdateSessionDamageStats: (self: PlayerState, dmg: num) -> int,
     UpdateSessionEnemyKills: (self: PlayerState) -> int,
@@ -375,20 +376,22 @@ function PlayerState.UpdateSessionEnemyKills(self: PlayerState): int
     return newVal
 end
 
-function PlayerState.UpdatePlayerXP(self: PlayerState, received_xp: int): (int, int)
-    local current_rank = self.state:get(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank)
-    local current_xp = self.state:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers)
-    local next_rank = current_rank
-    local next_xp = current_xp + received_xp
-    local xp_required = SharedConfig.PLAYER_RANK_XP_REQUIRED + current_rank * SharedConfig.PLAYER_RANK_XP_INCREMENT
-    if next_xp >= xp_required then
-        next_rank = current_rank + 1
-        next_xp = next_xp - xp_required
-    end
-    self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank, next_rank)
-    self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers, next_xp)
-    return next_rank, next_xp
-end
+-- function PlayerState.UpdatePlayerXP(self: PlayerState, received_xp: int): (int, int)
+--     local current_rank = self.state:get(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank)
+--     local current_xp = self.state:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers)
+--     local next_rank = current_rank
+--     local next_xp = current_xp + received_xp
+--     local xp_required = SharedConfig.PLAYER_RANK_XP_REQUIRED + current_rank * SharedConfig.PLAYER_RANK_XP_INCREMENT
+--     if next_xp >= xp_required then
+--         -- rank up
+--         next_rank = current_rank + 1
+--         next_xp = next_xp - xp_required
+--         Signal.Fire(Id.S2S.RANK_UP, self.player_id, next_rank, next_xp)
+--     end
+--     self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank, next_rank)
+--     self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers, next_xp)
+--     return next_rank, next_xp
+-- end
 
 function PlayerState.ResetPlayerXP(self: PlayerState): ()
     self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank, 0)

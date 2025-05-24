@@ -43,6 +43,7 @@ local SFX = require(script.Parent.SFX)
 local TweenService = game:GetService("TweenService")
 local TaskPool = require(shared.TaskPool)
 local UserInputService = game:GetService("UserInputService")
+local NumFormat = require(shared.num_format)
 
 local maid = disposer.new()
 
@@ -92,24 +93,68 @@ local function onPerkBtnPressed(state: state.Replica, whichBtn: TextButton)
     hidePerkPanel()
 end
 
-local function onPlayerRankUpdate(state: state.Replica) 
-    -- TODO: fill in selection slots (image + description + colors). Perk selection is to be defined server-side
-    -- subscribe perk buttons, show panel
-    maid.slot1Btn = Signal.Connect(PERK_1_SLOT_BTN.Activated, function()
-        onPerkBtnPressed(state, PERK_1_SLOT_BTN)
-    end)
-    maid.slot2Btn = Signal.Connect(PERK_2_SLOT_BTN.Activated, function()
-        onPerkBtnPressed(state, PERK_2_SLOT_BTN)
-    end)
+local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: TextLabel, descr2Box: TextLabel)
+    local entry = S.PlayerUpgradeNonPersistent[perkId]
+    if not entry then
+        return
+    end
+    local ttl = entry.ttl
+    local currentStage = playerState:get(perkId, C.ValueNonPers)
+    local nextStageRoman = NumFormat.roman(currentStage + 1)
+    local text1 = " "
+    local text2 = " "
+    if perkId == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
+        text1 = string.format("%d sec", ttl)
+        text2 = "invincibility"
+    elseif perkId == Id.PlayerUpgradeNonPersistent.FIREPOWER then
+        text1 = string.format("firepower %s", nextStageRoman)
+    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD then
+        text1 = "shield"
+    elseif perkId == Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT then
+        text1 = "bullet"
+        text2 = string.format("speed %s", nextStageRoman)
+    elseif perkId == Id.PlayerUpgradeNonPersistent.CLONE_FACTORY then
+        text1 = string.format("%d clone(s)", 1 * (currentStage + 1))
+        text2 = string.format("every %d sec", ttl)
+    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE then
+        text1 = "shield"
+        text2 = "recharge"
+    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE then
+        text1 = "shield"
+        text2 = string.format("damage %s", nextStageRoman)
+    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT then
+        text1 = "fast shield"
+        text2 = "recharge"
+    end
+    descr1Box.Text = string.upper(text1)
+    descr2Box.Text = string.upper(text2)
+end
+
+local function onPlayerRankUpdate(state: state.Replica)
+    -- TODO: sound a sound
+    local choice = state:get(Id.PlayerSpecs.XP_PROGRESS, C.V3)
+    local perk1 = choice.X
+    local perk2 = choice.Y
+    if perk1 ~= 0 or perk2 ~= 0 then
+        -- TODO: change image
+        if perk1 ~= 0 then
+            fillPerkInfo(state, perk1, PERK_1_SLOT_BG.PassDescription, PERK_1_SLOT_BG.PassDescription2)
+        end
+        if perk2 ~= 0 then
+            fillPerkInfo(state, perk2, PERK_2_SLOT_BG.PassDescription, PERK_2_SLOT_BG.PassDescription2)
+        end
+    end
+
     PERK_SELECTION_GUI.Enabled = true
+
     local tweenTimeDown = 1.2
     local tweenDownInfo = TweenInfo.new(tweenTimeDown, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
     local tweenDown = TweenService:Create(PERK_SELECTION_GUI_PANEL, tweenDownInfo, { Position = UDim2.fromScale(0.5, 0.5) })
     TaskPool.spawn(function()
         tweenDown:Play()
         task.wait(tweenTimeDown)
-        -- close the panel after 2 seconds
-        task.wait(2)
+        -- close the panel after 5 seconds
+        task.wait(5)
         if PERK_SELECTION_GUI.Enabled then
             hidePerkPanel()
         end
@@ -125,12 +170,21 @@ m.Init = function(playerState: state.Replica, mainGuiPanel, perkSelectionGui)
     local PERK_FRAME = assert(PERK_SELECTION_GUI_PANEL:WaitForChild("Frame"))
     PERK_1_SLOT = assert(PERK_FRAME:WaitForChild("1"))
     PERK_1_SLOT_BG = assert(PERK_1_SLOT:WaitForChild("BG"))
-    PERK_1_SLOT_BTN = assert(PERK_1_SLOT:WaitForChild("SelectButton")):: TextButton
+    PERK_1_SLOT_BTN = assert(PERK_1_SLOT:WaitForChild("SelectButton")) :: TextButton
     PERK_1_SLOT_IMG = assert(PERK_1_SLOT_BG:WaitForChild("ImageLabel"))
     PERK_2_SLOT = assert(PERK_FRAME:WaitForChild("2"))
     PERK_2_SLOT_BG = assert(PERK_2_SLOT:WaitForChild("BG"))
-    PERK_2_SLOT_BTN = assert(PERK_2_SLOT:WaitForChild("SelectButton")):: TextButton
+    PERK_2_SLOT_BTN = assert(PERK_2_SLOT:WaitForChild("SelectButton")) :: TextButton
     PERK_2_SLOT_IMG = assert(PERK_2_SLOT_BG:WaitForChild("ImageLabel"))
+
+    hidePerkPanel()
+
+    maid.slot1Btn = Signal.Connect(PERK_1_SLOT_BTN.Activated, function()
+        onPerkBtnPressed(playerState, PERK_1_SLOT_BTN)
+    end)
+    maid.slot2Btn = Signal.Connect(PERK_2_SLOT_BTN.Activated, function()
+        onPerkBtnPressed(playerState, PERK_2_SLOT_BTN)
+    end)
 
     local coinFrame = assert(mainGuiPanel:WaitForChild("MoneyFrame"))
     COIN_TEXTBOX = assert(coinFrame.BG.TextLabel)
@@ -197,13 +251,12 @@ m.OnStateUpdate = function(playerState: state.Replica)
 
     local rankValueView = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueView) or 0
     if currentRank > rankValueView then
-        -- TODO: sound a sound and suggest a choice
+        onPlayerRankUpdate(playerState)
     end
     playerState:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueView, currentRank)
 
     -- clamp min value to avoid visual artifacts
     local currentProgressBarValue = math.max(currentXpInPercent, 0.05)
     RANK_PROGRESS_BAR.Size = UDim2.fromScale(currentProgressBarValue, RANK_PROGRESS_BAR_INIT_SIZE.Y.Scale)
-    
 end
 return m
