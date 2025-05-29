@@ -413,8 +413,8 @@ local load = function(fire: FireServer, snapshot)
     end
     Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_PANEL, SETTINGS_MENU_GUI)
     Popup:Init(POPUP_GUI)
-    UICounters.Init(state, TOP_RIGHT_PANEL, PERK_SELECTION_GUI)
-    UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, LOCAL_HUMANOID_ROOT_PART)
+    UICounters.Init(state, TOP_RIGHT_PANEL)
+    UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, PERK_SELECTION_GUI, LOCAL_HUMANOID_ROOT_PART)
 
     MAIN_GUI.Enabled = true
 

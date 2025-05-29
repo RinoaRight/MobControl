@@ -30,6 +30,7 @@ local UserInputService = game:GetService("UserInputService")
 local Misc = require(shared.Misc)
 local TaskPool = require(shared.TaskPool)
 local TweenService = game:GetService("TweenService")
+local NumFormat = require(shared.num_format)
 local Logger = require(shared.logger)
 local log = Logger.create(script and script.Name or "UI_PlayerUpgrades"):set_prettifier(Id.pp):set_delimiter(" ")
 
@@ -41,6 +42,17 @@ local SHOP_ROOT_PANEL
 local SHOP_SCROLLING_FRAME
 local X_BTN
 local upgradesData = {}
+
+local PERK_SELECTION_GUI
+local PERK_SELECTION_GUI_PANEL
+local PERK_1_SLOT
+local PERK_1_SLOT_BG
+local PERK_1_SLOT_BTN : TextButton
+local PERK_1_SLOT_IMG
+local PERK_2_SLOT
+local PERK_2_SLOT_BG
+local PERK_2_SLOT_BTN : TextButton
+local PERK_2_SLOT_IMG
 
 local closeShopGui -- forward declaration
 
@@ -158,13 +170,99 @@ local function destroyInvincibilityAura(playerState: state.Replica, localCharact
     end
 end
 
+
+local function hidePerkPanel()
+    local tweenTimeUp = 0.5
+    local tweenUpInfo = TweenInfo.new(tweenTimeUp, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+    local tweenUp = TweenService:Create(PERK_SELECTION_GUI_PANEL, tweenUpInfo, { Position = UDim2.fromScale(0.5, 0) })
+    TaskPool.spawn(function()
+        tweenUp:Play()
+        task.wait(tweenTimeUp + 0.1)
+        _maid.waitingForExit = nil
+        PERK_SELECTION_GUI.Enabled = false
+    end)
+end
+
+local function onPerkBtnPressed(state: state.Replica, whichBtn: TextButton)
+    SFX.PLAY_SOUND(Id.Sound.CLICK)
+    -- TODO: flicker scale of the selected perk, signal to server
+    local whichPerk = 0
+    if whichBtn == PERK_1_SLOT_BTN then
+        whichPerk = 1
+    elseif whichBtn == PERK_2_SLOT_BTN then
+        whichPerk = 2
+    end
+
+    Signal.Fire(Id.C2S.PERK_SELECTED, whichPerk)
+    
+    hidePerkPanel()
+end
+
+local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: TextLabel, descr2Box: TextLabel)
+    local entry = S.PlayerUpgradeNonPersistent[perkId]
+    if not entry then
+        return
+    end
+    local ttl = entry.ttl
+    local currentStage = playerState:get(perkId, C.ValueNonPers)
+    local nextStageRoman = NumFormat.roman(currentStage + 1)
+    local text1 = " "
+    local text2 = " "
+    if perkId == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
+        text1 = string.format("%d sec", ttl)
+        text2 = "invincibility"
+    elseif perkId == Id.PlayerUpgradeNonPersistent.FIREPOWER then
+        text1 = string.format("firepower %s", nextStageRoman)
+    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD then
+        text1 = "shield"
+    elseif perkId == Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT then
+        text1 = "bullet"
+        text2 = string.format("speed %s", nextStageRoman)
+    elseif perkId == Id.PlayerUpgradeNonPersistent.CLONE_FACTORY then
+        text1 = string.format("%d clone(s)", 1 * (currentStage + 1))
+        text2 = string.format("every %d sec", ttl)
+    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE then
+        text1 = "shield"
+        text2 = "recharge"
+    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE then
+        text1 = "shield"
+        text2 = string.format("damage %s", nextStageRoman)
+    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT then
+        text1 = "fast shield"
+        text2 = "recharge"
+    end
+    descr1Box.Text = string.upper(text1)
+    descr2Box.Text = string.upper(text2)
+end
+
 local m = {}
 
-function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, localRoot)
+function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, perkSelectionGui, localRoot)
     shopGui.Enabled = false
     SHOP_ROOT_PANEL = assert(shopGui:FindFirstChild("ContainerFrame"):FindFirstChild("ShopPanel"))
     SHOP_SCROLLING_FRAME = assert(SHOP_ROOT_PANEL:FindFirstChild("ContainerFrame"):FindFirstChild("ScrollingFrame")) :: ScrollingFrame
     X_BTN = assert(SHOP_ROOT_PANEL:FindFirstChild("XButtonRim"):FindFirstChild("ImageLabel"):FindFirstChild("TextButton"))
+
+    PERK_SELECTION_GUI = perkSelectionGui
+    PERK_SELECTION_GUI_PANEL = assert(PERK_SELECTION_GUI:WaitForChild("ContainerFrame"))
+    local PERK_FRAME = assert(PERK_SELECTION_GUI_PANEL:WaitForChild("Frame"))
+    PERK_1_SLOT = assert(PERK_FRAME:WaitForChild("1"))
+    PERK_1_SLOT_BG = assert(PERK_1_SLOT:WaitForChild("BG"))
+    PERK_1_SLOT_BTN = assert(PERK_1_SLOT:WaitForChild("SelectButton")) :: TextButton
+    PERK_1_SLOT_IMG = assert(PERK_1_SLOT_BG:WaitForChild("ImageLabel"))
+    PERK_2_SLOT = assert(PERK_FRAME:WaitForChild("2"))
+    PERK_2_SLOT_BG = assert(PERK_2_SLOT:WaitForChild("BG"))
+    PERK_2_SLOT_BTN = assert(PERK_2_SLOT:WaitForChild("SelectButton")) :: TextButton
+    PERK_2_SLOT_IMG = assert(PERK_2_SLOT_BG:WaitForChild("ImageLabel"))
+
+    hidePerkPanel()
+
+    _maid.slot1Btn = Signal.Connect(PERK_1_SLOT_BTN.Activated, function()
+        onPerkBtnPressed(playerState, PERK_1_SLOT_BTN)
+    end)
+    _maid.slot2Btn = Signal.Connect(PERK_2_SLOT_BTN.Activated, function()
+        onPerkBtnPressed(playerState, PERK_2_SLOT_BTN)
+    end)
 
     -- fill in data
     -- TODO: others
@@ -311,5 +409,36 @@ function m.OnModify(playerState: state.Replica, localCharacter)
         destroyInvincibilityAura(playerState, localCharacter)
     end
 end
+
+function m.OnPlayerRankUpdate(state: state.Replica)
+        -- TODO: sound a sound
+        local choice = state:get(Id.PlayerSpecs.XP_PROGRESS, C.V3)
+        local perk1 = choice.X
+        local perk2 = choice.Y
+        if perk1 ~= 0 or perk2 ~= 0 then
+            -- TODO: change image
+            if perk1 ~= 0 then
+                fillPerkInfo(state, perk1, PERK_1_SLOT_BG.PassDescription, PERK_1_SLOT_BG.PassDescription2)
+            end
+            if perk2 ~= 0 then
+                fillPerkInfo(state, perk2, PERK_2_SLOT_BG.PassDescription, PERK_2_SLOT_BG.PassDescription2)
+            end
+        end
+    
+        PERK_SELECTION_GUI.Enabled = true
+    
+        local tweenTimeDown = 1.2
+        local tweenDownInfo = TweenInfo.new(tweenTimeDown, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+        local tweenDown = TweenService:Create(PERK_SELECTION_GUI_PANEL, tweenDownInfo, { Position = UDim2.fromScale(0.5, 0.5) })
+        TaskPool.spawn(function()
+            tweenDown:Play()
+            task.wait(tweenTimeDown)
+            -- close the panel after 5 seconds
+            task.wait(5)
+            if PERK_SELECTION_GUI.Enabled then
+                hidePerkPanel()
+            end
+        end)
+    end
 
 return m

@@ -44,6 +44,7 @@ local TweenService = game:GetService("TweenService")
 local TaskPool = require(shared.TaskPool)
 local UserInputService = game:GetService("UserInputService")
 local NumFormat = require(shared.num_format)
+local PlayerUpgrades = require(script.Parent.UI_PlayerUpgrades)
 
 local maid = disposer.new()
 
@@ -64,128 +65,12 @@ local RANK_TEXT_TARGET_SIZE = UDim2.fromScale(1, 1)
 local COLOR_RANK_CHANGED = Color3.fromHex("35d876")
 local COLOR_RANK_REGULAR = Color3.fromHex("e3c100")
 
-local PERK_SELECTION_GUI
-local PERK_SELECTION_GUI_PANEL
-local PERK_1_SLOT
-local PERK_1_SLOT_BG
-local PERK_1_SLOT_BTN
-local PERK_1_SLOT_IMG
-local PERK_2_SLOT
-local PERK_2_SLOT_BG
-local PERK_2_SLOT_BTN
-local PERK_2_SLOT_IMG
 
-local function hidePerkPanel()
-    local tweenTimeUp = 0.5
-    local tweenUpInfo = TweenInfo.new(tweenTimeUp, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-    local tweenUp = TweenService:Create(PERK_SELECTION_GUI_PANEL, tweenUpInfo, { Position = UDim2.fromScale(0.5, 0) })
-    TaskPool.spawn(function()
-        tweenUp:Play()
-        task.wait(tweenTimeUp + 0.1)
-        maid.waitingForExit = nil
-        PERK_SELECTION_GUI.Enabled = false
-    end)
-end
-
-local function onPerkBtnPressed(state: state.Replica, whichBtn: TextButton)
-    SFX.PLAY_SOUND(Id.Sound.CLICK)
-    -- TODO: flicker scale of the selected perk, signal to server
-    hidePerkPanel()
-end
-
-local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: TextLabel, descr2Box: TextLabel)
-    local entry = S.PlayerUpgradeNonPersistent[perkId]
-    if not entry then
-        return
-    end
-    local ttl = entry.ttl
-    local currentStage = playerState:get(perkId, C.ValueNonPers)
-    local nextStageRoman = NumFormat.roman(currentStage + 1)
-    local text1 = " "
-    local text2 = " "
-    if perkId == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
-        text1 = string.format("%d sec", ttl)
-        text2 = "invincibility"
-    elseif perkId == Id.PlayerUpgradeNonPersistent.FIREPOWER then
-        text1 = string.format("firepower %s", nextStageRoman)
-    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD then
-        text1 = "shield"
-    elseif perkId == Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT then
-        text1 = "bullet"
-        text2 = string.format("speed %s", nextStageRoman)
-    elseif perkId == Id.PlayerUpgradeNonPersistent.CLONE_FACTORY then
-        text1 = string.format("%d clone(s)", 1 * (currentStage + 1))
-        text2 = string.format("every %d sec", ttl)
-    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE then
-        text1 = "shield"
-        text2 = "recharge"
-    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE then
-        text1 = "shield"
-        text2 = string.format("damage %s", nextStageRoman)
-    elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT then
-        text1 = "fast shield"
-        text2 = "recharge"
-    end
-    descr1Box.Text = string.upper(text1)
-    descr2Box.Text = string.upper(text2)
-end
-
-local function onPlayerRankUpdate(state: state.Replica)
-    -- TODO: sound a sound
-    local choice = state:get(Id.PlayerSpecs.XP_PROGRESS, C.V3)
-    local perk1 = choice.X
-    local perk2 = choice.Y
-    if perk1 ~= 0 or perk2 ~= 0 then
-        -- TODO: change image
-        if perk1 ~= 0 then
-            fillPerkInfo(state, perk1, PERK_1_SLOT_BG.PassDescription, PERK_1_SLOT_BG.PassDescription2)
-        end
-        if perk2 ~= 0 then
-            fillPerkInfo(state, perk2, PERK_2_SLOT_BG.PassDescription, PERK_2_SLOT_BG.PassDescription2)
-        end
-    end
-
-    PERK_SELECTION_GUI.Enabled = true
-
-    local tweenTimeDown = 1.2
-    local tweenDownInfo = TweenInfo.new(tweenTimeDown, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
-    local tweenDown = TweenService:Create(PERK_SELECTION_GUI_PANEL, tweenDownInfo, { Position = UDim2.fromScale(0.5, 0.5) })
-    TaskPool.spawn(function()
-        tweenDown:Play()
-        task.wait(tweenTimeDown)
-        -- close the panel after 5 seconds
-        task.wait(5)
-        if PERK_SELECTION_GUI.Enabled then
-            hidePerkPanel()
-        end
-    end)
-end
 
 local m = {}
 m.__index = m
 
-m.Init = function(playerState: state.Replica, mainGuiPanel, perkSelectionGui)
-    PERK_SELECTION_GUI = perkSelectionGui
-    PERK_SELECTION_GUI_PANEL = assert(PERK_SELECTION_GUI:WaitForChild("ContainerFrame"))
-    local PERK_FRAME = assert(PERK_SELECTION_GUI_PANEL:WaitForChild("Frame"))
-    PERK_1_SLOT = assert(PERK_FRAME:WaitForChild("1"))
-    PERK_1_SLOT_BG = assert(PERK_1_SLOT:WaitForChild("BG"))
-    PERK_1_SLOT_BTN = assert(PERK_1_SLOT:WaitForChild("SelectButton")) :: TextButton
-    PERK_1_SLOT_IMG = assert(PERK_1_SLOT_BG:WaitForChild("ImageLabel"))
-    PERK_2_SLOT = assert(PERK_FRAME:WaitForChild("2"))
-    PERK_2_SLOT_BG = assert(PERK_2_SLOT:WaitForChild("BG"))
-    PERK_2_SLOT_BTN = assert(PERK_2_SLOT:WaitForChild("SelectButton")) :: TextButton
-    PERK_2_SLOT_IMG = assert(PERK_2_SLOT_BG:WaitForChild("ImageLabel"))
-
-    hidePerkPanel()
-
-    maid.slot1Btn = Signal.Connect(PERK_1_SLOT_BTN.Activated, function()
-        onPerkBtnPressed(playerState, PERK_1_SLOT_BTN)
-    end)
-    maid.slot2Btn = Signal.Connect(PERK_2_SLOT_BTN.Activated, function()
-        onPerkBtnPressed(playerState, PERK_2_SLOT_BTN)
-    end)
-
+m.Init = function(playerState: state.Replica, mainGuiPanel)
     local coinFrame = assert(mainGuiPanel:WaitForChild("MoneyFrame"))
     COIN_TEXTBOX = assert(coinFrame.BG.TextLabel)
     COIN_IMG = assert(coinFrame.MoneyIcon)
@@ -205,7 +90,6 @@ m.Init = function(playerState: state.Replica, mainGuiPanel, perkSelectionGui)
         playerState:set(refId, C.ValueView, currentValue)
     end
 
-    PERK_SELECTION_GUI_PANEL.Position = UDim2.fromScale(0.5, 0)
 end
 
 m.OnStateUpdate = function(playerState: state.Replica)
@@ -251,7 +135,7 @@ m.OnStateUpdate = function(playerState: state.Replica)
 
     local rankValueView = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueView) or 0
     if currentRank > rankValueView then
-        onPlayerRankUpdate(playerState)
+        PlayerUpgrades.OnPlayerRankUpdate(playerState)
     end
     playerState:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueView, currentRank)
 

@@ -101,7 +101,6 @@ export type PlayerState = {
     AddHp: (self: PlayerState, amount: num) -> (num, num),
     DeductCountableNonPersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
     DeductCountablePersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
-    GetPerkChoice: (self: PlayerState) -> Vector3,
     ResetCountable: (self: PlayerState, id: id) -> (),
     ResetPlayerUpgradeNonPers: (self: PlayerState, id: id) -> (),
     DeductHp: (self: PlayerState, amount: num, cause: id | uid?) -> num,
@@ -147,9 +146,9 @@ local function update_ids(main: state.Main)
         _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE, Id.PlayerF.NONE)
     end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
 
-    local _player_upgrade_non_persistent = main:constructor(C.TTL, C.ValueNonPers, C.Bitset) -- ttl, stage number, flag
+    local _player_perk_non_persistent = main:constructor(C.TTL, C.ValueNonPers, C.Bitset) -- ttl, stage number, flag
     merge(Id.PlayerUpgradeNonPersistent, function(id)
-        _player_upgrade_non_persistent(id, 0xffff_ffff, 0, Id.PlayerF.NONE)
+        _player_perk_non_persistent(id, 0xffff_ffff, 0, Id.PlayerF.NONE)
     end)
 
     local _player_upgrade_persistent = main:constructor(C.Bitset) -- flag
@@ -411,12 +410,6 @@ end
 function PlayerState.AddBooster(self: PlayerState, instanceGuid: string): ()
     local _booster = self.state:constructor(C.BitsetNonPers)
     _booster(instanceGuid, Id.PlayerF.NONE)
-end
-
-function PlayerState.GetPerkChoice(self: PlayerState): Vector3
-    -- TODO: implement
-    local perk_choice = Vector3.new(0, 0, 0)
-    return perk_choice
 end
 
 function PlayerState.__tostring(self: PlayerState): str

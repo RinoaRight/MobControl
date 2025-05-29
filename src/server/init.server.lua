@@ -695,6 +695,32 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     end
 end
 
+on[Id.C2S.PERK_SELECTED] = function(player_state, whichPerk, ...)
+    -- TODO: test this
+    if whichPerk == 0 then
+        log:error("Invalid perk number", whichPerk, debug.traceback())
+        return
+    end
+    local currentPerkSelection = player_state.state:get(Id.PlayerSpecs.XP_PROGRESS, C.V3)::Vector3
+    local perkId
+    if whichPerk == 1 then
+        perkId = currentPerkSelection.X
+    elseif whichPerk == 2 then
+        perkId = currentPerkSelection.Y
+    end
+    if perkId then
+        local perkFlags = player_state.state:get(perkId, C.Bitset)
+        local perkStage = player_state.state:get(perkId, C.ValueNonPers)
+        if perkStage < S.PlayerUpgradeNonPersistent[perkId].maxStage then
+            player_state.state:set(perkId, C.ValueNonPers, perkStage + 1)
+            player_state.state:set(perkId, C.Bitset, Id.flag_or(perkFlags, Id.PlayerF.PERK_ACQUIRED))
+        end
+    else
+        log:error("No perk id, failure to set perk", debug.traceback())
+        return
+    end
+end
+
 on[Id.C2S.TOGGLE_PLAYER_FLAG] = function(player_state, isToSwitchOn, flag_id, ...)
     local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, Id.flag_set(flags, flag_id, isToSwitchOn))
