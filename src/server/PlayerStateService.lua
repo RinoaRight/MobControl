@@ -318,11 +318,10 @@ function PlayerState.ResetCountable(self: PlayerState, countable_id: id): ()
 end
 
 function PlayerState.ResetPlayerUpgradeNonPers(self: PlayerState, upgrade_id: id): ()
-    self.state:set(upgrade_id, C.ValueNonPers, 0)
-    self.state:set(upgrade_id, C.Bitset, Id.PlayerF.NONE)
-    if self.state:get(upgrade_id, C.TTL) then
-        self.state:set(upgrade_id, C.TTL, 0xffff_ffff)
-    end
+    -- self.state:set(upgrade_id, C.ValueNonPers, 0)
+    local flags = self.state:get(upgrade_id, C.Bitset)
+    self.state:set(upgrade_id, C.Bitset, Id.flag_set(flags, Id.PlayerF.PERK_ACTIVE, false))
+    self.state:set(upgrade_id, C.TTL, 0xffff_ffff)
 end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
@@ -345,7 +344,7 @@ end
 function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
     -- check if player is invincible
     local flags = self.state:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset)
-    local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
+    local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
     if isInvincible then
         return 0
     end

@@ -349,11 +349,12 @@ end
 local function handlePlayerUpgrades(player_state: PSS.PlayerState)
     for _, upgrade_id in Id.PlayerUpgradeNonPersistent:ids() do
         local flags = player_state.state:get(upgrade_id, C.Bitset)
-        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
         if isActive then
             local currentTTL = player_state.state:get(upgrade_id, C.TTL)
             if currentTTL then
                 if currentTTL < roflake.time() then
+                    -- reset the upgrade
                     player_state:ResetPlayerUpgradeNonPers(upgrade_id)
                 end
             end

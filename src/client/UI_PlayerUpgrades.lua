@@ -20,6 +20,7 @@ local shared = ReplicatedStorage.shared
 local Disposer = require(shared.disposer)
 local Signal = require(shared.signal)
 local Id = require(shared.Id)
+type flag = Id.flag
 local S = require(shared.StaticData)
 local SFX = require(script.Parent.SFX)
 local SharedConfig = require(shared.SharedConfig)
@@ -33,6 +34,7 @@ local TweenService = game:GetService("TweenService")
 local NumFormat = require(shared.num_format)
 local Logger = require(shared.logger)
 local log = Logger.create(script and script.Name or "UI_PlayerUpgrades"):set_prettifier(Id.pp):set_delimiter(" ")
+local roflake = require(shared.roflake)
 
 -- local _state
 local _maid = Disposer.new(script)
@@ -47,11 +49,11 @@ local PERK_SELECTION_GUI
 local PERK_SELECTION_GUI_PANEL
 local PERK_1_SLOT
 local PERK_1_SLOT_BG
-local PERK_1_SLOT_BTN : TextButton
+local PERK_1_SLOT_BTN: TextButton
 local PERK_1_SLOT_IMG
 local PERK_2_SLOT
 local PERK_2_SLOT_BG
-local PERK_2_SLOT_BTN : TextButton
+local PERK_2_SLOT_BTN: TextButton
 local PERK_2_SLOT_IMG
 
 local closeShopGui -- forward declaration
@@ -138,17 +140,17 @@ local function createInvincibilityAura(playerState: state.Replica)
     aura.Position = upperTorso.Position
 end
 
-local dur1 = .1
-local dur2 = .05
+local dur1 = 0.1
+local dur2 = 0.05
 local tweenInfo1 = TweenInfo.new(dur1, Enum.EasingStyle.Linear)
 local tweenInfo2 = TweenInfo.new(dur2, Enum.EasingStyle.Linear)
 local function destroyInvincibilityAura(playerState: state.Replica, localCharacter: Model)
-    local aura = localCharacter:FindFirstChild(SharedConfig.INVINCIBILITY_AURA_NAME)::BasePart
+    local aura = localCharacter:FindFirstChild(SharedConfig.INVINCIBILITY_AURA_NAME) :: BasePart
     local initTransparency = aura.Transparency
     local targetTransparency = 1
-    local tween1 = TweenService:Create(aura, tweenInfo1, { Transparency = targetTransparency})
+    local tween1 = TweenService:Create(aura, tweenInfo1, { Transparency = targetTransparency })
     local tween2 = TweenService:Create(aura, tweenInfo1, { Transparency = initTransparency })
-    local tween3 = TweenService:Create(aura, tweenInfo2, { Transparency = targetTransparency})
+    local tween3 = TweenService:Create(aura, tweenInfo2, { Transparency = targetTransparency })
     local tween4 = TweenService:Create(aura, tweenInfo2, { Transparency = initTransparency })
     if aura then
         -- flicker then destroy
@@ -169,7 +171,6 @@ local function destroyInvincibilityAura(playerState: state.Replica, localCharact
         end)
     end
 end
-
 
 local function hidePerkPanel()
     local tweenTimeUp = 0.5
@@ -194,7 +195,7 @@ local function onPerkBtnPressed(state: state.Replica, whichBtn: TextButton)
     end
 
     Signal.Fire(Id.C2S.PERK_SELECTED, whichPerk)
-    
+
     hidePerkPanel()
 end
 
@@ -257,10 +258,10 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
 
     hidePerkPanel()
 
-    _maid.slot1Btn = Signal.Connect(PERK_1_SLOT_BTN.Activated, function()
+    _maid.slot1Btn = PERK_1_SLOT_BTN.Activated:Connect(function()
         onPerkBtnPressed(playerState, PERK_1_SLOT_BTN)
     end)
-    _maid.slot2Btn = Signal.Connect(PERK_2_SLOT_BTN.Activated, function()
+    _maid.slot2Btn = PERK_2_SLOT_BTN.Activated:Connect(function()
         onPerkBtnPressed(playerState, PERK_2_SLOT_BTN)
     end)
 
@@ -400,45 +401,53 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
     subscribeTokenShopCollider(playerState, worldState, shopGui, localRoot)
 end
 
-function m.OnModify(playerState: state.Replica, localCharacter)
-    local flags = playerState:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset)
-    local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
-    if isInvincible then
-        createInvincibilityAura(playerState)
-    else
-        destroyInvincibilityAura(playerState, localCharacter)
+function m.OnModify(playerState: state.Replica, localCharacter, guid: guid, newValue: flag, oldValue: flag)
+    if guid == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
+        local isAcquired = Id.flag_test(newValue, Id.PlayerF.PERK_ACQUIRED)
+        local isInvincible = Id.flag_test(newValue, Id.PlayerF.PERK_ACTIVE)
+        if isInvincible and isAcquired then
+            createInvincibilityAura(playerState)
+        elseif isAcquired then
+            destroyInvincibilityAura(playerState, localCharacter)
+        end
     end
 end
 
 function m.OnPlayerRankUpdate(state: state.Replica)
-        -- TODO: sound a sound
-        local choice = state:get(Id.PlayerSpecs.XP_PROGRESS, C.V3)
-        local perk1 = choice.X
-        local perk2 = choice.Y
-        if perk1 ~= 0 or perk2 ~= 0 then
-            -- TODO: change image
-            if perk1 ~= 0 then
-                fillPerkInfo(state, perk1, PERK_1_SLOT_BG.PassDescription, PERK_1_SLOT_BG.PassDescription2)
-            end
-            if perk2 ~= 0 then
-                fillPerkInfo(state, perk2, PERK_2_SLOT_BG.PassDescription, PERK_2_SLOT_BG.PassDescription2)
-            end
+    -- TODO: sound a sound
+    local choice = state:get(Id.PlayerSpecs.XP_PROGRESS, C.V3)
+    local perk1 = choice.X
+    local perk2 = choice.Y
+    if perk1 ~= 0 or perk2 ~= 0 then
+        -- TODO: change image
+        if perk1 ~= 0 then
+            fillPerkInfo(state, perk1, PERK_1_SLOT_BG.PassDescription, PERK_1_SLOT_BG.PassDescription2)
+            PERK_1_SLOT.Visible = true
+        else
+            PERK_1_SLOT.Visible = false
         end
-    
-        PERK_SELECTION_GUI.Enabled = true
-    
-        local tweenTimeDown = 1.2
-        local tweenDownInfo = TweenInfo.new(tweenTimeDown, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
-        local tweenDown = TweenService:Create(PERK_SELECTION_GUI_PANEL, tweenDownInfo, { Position = UDim2.fromScale(0.5, 0.5) })
-        TaskPool.spawn(function()
-            tweenDown:Play()
-            task.wait(tweenTimeDown)
-            -- close the panel after 5 seconds
-            task.wait(5)
-            if PERK_SELECTION_GUI.Enabled then
-                hidePerkPanel()
-            end
-        end)
+        if perk2 ~= 0 then
+            fillPerkInfo(state, perk2, PERK_2_SLOT_BG.PassDescription, PERK_2_SLOT_BG.PassDescription2)
+            PERK_2_SLOT.Visible = true
+        else
+            PERK_2_SLOT.Visible = false
+        end
     end
+
+    PERK_SELECTION_GUI.Enabled = true
+
+    local tweenTimeDown = 1.2
+    local tweenDownInfo = TweenInfo.new(tweenTimeDown, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
+    local tweenDown = TweenService:Create(PERK_SELECTION_GUI_PANEL, tweenDownInfo, { Position = UDim2.fromScale(0.5, 0.5) })
+    TaskPool.spawn(function()
+        tweenDown:Play()
+        task.wait(tweenTimeDown)
+        -- close the panel after 8 seconds
+        task.wait(8)
+        if PERK_SELECTION_GUI.Enabled then
+            hidePerkPanel()
+        end
+    end)
+end
 
 return m

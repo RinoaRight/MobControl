@@ -62,8 +62,8 @@ m.SelectPerks = function(playerState: PSS.PlayerState)
     local selectedPerks = Vector3.new(0, 0, 0)
     -- if shield is not yet selected, suggest it and nothing more
     local shieldFlags = playerState.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
-    local isShieldAlreadySelected = Id.flag_test(shieldFlags, Id.PlayerF.PERK_ACQUIRED)
-    if not isShieldAlreadySelected then
+    local isShieldAlreadyAcquired = Id.flag_test(shieldFlags, Id.PlayerF.PERK_ACQUIRED)
+    if not isShieldAlreadyAcquired then
         selectedPerks = Vector3.new(Id.PlayerUpgradeNonPersistent.SHIELD, 0, 0)
         return selectedPerks
     end

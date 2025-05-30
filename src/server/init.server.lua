@@ -357,12 +357,20 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     end
 end
 
-local function setPlayerUpgradeNonPers(player_state, upgrade_id: id)
-    if upgrade_id == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
-        local flags = player_state.state:get(upgrade_id, C.Bitset)
-        player_state.state:set(upgrade_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED))
-        local ttl = S.PlayerUpgradeNonPersistent[upgrade_id].ttl or 0xffff_ffff
-        player_state.state:set(upgrade_id, C.TTL, roflake.time() + ttl)
+local function setPlayerUpgradeNonPers(player_state, perk_id: id)
+    local perkStage = player_state.state:get(perk_id, C.ValueNonPers)
+    if perkStage < S.PlayerUpgradeNonPersistent[perk_id].maxStage then
+        local flags = player_state.state:get(perk_id, C.Bitset)
+        local duration = S.PlayerUpgradeNonPersistent[perk_id].ttl
+        local ttl
+        if duration then
+            ttl = roflake.time() + duration
+        else
+            ttl = 0xffff_ffff
+        end
+        player_state.state:set(perk_id, C.TTL, ttl)
+        player_state.state:set(perk_id, C.ValueNonPers, perkStage + 1)
+        player_state.state:set(perk_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED, Id.PlayerF.PERK_ACTIVE))
     end
 end
 
@@ -453,8 +461,8 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
 
     -- check if the player already has this upgrade
     local flags = player_state.state:get(upgrade_id, C.Bitset)
-    local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
-    if isActive then
+    local isAcquired = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
+    if isAcquired then
         return
     end
 
@@ -469,28 +477,29 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
     player_state.state:set(upgrade_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED))
 end
 
-on[Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS] = function(player_state, upgrade_id: id, ...)
-    -- check if it is a valid upgrade id
-    if Id.kind(upgrade_id) ~= Id.Kind.PlayerUpgradeNonPersistent then
-        log:error("Not a player upgrade", upgrade_id, debug.traceback())
-        return
-    end
+-- on[Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS] = function(player_state, upgrade_id: id, ...)
+--     print("LLLLLLLLLLL request player upgrade non pers", upgrade_id)
+--     -- check if it is a valid upgrade id
+--     if Id.kind(upgrade_id) ~= Id.Kind.PlayerUpgradeNonPersistent then
+--         log:error("Not a player upgrade", upgrade_id, debug.traceback())
+--         return
+--     end
 
-    -- check if the player already has this upgrade maxed out
-    local upgradeStage = player_state.state:get(upgrade_id, C.ValueNonPers)
-    if upgradeStage >= S.PlayerUpgradeNonPersistent[upgrade_id].maxStage then
-        player_state:NotifyClient(Id.S2C.SHOW_POPUP_SERVER, Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS)
-        return
-    end
+--     -- check if the player already has this upgrade maxed out
+--     local upgradeStage = player_state.state:get(upgrade_id, C.ValueNonPers)
+--     if upgradeStage >= S.PlayerUpgradeNonPersistent[upgrade_id].maxStage then
+--         player_state:NotifyClient(Id.S2C.SHOW_POPUP_SERVER, Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS)
+--         return
+--     end
 
-    -- -- check if the player already has this upgrade
-    -- local flags = player_state.state:get(upgrade_id, C.Bitset)
-    -- if Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE) then
-    --     return
-    -- end
+--     -- -- check if the player already has this upgrade
+--     -- local flags = player_state.state:get(upgrade_id, C.Bitset)
+--     -- if Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE) then
+--     --     return
+--     -- end
 
-    setPlayerUpgradeNonPers(player_state, upgrade_id)
-end
+--     setPlayerUpgradeNonPers(player_state, upgrade_id)
+-- end
 
 on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { uid }, bulletGuid: uid, ...)
     if not WorldService.world:has(bulletGuid) then
@@ -523,6 +532,8 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
             if not targetPos then
                 return
             end
+
+            -- TODO: FIXIT: spraygun bullets. Are they handled at all?
 
             local distance = (bulletStartPos - targetPos).Magnitude
             if bulletWeaponId == Id.Weapon.ROCKET then
@@ -696,12 +707,11 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
 end
 
 on[Id.C2S.PERK_SELECTED] = function(player_state, whichPerk, ...)
-    -- TODO: test this
     if whichPerk == 0 then
         log:error("Invalid perk number", whichPerk, debug.traceback())
         return
     end
-    local currentPerkSelection = player_state.state:get(Id.PlayerSpecs.XP_PROGRESS, C.V3)::Vector3
+    local currentPerkSelection = player_state.state:get(Id.PlayerSpecs.XP_PROGRESS, C.V3) :: Vector3
     local perkId
     if whichPerk == 1 then
         perkId = currentPerkSelection.X
@@ -709,12 +719,7 @@ on[Id.C2S.PERK_SELECTED] = function(player_state, whichPerk, ...)
         perkId = currentPerkSelection.Y
     end
     if perkId then
-        local perkFlags = player_state.state:get(perkId, C.Bitset)
-        local perkStage = player_state.state:get(perkId, C.ValueNonPers)
-        if perkStage < S.PlayerUpgradeNonPersistent[perkId].maxStage then
-            player_state.state:set(perkId, C.ValueNonPers, perkStage + 1)
-            player_state.state:set(perkId, C.Bitset, Id.flag_or(perkFlags, Id.PlayerF.PERK_ACQUIRED))
-        end
+        setPlayerUpgradeNonPers(player_state, perkId)
     else
         log:error("No perk id, failure to set perk", debug.traceback())
         return

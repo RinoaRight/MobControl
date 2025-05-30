@@ -477,6 +477,7 @@ Id.PlayerF = enum.with_id "Id.PlayerF" {
     READY              = flag'',
     BOOSTER_TOUCHED    = flag'',
     PERK_ACQUIRED      = flag'',
+    PERK_ACTIVE      = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)

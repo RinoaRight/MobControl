@@ -33,6 +33,7 @@ local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local shared = ReplicatedStorage.shared
 local Array = require(shared.array)
 local Id = require(shared.Id)
+type flag = Id.flag
 local S = require(shared.StaticData)
 
 local logger = require(shared.logger)
@@ -1082,15 +1083,10 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
     end
 end)
 
-PLAYER_STATE:set_on_modify(C.ValueNonPers, function(guid: guid, newValue: num, oldValue: num)
+PLAYER_STATE:set_on_modify(C.Bitset, function(guid: guid, newValue: flag, oldValue: flag)
     if type(guid) == "number" then
         if Id.kind(guid) == Id.Kind.PlayerUpgradeNonPersistent then
-            UIPlayerUpgrades.OnModify(PLAYER_STATE, LOCAL_CHARACTER)
+            UIPlayerUpgrades.OnModify(PLAYER_STATE, LOCAL_CHARACTER, guid, newValue, oldValue)
         end
     end
 end)
-
-PLAYER_STATE:set_on_modify(C.PlayerRank, function(guid: guid, newValue: num, oldValue: num)
-    -- TODO: on rank change, offer upgrade selection and, when selected, send the choice to the server
-end)
-
