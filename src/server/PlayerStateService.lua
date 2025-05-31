@@ -146,9 +146,9 @@ local function update_ids(main: state.Main)
         _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE, Id.PlayerF.NONE)
     end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
 
-    local _player_perk_non_persistent = main:constructor(C.TTL, C.ValueNonPers, C.Bitset) -- ttl, stage number, flag
+    local _player_perk_non_persistent = main:constructor(C.TTL, C.ValueNonPers, C.Bitset, C.HP) -- ttl, stage number, flag, hp
     merge(Id.PlayerUpgradeNonPersistent, function(id)
-        _player_perk_non_persistent(id, 0xffff_ffff, 0, Id.PlayerF.NONE)
+        _player_perk_non_persistent(id, 0xffff_ffff, 0, Id.PlayerF.NONE, 0)
     end)
 
     local _player_upgrade_persistent = main:constructor(C.Bitset) -- flag
@@ -322,6 +322,7 @@ function PlayerState.ResetPlayerUpgradeNonPers(self: PlayerState, upgrade_id: id
     local flags = self.state:get(upgrade_id, C.Bitset)
     self.state:set(upgrade_id, C.Bitset, Id.flag_set(flags, Id.PlayerF.PERK_ACTIVE, false))
     self.state:set(upgrade_id, C.TTL, 0xffff_ffff)
+    self.state:set(upgrade_id, C.HP, 0)
 end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
@@ -346,6 +347,19 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
     local flags = self.state:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset)
     local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
     if isInvincible then
+        return 0
+    end
+
+    -- check if player has shield
+    local shield_hp = self.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.HP)
+    local shield_flags = self.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
+    local isShieldActive = Id.flag_test(shield_flags, Id.PlayerF.PERK_ACTIVE)
+    if isShieldActive and shield_hp > 0 then
+        local new_shield_hp = math.max(shield_hp - howMuch, 0)
+        self.state:set(Id.PlayerUpgradeNonPersistent.SHIELD, C.HP, new_shield_hp)
+        if new_shield_hp <= 0 then
+            self:ResetPlayerUpgradeNonPers(Id.PlayerUpgradeNonPersistent.SHIELD)
+        end
         return 0
     end
 

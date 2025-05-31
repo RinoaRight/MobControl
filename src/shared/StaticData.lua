@@ -266,12 +266,13 @@ m.PlayerUpgradeNonPersistent = {
         ttl = -1, 
         maxStage = 5, 
         isRenewable = false,
-        multiplier = 1.1, -- percent
+        multiplier = .1, -- percent
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD] = {
         ttl = 10,
         maxStage = 1,
         isRenewable = true,
+        hp = 80
     },
     -- [Id.PlayerUpgradeNonPersistent.DRONES] = {
     --     ttl = 0,
@@ -282,7 +283,7 @@ m.PlayerUpgradeNonPersistent = {
         ttl = 0xffff_ffff,
         maxStage = 3,
         isRenewable = false,
-        multiplier = 1.1,
+        multiplier = .1,
     },
     [Id.PlayerUpgradeNonPersistent.CLONE_FACTORY] = {
         -- + 1 for every stage
@@ -304,7 +305,7 @@ m.PlayerUpgradeNonPersistent = {
         ttl = 0xffff_ffff,
         maxStage = 1,
         isRenewable = false,
-        multiplier = 1.5,
+        multiplier = .5,
     },
 }
 

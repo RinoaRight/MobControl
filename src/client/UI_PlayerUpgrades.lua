@@ -401,14 +401,28 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
     subscribeTokenShopCollider(playerState, worldState, shopGui, localRoot)
 end
 
-function m.OnModify(playerState: state.Replica, localCharacter, guid: guid, newValue: flag, oldValue: flag)
+function m.OnModifyBitset(playerState: state.Replica, localCharacter, guid: guid, newValue: flag, oldValue: flag)
+    local isAcquired = Id.flag_test(newValue, Id.PlayerF.PERK_ACQUIRED)
+    local isActive = Id.flag_test(newValue, Id.PlayerF.PERK_ACTIVE)
     if guid == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
-        local isAcquired = Id.flag_test(newValue, Id.PlayerF.PERK_ACQUIRED)
-        local isInvincible = Id.flag_test(newValue, Id.PlayerF.PERK_ACTIVE)
-        if isInvincible and isAcquired then
+        if isActive and isAcquired then
             createInvincibilityAura(playerState)
         elseif isAcquired then
             destroyInvincibilityAura(playerState, localCharacter)
+        end
+    elseif guid == Id.PlayerUpgradeNonPersistent.SHIELD then
+        if isActive and isAcquired then
+            -- TODO: create shield
+        elseif isAcquired then
+            -- TODO: remove shield
+        end
+    end
+end
+
+function m.OnModifyHP(playerState: state.Replica, localCharacter, guid: guid, newValue: number, oldValue: number)
+    if guid == Id.PlayerUpgradeNonPersistent.SHIELD then
+        if newValue < oldValue then
+            -- TODO: SFX of shield being hit
         end
     end
 end

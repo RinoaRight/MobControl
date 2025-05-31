@@ -361,7 +361,10 @@ local function setPlayerUpgradeNonPers(player_state, perk_id: id)
     local perkStage = player_state.state:get(perk_id, C.ValueNonPers)
     if perkStage < S.PlayerUpgradeNonPersistent[perk_id].maxStage then
         local flags = player_state.state:get(perk_id, C.Bitset)
-        local duration = S.PlayerUpgradeNonPersistent[perk_id].ttl
+        local duration
+        if S.PlayerUpgradeNonPersistent[perk_id].ttl then
+            duration = S.PlayerUpgradeNonPersistent[perk_id].ttl
+        end
         local ttl
         if duration then
             ttl = roflake.time() + duration
@@ -371,6 +374,9 @@ local function setPlayerUpgradeNonPers(player_state, perk_id: id)
         player_state.state:set(perk_id, C.TTL, ttl)
         player_state.state:set(perk_id, C.ValueNonPers, perkStage + 1)
         player_state.state:set(perk_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED, Id.PlayerF.PERK_ACTIVE))
+        if S.PlayerUpgradeNonPersistent[perk_id].hp then
+            player_state.state:set(perk_id, C.HP, S.PlayerUpgradeNonPersistent[perk_id].hp)
+        end
     end
 end
 
@@ -555,11 +561,20 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
                 return
             end
 
-            -- check for firepower upgrades
-            local firepowerId = Misc.IsFirepowerUpgrade(playerState)
+            -- check for persistent firepower upgrades
             local firepowerBonus = 1
-            if firepowerId then
-                firepowerBonus = assert(S.PlayerUpgradePersistent[firepowerId].value)
+            local firepowerIdPers = Misc.IsFirepowerUpgrade(playerState)
+            if firepowerIdPers then
+                firepowerBonus = assert(S.PlayerUpgradePersistent[firepowerIdPers].value)
+            end
+
+            -- check for non-persistent firepower upgrades
+            local firepowerNonPersFlags = playerState.state:get(Id.PlayerUpgradeNonPersistent.FIREPOWER, C.Bitset)
+            if Id.flag_test(firepowerNonPersFlags, Id.PlayerF.PERK_ACTIVE) then
+                local firepowerNonPersStage = playerState.state:get(Id.PlayerUpgradeNonPersistent.FIREPOWER, C.ValueNonPers)
+                local bonusDmgPercent =
+                    assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.FIREPOWER].multiplier * firepowerNonPersStage)
+                firepowerBonus += bonusDmgPercent
             end
 
             if Id.kind(targetRefId) == Id.Kind.Enemy then

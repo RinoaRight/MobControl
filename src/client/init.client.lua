@@ -1086,7 +1086,15 @@ end)
 PLAYER_STATE:set_on_modify(C.Bitset, function(guid: guid, newValue: flag, oldValue: flag)
     if type(guid) == "number" then
         if Id.kind(guid) == Id.Kind.PlayerUpgradeNonPersistent then
-            UIPlayerUpgrades.OnModify(PLAYER_STATE, LOCAL_CHARACTER, guid, newValue, oldValue)
+            UIPlayerUpgrades.OnModifyBitset(PLAYER_STATE, LOCAL_CHARACTER, guid, newValue, oldValue)
+        end
+    end
+end)
+
+PLAYER_STATE:set_on_modify(C.HP, function(guid: guid, newValue: flag, oldValue: flag)
+    if type(guid) == "number" then
+        if Id.kind(guid) == Id.Kind.PlayerUpgradeNonPersistent then
+            UIPlayerUpgrades.OnModifyHP(PLAYER_STATE, LOCAL_CHARACTER, guid, newValue, oldValue)
         end
     end
 end)

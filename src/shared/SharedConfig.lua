@@ -168,6 +168,7 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     Bitset               = iota'', -- flag
     BitsetNonPers        = iota'', -- flag
     V3                   = iota'', -- Vector3
+    HP                   = iota'', -- number
     Instance             = iota'', -- Instance(client)
     WorldGui             = iota'', -- any
     -- client-only
@@ -187,7 +188,7 @@ do
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
         :set_replication_flag(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Total, C.Bitset, C.BitsetNonPers)
-        :set_replication_flag(C.ValuePers, C.PlayerRank, C.V3)
+        :set_replication_flag(C.ValuePers, C.PlayerRank, C.V3, C.HP)
         :set_persistent_flag(C.ValuePers, C.Total, C.Bitset)
         :build_with_replica()
 
