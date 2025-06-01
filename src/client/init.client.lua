@@ -160,6 +160,7 @@ end
 
 local function onStateUpdate(playerState: state.Replica)
     UICounters.OnStateUpdate(playerState)
+    UIPlayerUpgrades.OnStateUpdate(playerState, LOCAL_CHARACTER)
 end
 
 local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
@@ -1080,6 +1081,13 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
         if clientInstance then
             clientInstance:Destroy()
         end
+    end
+end)
+
+PLAYER_STATE:set_on_attach(C.RefId, function(guid: guid, newValue: num)
+    if Id.kind(newValue) == Id.Kind.PlayerUpgradeNonPersistent then
+        -- set the flag for when the aura is being destroyed
+        PLAYER_STATE:set(guid, C.ClientFlags, false)
     end
 end)
 

@@ -430,6 +430,7 @@ Id.PlayerUpgradeNonPersistent = enum.with_id "Id.PlayerUpgradeNonPersistent" {
     FIREPOWER            = iota'',
     SHIELD               = iota'',
     -- DRONES               = iota'',
+    -- TODO: the rest of the upgrades
     BULLET_SPEED_MULT    = iota'',
     CLONE_FACTORY        = iota'',
     SHIELD_RECHARGE      = iota'',
@@ -469,15 +470,15 @@ export type PassF = typeof(Id.PassF)
 -- PlayerF
 -----------------------------
 Id.PlayerF = enum.with_id "Id.PlayerF" {
-    NONE               = flag(Id.Kind.PlayerF),
-    _PERSISTENT        = flag'', 
-    OTHER_BULLETS_ON   = flag'',
-    OTHER_CLONES_ON    = flag'',
-    _NON_PERSISTENT    = flag'', 
-    READY              = flag'',
-    BOOSTER_TOUCHED    = flag'',
-    PERK_ACQUIRED      = flag'',
-    PERK_ACTIVE      = flag'',
+    NONE                 = flag(Id.Kind.PlayerF),
+    _PERSISTENT          = flag'', 
+    OTHER_BULLETS_ON     = flag'',
+    OTHER_CLONES_ON      = flag'',
+    _NON_PERSISTENT      = flag'', 
+    READY                = flag'',
+    BOOSTER_TOUCHED      = flag'',
+    PERK_ACQUIRED        = flag'',
+    PERK_ACTIVE          = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
@@ -662,9 +663,12 @@ Id.Sound = enum.with_id "Id.Sound" {
     CLICK                 = iota'',
     COIN_DROP             = iota'',
     CREAK_METAL           = iota'',
+    CRYSTAL_DING          = iota'',
+    ENERGY_SHIELD_HIT     = iota'',
     ERROR                 = iota'',
     FIRE_PISTOL           = iota'',
     FIRE_PISTOL_LOCALIZED = iota'',
+    POP                   = iota'',
     RELOAD                = iota'',
     SCREAM                = iota'',
     SCREAM_LOCALIZED_HIGH = iota'',

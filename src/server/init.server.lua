@@ -182,10 +182,11 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
         return
     end
 
-    -- reset non-persistent updates
-    for _, upgrade_id in Id.PlayerUpgradeNonPersistent:ids() do
-        player_state:ResetPlayerUpgradeNonPers(upgrade_id)
-    end
+    -- NOTE: don't reset on player's death, reset only when session is over
+    -- -- reset non-persistent updates
+    -- for _, upgrade_id in Id.PlayerUpgradeNonPersistent:ids() do
+    --     player_state:ResetPlayerUpgradeNonPers(upgrade_id)
+    -- end
 
     local attachement = player_state.root:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
     if attachement then
@@ -240,6 +241,16 @@ local function doCleanup(exception_player_id: num?)
     -- log:info(">", WorldService.world:format_state("*"))
 end
 
+local function unacquirePerks(playerState: PSS.PlayerState)
+    for _, perk_id in Id.PlayerUpgradeNonPersistent:ids() do
+        -- unacquire the perk
+        local flags = playerState.state:get(perk_id, C.Bitset)
+        playerState.state:set(perk_id, C.Bitset, Id.flag_set(flags, Id.PlayerF.PERK_ACQUIRED, false))
+        -- reset the perk
+        playerState:ResetPlayerUpgradeNonPers(perk_id)
+    end
+end
+
 local function startGameSession()
     TaskPool.spawn(function()
         Leaderboards.ResetLeaderboards()
@@ -289,6 +300,10 @@ stopGameSession = function(exception_player_id: num?)
     for playerId, playerState in pairs(STATES) do
         -- reset xp  for all players
         playerState:ResetPlayerXP()
+        -- reset perks for all players
+        for _, perk_id in Id.PlayerUpgradeNonPersistent:ids() do
+            unacquirePerks(playerState)
+        end
         -- kill off everyone who's alive; skip the player who ended the session to avoid recursion
         if exception_player_id and playerId ~= exception_player_id then
             continue

@@ -261,18 +261,21 @@ m.PlayerUpgradeNonPersistent = {
         ttl = 2, -- sec
         maxStage = 1, 
         isRenewable = true,
+        color = Color3.fromRGB(0, 255, 255),
     },
     [Id.PlayerUpgradeNonPersistent.FIREPOWER] = {
         ttl = -1, 
         maxStage = 5, 
         isRenewable = false,
         multiplier = .1, -- percent
+        color = Color3.fromRGB(255, 0, 0),
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD] = {
         ttl = 10,
         maxStage = 1,
         isRenewable = true,
-        hp = 80
+        hp = 80,
+        color = Color3.fromRGB(255, 170, 0),
     },
     -- [Id.PlayerUpgradeNonPersistent.DRONES] = {
     --     ttl = 0,
@@ -284,28 +287,33 @@ m.PlayerUpgradeNonPersistent = {
         maxStage = 3,
         isRenewable = false,
         multiplier = .1,
+        color = Color3.fromRGB(0, 255, 0),
     },
     [Id.PlayerUpgradeNonPersistent.CLONE_FACTORY] = {
         -- + 1 for every stage
         ttl = 10,
         maxStage = 3,
         isRenewable = false,
+        color = Color3.fromRGB(0, 0, 255),
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE] = {
         ttl = 10,
         maxStage = 1,
         isRenewable = false,
+        color = Color3.fromRGB(255, 165, 0),
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE] = {
         ttl = 0xffff_ffff,
         maxStage = 3,
         isRenewable = false,
+        color = Color3.fromRGB(255, 0, 0),
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT] = {
         ttl = 0xffff_ffff,
         maxStage = 1,
         isRenewable = false,
         multiplier = .5,
+        color = Color3.fromRGB(255, 165, 0),
     },
 }
 
@@ -315,8 +323,11 @@ m.Sound = {
     [Id.Sound.CLICK] = assert(SOUNDS_ROOT:WaitForChild("Click")),
     [Id.Sound.COIN_DROP] = assert(SOUNDS_ROOT:WaitForChild("CoinDrop")),
     [Id.Sound.CREAK_METAL] = assert(SOUNDS_ROOT:WaitForChild("CreakMetalHeavy")),
+    [Id.Sound.CRYSTAL_DING] = assert(SOUNDS_ROOT:WaitForChild("CrystalDing")),
+    [Id.Sound.ENERGY_SHIELD_HIT] = assert(SOUNDS_ROOT:WaitForChild("EnergyShieldHit")),
     [Id.Sound.ERROR] = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
     [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
+    [Id.Sound.POP] = assert(SOUNDS_ROOT:WaitForChild("Pop")),
     [Id.Sound.RELOAD] = assert(SOUNDS_ROOT:WaitForChild("Reload")),
     [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
     [Id.Sound.THUMP] = assert(SOUNDS_ROOT:WaitForChild("Thump")),
@@ -328,8 +339,6 @@ m.Sound = {
 }
 
 m.VFX = {
-    -- TODO: FIXIT. Explosion doesn't appear in Replicated Storage of a player outside the editor
-    -- [Id.VFX.EXPLOSION] = assert(VFX_ROOT:WaitForChild("Explosion")),
     [Id.VFX.INVINCIBILITY_AURA] = assert(VFX_ROOT:WaitForChild("InvinvibilityAuraTemplate")),
 }
 
