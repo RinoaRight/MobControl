@@ -579,8 +579,15 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     -- set bullet's position
     local pos = rootPart.Position + rootPart.CFrame.LookVector * (bulletSize.Z / 2 + SharedConfig.BULLET_RAYCAST_START_MULT)
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
-    -- Misc.AddInstanceToRaycastFilter(bullet)
+    local speedPerkFlags = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT, C.Bitset)
+    local isSpeedPerkActive = Id.flag_test(speedPerkFlags, Id.PlayerF.PERK_ACTIVE)
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
+    -- check for a bulletspeed perk
+    if isSpeedPerkActive then
+        local mult = assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT].multiplier)
+        local stage = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT, C.ValueNonPers) or 1
+        speed *= 1 + mult * stage
+    end
     local range = SharedConfig.BULLET_BASE_DISTANCE
     if S.Weapon[weapon_id].range then
         range = S.Weapon[weapon_id].range

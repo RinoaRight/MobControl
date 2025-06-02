@@ -1405,7 +1405,7 @@ function MainState.delete(self: MainInternal, uid: uid)
     local mask = self._masks[uid]
     if not mask then
         if __DEV__ then
-            warn(`UID: {self:format_uid(uid)} does not exist`)
+            warn(`UID: {self:format_uid(uid)} does not exist`, debug.traceback())
         end
         return
     end

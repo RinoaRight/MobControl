@@ -40,6 +40,7 @@ local logger = require(shared.logger)
 local log = logger.create("WorldService"):set_delimiter(" "):set_prettifier(Id.pp)
 local Remote = require(shared.Remote)
 local Misc = require(shared.Misc)
+local C = SharedConfig.PlayerState.CId
 
 local WeaponsFolder = workspace.Weapons
 
@@ -234,12 +235,20 @@ function m.ResetObstacleWaveCount()
 end
 
 local _bullet = m.world:constructor(W.Position, W.PlayerId, W.WeaponId, W.TTL) -- starting pos, owner's id, weapon_id
-function m.AddBulletToState(guid, weaponId, startingPos, playerId)
+function m.AddBulletToState(playerState: PlayerState, guid, weaponId, startingPos, playerId)
     local range = SharedConfig.BULLET_BASE_DISTANCE
     if S.Weapon[weaponId].range then
         range = S.Weapon[weaponId].range
     end
     local speed = assert(S.Weapon[weaponId].baseSpeed)
+    -- check for a bulletspeed perk
+    local speedPerkFlags = playerState.state:get(Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT, C.Bitset)
+    local isSpeedPerkActive = Id.flag_test(speedPerkFlags, Id.PlayerF.PERK_ACTIVE)
+    if isSpeedPerkActive then
+        local mult = assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT].multiplier)
+        local stage = playerState.state:get(Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT, C.ValueNonPers) or 1
+        speed *= 1 + mult * stage
+    end
     local ttl = _roflake.time() + range / speed
     _bullet(guid, startingPos, playerId, weaponId, ttl)
 end

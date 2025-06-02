@@ -452,7 +452,7 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
     local bulletStartPos = playerRoot.Position + playerRoot.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
 
     for i = 1, #bullet_guids do
-        WorldService.AddBulletToState(bullet_guids[i], current_weapon_id, bulletStartPos, player_state.player_id)
+        WorldService.AddBulletToState(player_state, bullet_guids[i], current_weapon_id, bulletStartPos, player_state.player_id)
     end
 
     -- preiousWeaponsInfo[playerId] = current_weapon_id
@@ -497,30 +497,6 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
     player_state:DeductCountablePersistent(currencyId, itemPrice)
     player_state.state:set(upgrade_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED))
 end
-
--- on[Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS] = function(player_state, upgrade_id: id, ...)
---     print("LLLLLLLLLLL request player upgrade non pers", upgrade_id)
---     -- check if it is a valid upgrade id
---     if Id.kind(upgrade_id) ~= Id.Kind.PlayerUpgradeNonPersistent then
---         log:error("Not a player upgrade", upgrade_id, debug.traceback())
---         return
---     end
-
---     -- check if the player already has this upgrade maxed out
---     local upgradeStage = player_state.state:get(upgrade_id, C.ValueNonPers)
---     if upgradeStage >= S.PlayerUpgradeNonPersistent[upgrade_id].maxStage then
---         player_state:NotifyClient(Id.S2C.SHOW_POPUP_SERVER, Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS)
---         return
---     end
-
---     -- -- check if the player already has this upgrade
---     -- local flags = player_state.state:get(upgrade_id, C.Bitset)
---     -- if Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE) then
---     --     return
---     -- end
-
---     setPlayerUpgradeNonPers(player_state, upgrade_id)
--- end
 
 on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { uid }, bulletGuid: uid, ...)
     if not WorldService.world:has(bulletGuid) then

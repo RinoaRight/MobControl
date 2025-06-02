@@ -430,8 +430,8 @@ Id.PlayerUpgradeNonPersistent = enum.with_id "Id.PlayerUpgradeNonPersistent" {
     FIREPOWER            = iota'',
     SHIELD               = iota'',
     -- DRONES               = iota'',
-    -- TODO: the rest of the upgrades
     BULLET_SPEED_MULT    = iota'',
+    -- TODO: the rest of the upgrades
     CLONE_FACTORY        = iota'',
     SHIELD_RECHARGE      = iota'',
     SHIELD_DAMAGE        = iota'',
