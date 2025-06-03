@@ -372,21 +372,32 @@ local function onFinalBossKilledByPlayer(boss_killer_player_state)
     end
 end
 
-local function setPlayerUpgradeNonPers(player_state, perk_id: id)
+local function acquirePlayerUpgradeNonPers(player_state, perk_id: id)
     local perkStage = player_state.state:get(perk_id, C.ValueNonPers)
     if perkStage < S.PlayerUpgradeNonPersistent[perk_id].maxStage then
         local flags = player_state.state:get(perk_id, C.Bitset)
         local duration
-        if S.PlayerUpgradeNonPersistent[perk_id].ttl then
-            duration = S.PlayerUpgradeNonPersistent[perk_id].ttl
+        if S.PlayerUpgradeNonPersistent[perk_id].period then
+            duration = S.PlayerUpgradeNonPersistent[perk_id].period
         end
+
+        -- set ttl
         local ttl
-        if duration then
-            ttl = roflake.time() + duration
-        else
-            ttl = 0xffff_ffff
+        if S.PlayerUpgradeNonPersistent[perk_id].isExpirable then
+            if duration then
+                ttl = roflake.time() + duration
+            else
+                ttl = 0xffff_ffff
+            end
+            player_state.state:set(perk_id, C.TTL, ttl)
         end
-        player_state.state:set(perk_id, C.TTL, ttl)
+
+        -- set tte
+        if S.PlayerUpgradeNonPersistent[perk_id].isLooped then
+            local tte = S.PlayerUpgradeNonPersistent[perk_id].period
+            player_state.state:set(perk_id, C.TTE, tte)
+        end
+
         player_state.state:set(perk_id, C.ValueNonPers, perkStage + 1)
         player_state.state:set(perk_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED, Id.PlayerF.PERK_ACTIVE))
         if S.PlayerUpgradeNonPersistent[perk_id].hp then
@@ -696,7 +707,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id, playerHp)
 
     -- give invincibility upgrade
-    setPlayerUpgradeNonPers(player_state, Id.PlayerUpgradeNonPersistent.INVINCIBILITY)
+    acquirePlayerUpgradeNonPers(player_state, Id.PlayerUpgradeNonPersistent.INVINCIBILITY)
 
     -- ClonesServer.AttachCloneDummies(player_state)
 
@@ -725,7 +736,7 @@ on[Id.C2S.PERK_SELECTED] = function(player_state, whichPerk, ...)
         perkId = currentPerkSelection.Y
     end
     if perkId then
-        setPlayerUpgradeNonPers(player_state, perkId)
+        acquirePlayerUpgradeNonPers(player_state, perkId)
     else
         log:error("No perk id, failure to set perk", debug.traceback())
         return

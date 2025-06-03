@@ -258,22 +258,28 @@ m.PlayerUpgradePersistent = {
 
 m.PlayerUpgradeNonPersistent = {
     [Id.PlayerUpgradeNonPersistent.INVINCIBILITY] = {
-        ttl = 2, -- sec
+        period = 2, -- sec
         maxStage = 1, 
         isRenewable = true,
+        isLooped = false, -- is always active or not
+        isExpirable = true,
         color = Color3.fromRGB(0, 255, 255),
     },
     [Id.PlayerUpgradeNonPersistent.FIREPOWER] = {
-        ttl = -1, 
+        period = 0xffff_ffff, 
         maxStage = 5, 
         isRenewable = false,
+        isLooped = false,
+        isExpirable = false,
         multiplier = .1, -- percent
         color = Color3.fromRGB(255, 0, 0),
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD] = {
-        ttl = 10,
+        period = 10,
         maxStage = 1,
         isRenewable = true,
+        isLooped = false,
+        isExpirable = true,
         hp = 80,
         color = Color3.fromRGB(255, 170, 0),
     },
@@ -283,35 +289,45 @@ m.PlayerUpgradeNonPersistent = {
     --     prerequisite = 0,
     -- },
     [Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT] = {
-        ttl = 0xffff_ffff,
+        period = 0xffff_ffff,
         maxStage = 3,
         isRenewable = false,
+        isLooped = false,
+        isExpirable = false,
         multiplier = .1,
         color = Color3.fromRGB(0, 255, 0),
     },
     [Id.PlayerUpgradeNonPersistent.CLONE_FACTORY] = {
-        -- + 1 for every stage
-        ttl = 10,
+        -- + 1 for every stage every ttl seconds
+        period = 10,
         maxStage = 3,
         isRenewable = false,
+        isLooped = true,
+        isExpirable = false,
         color = Color3.fromRGB(0, 0, 255),
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE] = {
-        ttl = 10,
+        period = 10,
         maxStage = 1,
         isRenewable = false,
+        isLooped = true,
+        isExpirable = false,
         color = Color3.fromRGB(255, 165, 0),
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE] = {
-        ttl = 0xffff_ffff,
+        period = 0xffff_ffff,
         maxStage = 3,
         isRenewable = false,
+        isLooped = false,
+        isExpirable = false,
         color = Color3.fromRGB(255, 0, 0),
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT] = {
-        ttl = 0xffff_ffff,
+        period = 0xffff_ffff,
         maxStage = 1,
         isRenewable = false,
+        isLooped = false,
+        isExpirable = false,
         multiplier = .5,
         color = Color3.fromRGB(255, 165, 0),
     },

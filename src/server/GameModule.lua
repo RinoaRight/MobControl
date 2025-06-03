@@ -346,16 +346,45 @@ local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3, ene
     return selectedPlayer, playerRoot, distToTarget
 end
 
-local function handlePlayerUpgrades(player_state: PSS.PlayerState)
+local function updatePlayerUpgrades(player_state: PSS.PlayerState, dt: num)
     for _, upgrade_id in Id.PlayerUpgradeNonPersistent:ids() do
         local flags = player_state.state:get(upgrade_id, C.Bitset)
         local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+        local isExpirable = S.PlayerUpgradeNonPersistent[upgrade_id].isExpirable
+        local isLooped = S.PlayerUpgradeNonPersistent[upgrade_id].isLooped
         if isActive then
-            local currentTTL = player_state.state:get(upgrade_id, C.TTL)
-            if currentTTL then
-                if currentTTL < roflake.time() then
-                    -- reset the upgrade
-                    player_state:ResetPlayerUpgradeNonPers(upgrade_id)
+            if isExpirable then
+                -- expirable perks
+                local currentTTL = player_state.state:get(upgrade_id, C.TTL)
+                if currentTTL then
+                    player_state.state:set(upgrade_id, C.TTL, currentTTL - dt)
+                    if currentTTL < roflake.time() then
+                        -- when time is up, reset the upgrade
+                        player_state:ResetPlayerUpgradeNonPers(upgrade_id)
+                    end
+                end
+            end
+            if isLooped then
+                -- looped perks
+                local currentTTE = player_state.state:get(upgrade_id, C.TTE)
+                if currentTTE then
+                    player_state.state:set(upgrade_id, C.TTE, currentTTE - dt)
+                end
+                if currentTTE < 0 then
+                    -- when time is up, do the logic and reset the tte
+                    if upgrade_id == Id.PlayerUpgradeNonPersistent.CLONE_FACTORY then
+                        -- add clone(s)
+                        local stage = player_state.state:get(upgrade_id, C.ValueNonPers)
+                        for i = 1, stage do
+                            local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, player_state.player_id)
+                        end
+                    end
+                    local period = S.PlayerUpgradeNonPersistent[upgrade_id].period
+                    if period then
+                        player_state.state:set(upgrade_id, C.TTE, period)
+                    else
+                        log:error("no period for looped perk: '%*'", upgrade_id, debug.traceback())
+                    end
                 end
             end
         end
@@ -396,15 +425,16 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             if not player_state then
                 continue
             end
-            handlePlayerUpgrades(player_state)
+
+            -- handle perks
+            updatePlayerUpgrades(player_state, dt)
+
             local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
             if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
                 -- weapon cooldown
                 local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
                 shot_tte -= dt
                 player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
-
-                -- TODO: upgrade ttl and cooldowns
 
                 -- check obstacle collision for player and driver
                 local playerRootPart = player_state.root :: BasePart

@@ -386,7 +386,7 @@ export type Struct = typeof(Id.Struct)
 -- Boost
 -----------------------------
 Id.Boost = enum.with_id "Id.Boost" {
-    NONE                = iota(Id.Kind.Boost, 0),
+    _NONE                = iota(Id.Kind.Boost, 0),
     ADD_CLONE           = iota'',
     -- BULLET_SPEED_MULT   = iota'',
     CHANGE_WEAPON       = iota'',
@@ -400,7 +400,7 @@ export type Boost = typeof(Id.Boost)
 -- PlayerUpgradePersistent
 -----------------------------
 Id.PlayerUpgradePersistent = enum.with_id "Id.PlayerUpgradePersistent" {
-    NONE               = iota(Id.Kind.PlayerUpgradePersistent, 0),
+    _NONE               = iota(Id.Kind.PlayerUpgradePersistent, 0),
     FIREPOWER_1        = iota'',
     FIREPOWER_2        = iota'',
     FIREPOWER_3        = iota'',
@@ -425,14 +425,14 @@ export type PlayerUpgradePersistent = typeof(Id.PlayerUpgradePersistent)
 -- PlayerUpgradeNonPersistent
 -----------------------------
 Id.PlayerUpgradeNonPersistent = enum.with_id "Id.PlayerUpgradeNonPersistent" {
-    NONE                 = iota(Id.Kind.PlayerUpgradeNonPersistent, 0),
+    _NONE                 = iota(Id.Kind.PlayerUpgradeNonPersistent, 0),
     INVINCIBILITY        = iota'',
     FIREPOWER            = iota'',
     SHIELD               = iota'',
     -- DRONES               = iota'',
     BULLET_SPEED_MULT    = iota'',
-    -- TODO: the rest of the upgrades
     CLONE_FACTORY        = iota'',
+    -- TODO: the rest of the upgrades
     SHIELD_RECHARGE      = iota'',
     SHIELD_DAMAGE        = iota'',
     SHIELD_COOLDOWN_MULT = iota'',
@@ -446,7 +446,7 @@ export type PlayerUpgradeNonPersistent = typeof(Id.PlayerUpgradeNonPersistent)
 -- Pass
 -----------------------------
 Id.Pass = enum.with_id "Id.Pass" {
-    NONE = iota(Id.Kind.Pass, 0),
+    _NONE = iota(Id.Kind.Pass, 0),
 }
 KIND_TO_ENUM[Id.Kind.Pass] = Id.Pass
 export type Pass = typeof(Id.Pass)
@@ -470,7 +470,7 @@ export type PassF = typeof(Id.PassF)
 -- PlayerF
 -----------------------------
 Id.PlayerF = enum.with_id "Id.PlayerF" {
-    NONE                 = flag(Id.Kind.PlayerF),
+    _NONE                 = flag(Id.Kind.PlayerF),
     _PERSISTENT          = flag'', 
     OTHER_BULLETS_ON     = flag'',
     OTHER_CLONES_ON      = flag'',
@@ -506,7 +506,7 @@ export type EnemyF = typeof(Id.EnemyF)
 -- WorldF
 -----------------------------
 Id.WorldF = enum.with_id "Id.WorldF" {
-    NONE                     = flag(Id.Kind.WorldF),
+    _NONE                     = flag(Id.Kind.WorldF),
     -- SEEK_ACTIVATED           = flag'',
 }
 KIND_TO_ENUM[Id.Kind.WorldF] = Id.WorldF
@@ -517,7 +517,7 @@ export type WorldF = typeof(Id.WorldF)
 -- Product
 -----------------------------
 Id.Product = enum.with_id "Id.Product" {
-    NONE = iota(Id.Kind.Product, 0),
+    _NONE = iota(Id.Kind.Product, 0),
 }
 KIND_TO_ENUM[Id.Kind.Product] = Id.Product
 export type Product = typeof(Id.Product)
@@ -725,7 +725,7 @@ export type WorldSpecs = typeof(Id.WorldSpecs)
 -- ServerError
 -----------------------------
 Id.ServerError = enum.with_id "Id.ServerError" {
-    NONE       = iota(Id.Kind.ServerError, 0),
+    _NONE       = iota(Id.Kind.ServerError, 0),
     NOT_ENOUGH = iota''
 }
 KIND_TO_ENUM[Id.Kind.ServerError] = Id.ServerError

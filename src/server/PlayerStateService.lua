@@ -143,17 +143,17 @@ local function update_ids(main: state.Main)
     -- weapon_id, weapon_tte, rank, hp, rank, pers_flags, non_pers_flags
     local _game_session_params = main:constructor(C.RefId, C.TTE, C.ValueNonPers, C.PlayerRank, C.Bitset, C.BitsetNonPers)
     merge(Id.PlayerSpecs, function(id)
-        _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE, Id.PlayerF.NONE)
+        _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF._NONE, Id.PlayerF._NONE)
     end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
 
-    local _player_perk_non_persistent = main:constructor(C.TTL, C.ValueNonPers, C.Bitset, C.HP) -- ttl, stage number, flag, hp
+    local _player_perk_non_persistent = main:constructor(C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.HP) -- ttl, stage number, flag, hp
     merge(Id.PlayerUpgradeNonPersistent, function(id)
-        _player_perk_non_persistent(id, 0xffff_ffff, 0, Id.PlayerF.NONE, 0)
+        _player_perk_non_persistent(id, 0xffff_ffff, 0, 0, Id.PlayerF._NONE, 0)
     end)
 
     local _player_upgrade_persistent = main:constructor(C.Bitset) -- flag
     merge(Id.PlayerUpgradePersistent, function(id)
-        _player_upgrade_persistent(id, Id.PlayerF.NONE)
+        _player_upgrade_persistent(id, Id.PlayerF._NONE)
     end)
 end
 
@@ -319,9 +319,11 @@ end
 
 function PlayerState.ResetPlayerUpgradeNonPers(self: PlayerState, upgrade_id: id): ()
     -- self.state:set(upgrade_id, C.ValueNonPers, 0)
+    -- TODO: refactor isLooped to TTE
     local flags = self.state:get(upgrade_id, C.Bitset)
     self.state:set(upgrade_id, C.Bitset, Id.flag_set(flags, Id.PlayerF.PERK_ACTIVE, false))
     self.state:set(upgrade_id, C.TTL, 0xffff_ffff)
+    self.state:set(upgrade_id, C.TTE, S.PlayerUpgradeNonPersistent[upgrade_id].period)
     self.state:set(upgrade_id, C.HP, 0)
 end
 
@@ -422,7 +424,7 @@ end
 
 function PlayerState.AddBooster(self: PlayerState, instanceGuid: string): ()
     local _booster = self.state:constructor(C.BitsetNonPers)
-    _booster(instanceGuid, Id.PlayerF.NONE)
+    _booster(instanceGuid, Id.PlayerF._NONE)
 end
 
 function PlayerState.__tostring(self: PlayerState): str

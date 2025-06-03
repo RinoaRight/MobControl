@@ -248,13 +248,13 @@ local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: T
     if not entry then
         return
     end
-    local ttl = entry.ttl
+    local period = entry.period
     local currentStage = playerState:get(perkId, C.ValueNonPers)
     local nextStageRoman = NumFormat.roman(currentStage + 1)
     local text1 = " "
     local text2 = " "
     if perkId == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
-        text1 = string.format("%d sec", ttl)
+        text1 = string.format("%d sec", period)
         text2 = "invincibility"
     elseif perkId == Id.PlayerUpgradeNonPersistent.FIREPOWER then
         text1 = string.format("firepower %s", nextStageRoman)
@@ -265,7 +265,7 @@ local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: T
         text2 = string.format("speed %s", nextStageRoman)
     elseif perkId == Id.PlayerUpgradeNonPersistent.CLONE_FACTORY then
         text1 = string.format("%d clone(s)", 1 * (currentStage + 1))
-        text2 = string.format("every %d sec", ttl)
+        text2 = string.format("every %d sec", period)
     elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE then
         text1 = "shield"
         text2 = "recharge"
