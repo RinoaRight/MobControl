@@ -126,29 +126,6 @@ local function onPurchaseBtnPressed(playerState, upgradeId)
     end
 end
 
-local function createAura(playerState: state.Replica, perk_id: id)
-    local aura = S.VFX[Id.VFX.INVINCIBILITY_AURA]:Clone()
-    local color = assert(S.PlayerUpgradeNonPersistent[perk_id].color)
-    local name
-    if perk_id == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
-        name = SharedConfig.INVINCIBILITY_AURA_NAME
-    elseif perk_id == Id.PlayerUpgradeNonPersistent.SHIELD then
-        name = SharedConfig.SHIELD_AURA_NAME
-    end
-    aura.Color = color
-    aura.Name = name
-
-    local localPlayer = game.Players.LocalPlayer
-    local playerCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-    aura.Parent = playerCharacter
-    local upperTorso = playerCharacter:FindFirstChild("UpperTorso")
-    local constraint = Instance.new("WeldConstraint")
-    constraint.Parent = aura
-    constraint.Part0 = upperTorso
-    constraint.Part1 = aura
-    aura.Position = upperTorso.Position
-end
-
 local function isAura(playerState: state.Replica, localCharacter: Model, perk_id: id): (boolean, BasePart)
     local aura
     local isAura
@@ -156,12 +133,50 @@ local function isAura(playerState: state.Replica, localCharacter: Model, perk_id
         aura = localCharacter:FindFirstChild(SharedConfig.INVINCIBILITY_AURA_NAME) :: BasePart
     elseif perk_id == Id.PlayerUpgradeNonPersistent.SHIELD then
         aura = localCharacter:FindFirstChild(SharedConfig.SHIELD_AURA_NAME) :: BasePart
+    elseif perk_id == Id.PlayerUpgradeNonPersistent.ARMOR then
+        aura = localCharacter:FindFirstChild(SharedConfig.ARMOR_AURA_NAME) :: BasePart
     end
     if aura then
         isAura = true
     end
 
     return isAura, aura
+end
+
+local function createAura(playerState: state.Replica, perk_id: id)
+    local localPlayer = game.Players.LocalPlayer
+    local playerCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+
+    -- check if there is already an aura
+    local _, oldAura = isAura(playerState, playerCharacter, perk_id)
+    if oldAura then
+        return
+    end
+
+    -- if not, create a new aura
+    local aura = S.VFX[Id.VFX.INVINCIBILITY_AURA]:Clone()
+    local color = assert(S.PlayerUpgradeNonPersistent[perk_id].color)
+    local name
+    if perk_id == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
+        name = SharedConfig.INVINCIBILITY_AURA_NAME
+    elseif perk_id == Id.PlayerUpgradeNonPersistent.SHIELD then
+        name = SharedConfig.SHIELD_AURA_NAME
+        SFX.PLAY_SOUND(Id.Sound.ENERGY_SWEEP)
+    elseif perk_id == Id.PlayerUpgradeNonPersistent.ARMOR then
+        name = SharedConfig.ARMOR_AURA_NAME
+        aura.Transparency = 0.85
+    end
+    aura.Color = color
+    aura.Name = name
+
+    aura.Parent = playerCharacter
+    local upperTorso = playerCharacter:FindFirstChild("UpperTorso")
+    local constraint = Instance.new("WeldConstraint")
+    constraint.Parent = aura
+    constraint.Part0 = upperTorso
+    constraint.Part1 = aura
+    aura.Position = upperTorso.Position
+    aura:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.VFX], localPlayer.UserId)
 end
 
 local total = SharedConfig.AURA_DESTROY_DURATION
@@ -181,7 +196,7 @@ local function destroyAuraSlow(playerState: state.Replica, localCharacter: Model
         local tween3 = TweenService:Create(aura, tweenInfo2, { Transparency = targetTransparency })
         local tween4 = TweenService:Create(aura, tweenInfo2, { Transparency = initTransparency })
         -- flicker then destroy
-        TaskPool.spawn(function()
+        _maid.destroyAuraSlow = TaskPool.spawn(function()
             playerState:set(perk_id, C.ClientFlags, true)
             for i = 1, 4 do
                 tween1:Play()
@@ -203,15 +218,11 @@ local function destroyAuraSlow(playerState: state.Replica, localCharacter: Model
 end
 
 local function destroyAuraFast(playerState: state.Replica, localCharacter: Model, perk_id: id)
-    local aura
-    if perk_id == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
-        aura = localCharacter:FindFirstChild(SharedConfig.INVINCIBILITY_AURA_NAME) :: BasePart
-    elseif perk_id == Id.PlayerUpgradeNonPersistent.SHIELD then
-        aura = localCharacter:FindFirstChild(SharedConfig.SHIELD_AURA_NAME) :: BasePart
-    end
+    local _, aura = isAura(playerState, localCharacter, perk_id)
     local isAuraBeingDestroyedAlready = playerState:get(perk_id, C.ClientFlags)
     if aura and not isAuraBeingDestroyedAlready then
         SFX.PLAY_SOUND(Id.Sound.POP)
+        playerState:set(perk_id, C.ClientFlags, false)
         aura:Destroy()
     end
 end
@@ -223,14 +234,15 @@ local function hidePerkPanel()
     TaskPool.spawn(function()
         tweenUp:Play()
         task.wait(tweenTimeUp + 0.1)
-        _maid.waitingForExit = nil
+        _maid.waitingToClosePerkPanel = nil
         PERK_SELECTION_GUI.Enabled = false
     end)
 end
 
 local function onPerkBtnPressed(state: state.Replica, whichBtn: TextButton)
+    _maid.waitingToClosePerkPanel = nil
     SFX.PLAY_SOUND(Id.Sound.CLICK)
-    -- TODO: flicker scale of the selected perk, signal to server
+    -- TODO: flicker scale of the selected perk
     local whichPerk = 0
     if whichBtn == PERK_1_SLOT_BTN then
         whichPerk = 1
@@ -244,6 +256,7 @@ local function onPerkBtnPressed(state: state.Replica, whichBtn: TextButton)
 end
 
 local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: TextLabel, descr2Box: TextLabel)
+    -- TODO: color coding?
     local entry = S.PlayerUpgradeNonPersistent[perkId]
     if not entry then
         return
@@ -259,7 +272,8 @@ local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: T
     elseif perkId == Id.PlayerUpgradeNonPersistent.FIREPOWER then
         text1 = string.format("firepower %s", nextStageRoman)
     elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD then
-        text1 = "shield"
+        text1 = string.format("%d sec", period)
+        text2 = "shield"
     elseif perkId == Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT then
         text1 = "bullet"
         text2 = string.format("speed %s", nextStageRoman)
@@ -275,6 +289,9 @@ local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: T
     elseif perkId == Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT then
         text1 = "fast shield"
         text2 = "recharge"
+    elseif perkId == Id.PlayerUpgradeNonPersistent.ARMOR then
+        text1 = "armor"
+        text1 = string.format("armor %s", nextStageRoman)
     end
     descr1Box.Text = string.upper(text1)
     descr2Box.Text = string.upper(text2)
@@ -302,6 +319,10 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
 
     hidePerkPanel()
 
+    -- initialize player HP value view
+    local playerHP = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
+    playerState:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueView, playerHP)
+
     _maid.slot1Btn = PERK_1_SLOT_BTN.Activated:Connect(function()
         onPerkBtnPressed(playerState, PERK_1_SLOT_BTN)
     end)
@@ -309,7 +330,7 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
         onPerkBtnPressed(playerState, PERK_2_SLOT_BTN)
     end)
 
-    -- fill in data
+    -- fill in data for permanent upgrades
     -- TODO: others
     upgradesData = {
         [Id.PlayerUpgradePersistent.FIREPOWER_1] = {
@@ -448,16 +469,15 @@ end
 function m.OnModifyBitset(playerState: state.Replica, localCharacter, guid: guid, newValue: flag, oldValue: flag)
     local isAcquired = Id.flag_test(newValue, Id.PlayerF.PERK_ACQUIRED)
     local isActive = Id.flag_test(newValue, Id.PlayerF.PERK_ACTIVE)
-    if guid == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
-        if isActive and isAcquired then
-            createAura(playerState, Id.PlayerUpgradeNonPersistent.INVINCIBILITY)
-        end
-    elseif guid == Id.PlayerUpgradeNonPersistent.SHIELD then
-        if isActive and isAcquired then
-            createAura(playerState, Id.PlayerUpgradeNonPersistent.SHIELD)
-        elseif not isActive and isAcquired then
-            -- shield may have been depleted before ttl is up, destroy it
-            destroyAuraFast(playerState, localCharacter, Id.PlayerUpgradeNonPersistent.SHIELD)
+    if
+        guid == Id.PlayerUpgradeNonPersistent.INVINCIBILITY
+        or guid == Id.PlayerUpgradeNonPersistent.SHIELD
+        or guid == Id.PlayerUpgradeNonPersistent.ARMOR
+    then
+        if isAcquired and isActive then
+            createAura(playerState, guid :: id)
+        elseif not isActive then
+            destroyAuraFast(playerState, localCharacter, guid :: id)
         end
     end
 end
@@ -473,6 +493,12 @@ end
 function m.OnStateUpdate(playerState: state.Replica, localCharacter)
     local isInvincible = Id.flag_test(playerState:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset), Id.PlayerF.PERK_ACTIVE)
     local isShield = Id.flag_test(playerState:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset), Id.PlayerF.PERK_ACTIVE)
+    local isArmor = Id.flag_test(playerState:get(Id.PlayerUpgradeNonPersistent.ARMOR, C.Bitset), Id.PlayerF.PERK_ACTIVE)
+    local playerHPValueView = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueView)
+    local playerHP = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
+    local playerFlags = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    local isPlayerInSession = playerFlags and Id.flag_test(playerFlags, Id.PlayerF.READY)
+
     if isInvincible then
         local ttl = playerState:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.TTL)
         local isAuraBeingDestroyedAlready = playerState:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.ClientFlags)
@@ -485,6 +511,17 @@ function m.OnStateUpdate(playerState: state.Replica, localCharacter)
         if ttl <= roflake.time() + SharedConfig.AURA_DESTROY_DURATION and not isAuraBeingDestroyedAlready then
             destroyAuraSlow(playerState, localCharacter, Id.PlayerUpgradeNonPersistent.SHIELD)
         end
+    elseif isArmor then
+        -- SFX for ARMOR
+        if playerHPValueView > playerHP and isPlayerInSession then
+            SFX.PLAY_SOUND(Id.Sound.ARMOR_HIT)
+        end
+    end
+
+    playerState:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueView, playerHP)
+
+    if not isPlayerInSession then
+        hidePerkPanel()
     end
 end
 
@@ -514,7 +551,7 @@ function m.OnPlayerRankUpdate(state: state.Replica)
     local tweenTimeDown = 1.2
     local tweenDownInfo = TweenInfo.new(tweenTimeDown, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
     local tweenDown = TweenService:Create(PERK_SELECTION_GUI_PANEL, tweenDownInfo, { Position = UDim2.fromScale(0.5, 0.5) })
-    TaskPool.spawn(function()
+    _maid.waitingToClosePerkPanel = TaskPool.spawn(function()
         tweenDown:Play()
         task.wait(tweenTimeDown)
         -- close the panel after 8 seconds

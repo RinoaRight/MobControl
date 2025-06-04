@@ -432,8 +432,9 @@ Id.PlayerUpgradeNonPersistent = enum.with_id "Id.PlayerUpgradeNonPersistent" {
     -- DRONES               = iota'',
     BULLET_SPEED_MULT    = iota'',
     CLONE_FACTORY        = iota'',
-    -- TODO: the rest of the upgrades
     SHIELD_RECHARGE      = iota'',
+    ARMOR                = iota'',
+    -- TODO: the rest of the upgrades
     SHIELD_DAMAGE        = iota'',
     SHIELD_COOLDOWN_MULT = iota'',
 }
@@ -658,6 +659,7 @@ export type Animation = typeof(Id.Animation)
 -----------------------------
 Id.Sound = enum.with_id "Id.Sound" {
     _NONE                 = iota(Id.Kind.Sound, 0),
+    ARMOR_HIT             = iota'',
     BELL                  = iota'',
     BELL_SUCCESS          = iota'',
     CLICK                 = iota'',
@@ -665,6 +667,7 @@ Id.Sound = enum.with_id "Id.Sound" {
     CREAK_METAL           = iota'',
     CRYSTAL_DING          = iota'',
     ENERGY_SHIELD_HIT     = iota'',
+    ENERGY_SWEEP          = iota'',
     ERROR                 = iota'',
     FIRE_PISTOL           = iota'',
     FIRE_PISTOL_LOCALIZED = iota'',
@@ -675,6 +678,7 @@ Id.Sound = enum.with_id "Id.Sound" {
     SCREAM_LOCALIZED_REG  = iota'',
     THUMP                 = iota'',
     THUMP_LOCALIZED       = iota'',
+    WEAK_BULLET           = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound
 export type Sound = typeof(Id.Sound)
@@ -771,8 +775,6 @@ Id.S2S = enum.with_id "Id.S2S" {
     CHANGE_WEAPON             = iota'', -- weapon_id
     PLAYER_DIED               = iota'', -- int (player damage)?, cause_id\uid?
     RANK_UP                   = iota'', -- player_state, next_rank, next_xp
-    -- FINAL_BOSS_KILLED         = iota'',
-    -- STOP_GAME_SESSION         = iota'',
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)

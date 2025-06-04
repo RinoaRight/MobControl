@@ -102,7 +102,8 @@ export type PlayerState = {
     DeductCountableNonPersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
     DeductCountablePersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
     ResetCountable: (self: PlayerState, id: id) -> (),
-    ResetPlayerUpgradeNonPers: (self: PlayerState, id: id) -> (),
+    DeactivatePlayerUpgradeNonPers: (self: PlayerState, id: id) -> (),
+    ActivatePlayerUpgradeNonPers: (self: PlayerState, id: id) -> (),
     DeductHp: (self: PlayerState, amount: num, cause: id | uid?) -> num,
     ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
@@ -140,10 +141,18 @@ local function update_ids(main: state.Main)
         _countable_persistent(id, 0, 0)
     end)
 
-    -- weapon_id, weapon_tte, rank, hp, rank, pers_flags, non_pers_flags
+    -- weapon_id, weapon_tte, hp, rank, pers_flags, non_pers_flags
     local _game_session_params = main:constructor(C.RefId, C.TTE, C.ValueNonPers, C.PlayerRank, C.Bitset, C.BitsetNonPers)
     merge(Id.PlayerSpecs, function(id)
-        _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF._NONE, Id.PlayerF._NONE)
+        _game_session_params(
+            Id.PlayerSpecs.GAME_SESSION_PARAMS,
+            Id.Weapon._NONE,
+            0,
+            0,
+            SharedConfig.PLAYER_BASE_HP,
+            Id.PlayerF._NONE,
+            Id.PlayerF._NONE
+        )
     end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
 
     local _player_perk_non_persistent = main:constructor(C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.HP) -- ttl, stage number, flag, hp
@@ -317,14 +326,44 @@ function PlayerState.ResetCountable(self: PlayerState, countable_id: id): ()
     self.state:set(countable_id, 0)
 end
 
-function PlayerState.ResetPlayerUpgradeNonPers(self: PlayerState, upgrade_id: id): ()
-    -- self.state:set(upgrade_id, C.ValueNonPers, 0)
-    -- TODO: refactor isLooped to TTE
+function PlayerState.DeactivatePlayerUpgradeNonPers(self: PlayerState, upgrade_id: id): ()
+    -- all value are set back to default, except PERK_ACQUIRED flag and perk stage
+    -- they reset only when player is dead and all perks are unacquired
     local flags = self.state:get(upgrade_id, C.Bitset)
     self.state:set(upgrade_id, C.Bitset, Id.flag_set(flags, Id.PlayerF.PERK_ACTIVE, false))
     self.state:set(upgrade_id, C.TTL, 0xffff_ffff)
-    self.state:set(upgrade_id, C.TTE, S.PlayerUpgradeNonPersistent[upgrade_id].period)
+    self.state:set(upgrade_id, C.TTE, 0)
     self.state:set(upgrade_id, C.HP, 0)
+end
+
+function PlayerState.ActivatePlayerUpgradeNonPers(self: PlayerState, perk_id: id): ()
+    local flags = self.state:get(perk_id, C.Bitset)
+    local duration
+    if S.PlayerUpgradeNonPersistent[perk_id].period then
+        duration = S.PlayerUpgradeNonPersistent[perk_id].period
+    end
+
+    -- set ttl
+    local ttl
+    if S.PlayerUpgradeNonPersistent[perk_id].isExpirable then
+        if duration then
+            ttl = _roflake.time() + duration
+        else
+            ttl = 0xffff_ffff
+        end
+        self.state:set(perk_id, C.TTL, ttl)
+    end
+
+    -- set tte
+    if S.PlayerUpgradeNonPersistent[perk_id].isLooped then
+        -- local tte = S.PlayerUpgradeNonPersistent[perk_id].period
+        self.state:set(perk_id, C.TTE, 0)
+    end
+
+    self.state:set(perk_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED, Id.PlayerF.PERK_ACTIVE))
+    if S.PlayerUpgradeNonPersistent[perk_id].hp then
+        self.state:set(perk_id, C.HP, S.PlayerUpgradeNonPersistent[perk_id].hp)
+    end
 end
 
 function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
@@ -349,6 +388,7 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
     local flags = self.state:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset)
     local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
     if isInvincible then
+        -- no further checks, no damage, no state changes
         return 0
     end
 
@@ -360,9 +400,21 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
         local new_shield_hp = math.max(shield_hp - howMuch, 0)
         self.state:set(Id.PlayerUpgradeNonPersistent.SHIELD, C.HP, new_shield_hp)
         if new_shield_hp <= 0 then
-            self:ResetPlayerUpgradeNonPers(Id.PlayerUpgradeNonPersistent.SHIELD)
+            self:DeactivatePlayerUpgradeNonPers(Id.PlayerUpgradeNonPersistent.SHIELD)
+            howMuch -= shield_hp
+        else
+            -- no further checks, no damage, no state changes
+            return 0
         end
-        return 0
+    end
+
+    -- check if player has armor
+    local armor_flags = self.state:get(Id.PlayerUpgradeNonPersistent.ARMOR, C.Bitset)
+    local isArmorActive = Id.flag_test(armor_flags, Id.PlayerF.PERK_ACTIVE)
+    if isArmorActive then
+        local armor_stage = self.state:get(Id.PlayerUpgradeNonPersistent.ARMOR, C.ValueNonPers)
+        local armor_multiplier = S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.ARMOR].multiplier * armor_stage
+        howMuch = math.floor(howMuch * (1 - armor_multiplier))
     end
 
     local current_hp = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)

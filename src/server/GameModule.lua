@@ -360,7 +360,7 @@ local function updatePlayerUpgrades(player_state: PSS.PlayerState, dt: num)
                     player_state.state:set(upgrade_id, C.TTL, currentTTL - dt)
                     if currentTTL < roflake.time() then
                         -- when time is up, reset the upgrade
-                        player_state:ResetPlayerUpgradeNonPers(upgrade_id)
+                        player_state:DeactivatePlayerUpgradeNonPers(upgrade_id)
                     end
                 end
             end
@@ -373,10 +373,20 @@ local function updatePlayerUpgrades(player_state: PSS.PlayerState, dt: num)
                 if currentTTE < 0 then
                     -- when time is up, do the logic and reset the tte
                     if upgrade_id == Id.PlayerUpgradeNonPersistent.CLONE_FACTORY then
-                        -- add clone(s)
+                        -- clone perk
                         local stage = player_state.state:get(upgrade_id, C.ValueNonPers)
                         for i = 1, stage do
                             local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, player_state.player_id)
+                        end
+                    elseif upgrade_id == Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE then
+                        local shieldFlags = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
+                        if not Id.flag_test(shieldFlags, Id.PlayerF.PERK_ACQUIRED) then
+                            log:error("shield perk not acquired for: '%*'", player_state.player_id, debug.traceback())
+                            continue
+                        end
+                        -- activate shield if it is not active
+                        if not Id.flag_test(shieldFlags, Id.PlayerF.PERK_ACTIVE) then
+                            player_state:ActivatePlayerUpgradeNonPers(Id.PlayerUpgradeNonPersistent.SHIELD)
                         end
                     end
                     local period = S.PlayerUpgradeNonPersistent[upgrade_id].period

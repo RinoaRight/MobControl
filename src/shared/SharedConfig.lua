@@ -65,13 +65,13 @@ m.PLAYER_HITBOX_NAME = "Hitbox"
 m.PLAYER_ALIGN_CONSTR_NAME = "PlayerAlignConstraint"
 m.CLONE_ATTACHMENT_NAME = "CloneGuideAtt"
 m.RUN_ANIMATION_NAME = "RunAnim"
-m.BULLET_ATTRIBUTE_NAME = "BulletOwner"
 m.BULLET_COLLIDABLE_COLLISION_GROUP_NAME = "BulletCollidable"
 m.OBSTACLE_FOLDER_NAME = "Obstacles"
 m.FLYERS_FOLDER_NAME = "EnemiesFlying"
 m.GROUND_UNIT_NAME = "GroundUnit"
 m.INVINCIBILITY_AURA_NAME = "InvincibilityAura"
 m.SHIELD_AURA_NAME = "ShieldAura"
+m.ARMOR_AURA_NAME = "ArmorAura"
 m.DEFAULT_WEAPON_ID = Id.Weapon.BASIC
 m.DISTANCE_FROM_MID_TO_BOOSTER = 50
 m.DEFAULT_PLAYER_ID = -100
@@ -86,9 +86,11 @@ m.FIRST_BOMB_DELAY = 8.0
 m.DRIVING_BOX_STARTING_POS = Vector3.new(0, 50, 255)
 m.GRAVE_SIZE_MULT = 1.5
 m.GRAVE_Z_DISTRIBUTION_RANDOMNESS = Vector3.new(10, 20)
+m.BULLET_ATTRIBUTE_NAME = "BulletOwner"
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
     [Id.Kind.Clone] = "PLAYER_ID",
+    [Id.Kind.VFX] = "VFX",
 }
 
 -----------------------------

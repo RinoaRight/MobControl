@@ -259,7 +259,7 @@ m.PlayerUpgradePersistent = {
 m.PlayerUpgradeNonPersistent = {
     [Id.PlayerUpgradeNonPersistent.INVINCIBILITY] = {
         period = 2, -- sec
-        maxStage = 1, 
+        maxStage = 0, 
         isRenewable = true,
         isLooped = false, -- is always active or not
         isExpirable = true,
@@ -276,12 +276,12 @@ m.PlayerUpgradeNonPersistent = {
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD] = {
         period = 10,
-        maxStage = 1,
+        maxStage = 0,
         isRenewable = true,
         isLooped = false,
         isExpirable = true,
         hp = 80,
-        color = Color3.fromRGB(255, 170, 0),
+        color = Color3.fromRGB(171, 19, 163),
     },
     -- [Id.PlayerUpgradeNonPersistent.DRONES] = {
     --     ttl = 0,
@@ -308,7 +308,7 @@ m.PlayerUpgradeNonPersistent = {
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE] = {
         period = 10,
-        maxStage = 1,
+        maxStage = 0,
         isRenewable = false,
         isLooped = true,
         isExpirable = false,
@@ -324,16 +324,35 @@ m.PlayerUpgradeNonPersistent = {
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT] = {
         period = 0xffff_ffff,
-        maxStage = 1,
+        maxStage = 0,
         isRenewable = false,
         isLooped = false,
         isExpirable = false,
         multiplier = .5,
         color = Color3.fromRGB(255, 165, 0),
     },
+    -- [Id.PlayerUpgradeNonPersistent.ARMOR] = {
+    --     period = 10,
+    --     maxStage = 1,
+    --     isRenewable = true,
+    --     isLooped = false,
+    --     isExpirable = true,
+    --     multiplier = .5, -- half damage
+    --     color = Color3.fromRGB(220, 194, 1),
+    -- },
+    [Id.PlayerUpgradeNonPersistent.ARMOR] = {
+        period = 0xffff_ffff,
+        maxStage = 3,
+        isRenewable = false,
+        isLooped = false,
+        isExpirable = false,
+        multiplier = .1, -- damage reduction
+        color = Color3.fromRGB(220, 194, 1),
+    },
 }
 
 m.Sound = {
+    [Id.Sound.ARMOR_HIT] = assert(SOUNDS_ROOT:WaitForChild("ArmorImpact")),
     [Id.Sound.BELL] = assert(SOUNDS_ROOT:WaitForChild("Bell")),
     [Id.Sound.BELL_SUCCESS] = assert(SOUNDS_ROOT:WaitForChild("BellSuccess")),
     [Id.Sound.CLICK] = assert(SOUNDS_ROOT:WaitForChild("Click")),
@@ -341,12 +360,14 @@ m.Sound = {
     [Id.Sound.CREAK_METAL] = assert(SOUNDS_ROOT:WaitForChild("CreakMetalHeavy")),
     [Id.Sound.CRYSTAL_DING] = assert(SOUNDS_ROOT:WaitForChild("CrystalDing")),
     [Id.Sound.ENERGY_SHIELD_HIT] = assert(SOUNDS_ROOT:WaitForChild("EnergyShieldHit")),
+    [Id.Sound.ENERGY_SWEEP] = assert(SOUNDS_ROOT:WaitForChild("EnergySweep")),
     [Id.Sound.ERROR] = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
     [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.POP] = assert(SOUNDS_ROOT:WaitForChild("Pop")),
     [Id.Sound.RELOAD] = assert(SOUNDS_ROOT:WaitForChild("Reload")),
     [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
     [Id.Sound.THUMP] = assert(SOUNDS_ROOT:WaitForChild("Thump")),
+    [Id.Sound.WEAK_BULLET] = assert(SOUNDS_ROOT:WaitForChild("WeakBullet")),
     -- localized sounds
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
     [Id.Sound.SCREAM_LOCALIZED_HIGH] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ScreamHigh")),

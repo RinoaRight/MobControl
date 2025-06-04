@@ -77,28 +77,34 @@ m.SelectPerks = function(playerState: PSS.PlayerState)
     for _, perkId in
         {
             Id.PlayerUpgradeNonPersistent.FIREPOWER,
-            Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE,
             Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT,
             Id.PlayerUpgradeNonPersistent.CLONE_FACTORY,
+            Id.PlayerUpgradeNonPersistent.ARMOR,
         }
     do
-        if not isMax(playerState, perkId) or S.PlayerUpgradeNonPersistent[perkId].isRenewable then
+        if
+            not isMax(playerState, perkId)
+            or S.PlayerUpgradeNonPersistent[perkId].maxStage == 0
+            or S.PlayerUpgradeNonPersistent[perkId].isRenewable
+        then
             table.insert(pool, perkId)
         end
     end
 
-    local shieldRechargeFlags = playerState.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
+    local shieldRechargeFlags = playerState.state:get(Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE, C.Bitset)
     local isShieldRechargable = Id.flag_test(shieldRechargeFlags, Id.PlayerF.PERK_ACQUIRED)
 
-    -- add shield to the pool, if shield is not rechargeable yet
+    -- add SHIELD and SHIELD_RECHARGE to the pool, if shield is not rechargeable yet
     if not isShieldRechargable then
+        table.insert(pool, Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE)
         table.insert(pool, Id.PlayerUpgradeNonPersistent.SHIELD)
     end
 
-    -- add invincibility to the pool, if shield is not rechargeable yet
-    if not isShieldRechargable then
-        table.insert(pool, Id.PlayerUpgradeNonPersistent.INVINCIBILITY)
-    end
+    -- NOTE: don't. 2 seconds duration is too short to be useful
+    -- add INVINCIBILITY to the pool, if shield is not rechargeable yet
+    -- if not isShieldRechargable then
+    --     table.insert(pool, Id.PlayerUpgradeNonPersistent.INVINCIBILITY)
+    -- end
 
     local perk1 = pool[math.random(1, #pool)]
     local perk2 = pool[math.random(1, #pool)]
@@ -121,6 +127,5 @@ m.SelectPerks = function(playerState: PSS.PlayerState)
     selectedPerks = Vector3.new(perk1, perk2, 0)
     return selectedPerks
 end
-
 
 return m

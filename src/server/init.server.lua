@@ -246,8 +246,9 @@ local function unacquirePerks(playerState: PSS.PlayerState)
         -- unacquire the perk
         local flags = playerState.state:get(perk_id, C.Bitset)
         playerState.state:set(perk_id, C.Bitset, Id.flag_set(flags, Id.PlayerF.PERK_ACQUIRED, false))
+        playerState.state:set(perk_id, C.ValueNonPers, 0)
         -- reset the perk
-        playerState:ResetPlayerUpgradeNonPers(perk_id)
+        playerState:DeactivatePlayerUpgradeNonPers(perk_id)
     end
 end
 
@@ -374,36 +375,10 @@ end
 
 local function acquirePlayerUpgradeNonPers(player_state, perk_id: id)
     local perkStage = player_state.state:get(perk_id, C.ValueNonPers)
-    if perkStage < S.PlayerUpgradeNonPersistent[perk_id].maxStage then
-        local flags = player_state.state:get(perk_id, C.Bitset)
-        local duration
-        if S.PlayerUpgradeNonPersistent[perk_id].period then
-            duration = S.PlayerUpgradeNonPersistent[perk_id].period
-        end
-
-        -- set ttl
-        local ttl
-        if S.PlayerUpgradeNonPersistent[perk_id].isExpirable then
-            if duration then
-                ttl = roflake.time() + duration
-            else
-                ttl = 0xffff_ffff
-            end
-            player_state.state:set(perk_id, C.TTL, ttl)
-        end
-
-        -- set tte
-        if S.PlayerUpgradeNonPersistent[perk_id].isLooped then
-            local tte = S.PlayerUpgradeNonPersistent[perk_id].period
-            player_state.state:set(perk_id, C.TTE, tte)
-        end
-
+    if perkStage < S.PlayerUpgradeNonPersistent[perk_id].maxStage and S.PlayerUpgradeNonPersistent[perk_id].maxStage ~= 0 then
         player_state.state:set(perk_id, C.ValueNonPers, perkStage + 1)
-        player_state.state:set(perk_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED, Id.PlayerF.PERK_ACTIVE))
-        if S.PlayerUpgradeNonPersistent[perk_id].hp then
-            player_state.state:set(perk_id, C.HP, S.PlayerUpgradeNonPersistent[perk_id].hp)
-        end
     end
+    player_state:ActivatePlayerUpgradeNonPers(perk_id)
 end
 
 local function updatePlayerXP(playerState: PSS.PlayerState, received_xp: int): (int, int)
@@ -510,6 +485,12 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
 end
 
 on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { uid }, bulletGuid: uid, ...)
+    local playerFlags = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    local isPlayerInSession = playerFlags and Id.flag_test(playerFlags, Id.PlayerF.READY)
+    if not isPlayerInSession then
+        return
+    end
+
     if not WorldService.world:has(bulletGuid) then
         return
     end
@@ -724,6 +705,12 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
 end
 
 on[Id.C2S.PERK_SELECTED] = function(player_state, whichPerk, ...)
+    local playerFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    local isPlayerInSession = playerFlags and Id.flag_test(playerFlags, Id.PlayerF.READY)
+    if not isPlayerInSession then
+        return
+    end
+
     if whichPerk == 0 then
         log:error("Invalid perk number", whichPerk, debug.traceback())
         return
@@ -769,10 +756,6 @@ end
 s2s[Id.S2S.PLAYER_DIED] = function(player_state, deducted_hp: int, cause_id: id | uid?, ...)
     onPlayerSessionFinishedPlayerState(player_state)
 end
-
--- s2s[Id.S2S.RANK_UP] = function(player_state, next_rank: int, next_xp: int, ...)
-
--- end
 
 -----------------------------
 -- Player Connect
