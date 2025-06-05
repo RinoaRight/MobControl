@@ -57,6 +57,13 @@ local isMax = function(playerState: PSS.PlayerState, perkId: id)
     return true
 end
 
+local function isSelectable(playerState: PSS.PlayerState, perkId: id)
+    local isSlectable = not isMax(playerState, perkId)
+        or S.PlayerUpgradeNonPersistent[perkId].maxStage == 0
+        or S.PlayerUpgradeNonPersistent[perkId].isRenewable
+    return isSlectable
+end
+
 local m = {}
 m.SelectPerks = function(playerState: PSS.PlayerState)
     local selectedPerks = Vector3.new(0, 0, 0)
@@ -82,11 +89,7 @@ m.SelectPerks = function(playerState: PSS.PlayerState)
             Id.PlayerUpgradeNonPersistent.ARMOR,
         }
     do
-        if
-            not isMax(playerState, perkId)
-            or S.PlayerUpgradeNonPersistent[perkId].maxStage == 0
-            or S.PlayerUpgradeNonPersistent[perkId].isRenewable
-        then
+        if isSelectable(playerState, perkId) then
             table.insert(pool, perkId)
         end
     end
@@ -96,8 +99,20 @@ m.SelectPerks = function(playerState: PSS.PlayerState)
 
     -- add SHIELD and SHIELD_RECHARGE to the pool, if shield is not rechargeable yet
     if not isShieldRechargable then
-        table.insert(pool, Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE)
-        table.insert(pool, Id.PlayerUpgradeNonPersistent.SHIELD)
+        if isSelectable(playerState, Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE) then
+            table.insert(pool, Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE)
+        end
+        if isSelectable(playerState, Id.PlayerUpgradeNonPersistent.SHIELD) then
+            table.insert(pool, Id.PlayerUpgradeNonPersistent.SHIELD)
+        end
+    else
+        -- add SHIELD_DAMAGE and SHIELD_COOLDOWN_MULTto the pool, if shield is rechargeable
+        if isSelectable(playerState, Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE) then
+            table.insert(pool, Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE)
+        end
+        if isSelectable(playerState, Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT) then
+            table.insert(pool, Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT)
+        end
     end
 
     -- NOTE: don't. 2 seconds duration is too short to be useful

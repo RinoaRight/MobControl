@@ -38,7 +38,7 @@ local roflake = require(shared.roflake)
 
 -- local _state
 local _maid = Disposer.new(script)
-local _workerMaid = Disposer.new(script)
+local _shopMaid = Disposer.new(script)
 
 local SHOP_ROOT_PANEL
 local SHOP_SCROLLING_FRAME
@@ -59,7 +59,7 @@ local PERK_2_SLOT_IMG
 local closeShopGui -- forward declaration
 
 local function openShopGui(playerState, worldState, gui, localRoot)
-    _workerMaid.xTab = X_BTN.Activated:Connect(function()
+    _shopMaid.xTab = X_BTN.Activated:Connect(function()
         SFX.PLAY_SOUND(Id.Sound.CLICK)
         closeShopGui(playerState, worldState, gui, localRoot)
     end)
@@ -82,7 +82,7 @@ local subscribeTokenShopCollider = function(playerState: state.Replica, worldSta
 end
 
 closeShopGui = function(playerState, worldState, gui, localRoot)
-    _workerMaid:Destroy()
+    _shopMaid:Destroy()
     gui.Enabled = false
     subscribeTokenShopCollider(playerState, worldState, gui, localRoot)
 end
@@ -189,6 +189,8 @@ local tweenInfo2 = TweenInfo.new(dur2, Enum.EasingStyle.Linear)
 local function destroyAuraSlow(playerState: state.Replica, localCharacter: Model, perk_id: id)
     local _, aura = isAura(playerState, localCharacter, perk_id)
     if aura then
+        _maid.flickerShield = nil
+
         local initTransparency = aura.Transparency
         local targetTransparency = 1
         local tween1 = TweenService:Create(aura, tweenInfo1, { Transparency = targetTransparency })
@@ -221,6 +223,8 @@ local function destroyAuraFast(playerState: state.Replica, localCharacter: Model
     local _, aura = isAura(playerState, localCharacter, perk_id)
     local isAuraBeingDestroyedAlready = playerState:get(perk_id, C.ClientFlags)
     if aura and not isAuraBeingDestroyedAlready then
+        _maid.flickerShield = nil
+
         SFX.PLAY_SOUND(Id.Sound.POP)
         playerState:set(perk_id, C.ClientFlags, false)
         aura:Destroy()
@@ -490,6 +494,29 @@ function m.OnModifyHP(playerState: state.Replica, localCharacter, guid: guid, ne
     end
 end
 
+local isFlickering = false
+function m.FlickerShield(playerState: state.Replica, localCharacter)
+    local _, aura = isAura(playerState, localCharacter, Id.PlayerUpgradeNonPersistent.SHIELD)
+    if aura and not isFlickering then
+        _maid.flickerShield = TaskPool.spawn(function()
+            -- TODO: SFX
+            isFlickering = true
+            aura.Color = Color3.fromRGB(255, 255, 255)
+            local dur = 0.05
+            local tweenInfo = TweenInfo.new(dur, Enum.EasingStyle.Linear)
+            local origScale = aura.Size
+            local targetScale = origScale * 1.5
+            local tween1 = TweenService:Create(aura, tweenInfo, { Size = targetScale })
+            local tween2 = TweenService:Create(aura, tweenInfo, { Size = origScale })
+            tween1:Play()
+            task.wait(dur)
+            tween2:Play()
+            isFlickering = false
+            aura.Color = S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.SHIELD].color
+        end)
+    end
+end
+
 function m.OnStateUpdate(playerState: state.Replica, localCharacter)
     local isInvincible = Id.flag_test(playerState:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset), Id.PlayerF.PERK_ACTIVE)
     local isShield = Id.flag_test(playerState:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset), Id.PlayerF.PERK_ACTIVE)
@@ -519,10 +546,6 @@ function m.OnStateUpdate(playerState: state.Replica, localCharacter)
     end
 
     playerState:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueView, playerHP)
-
-    if not isPlayerInSession then
-        hidePerkPanel()
-    end
 end
 
 function m.OnPlayerRankUpdate(state: state.Replica)
@@ -560,6 +583,13 @@ function m.OnPlayerRankUpdate(state: state.Replica)
             hidePerkPanel()
         end
     end)
+end
+
+function m.OnPlayerDead(playerState: state.Replica, localCharacter)
+    -- cleanup
+    hidePerkPanel()
+    _maid.flickerShield = nil
+    isFlickering = false
 end
 
 return m

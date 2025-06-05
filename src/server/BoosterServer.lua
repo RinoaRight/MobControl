@@ -46,6 +46,17 @@ local Rand = require(shared.rand)
 local BASE_HP_MULT = 0.1
 local workerMaid = disposer.new()
 
+local function getShieldDamage(player_state: PSS.PlayerState)
+    local shieldDamage = 0
+    local shieldFlags = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
+    local shieldDmgFlags = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE, C.Bitset)
+    local isShieldDmg = Id.flag_test(shieldFlags, Id.PlayerF.PERK_ACTIVE) and Id.flag_test(shieldDmgFlags, Id.PlayerF.PERK_ACTIVE)
+    if isShieldDmg then
+        shieldDamage = assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE].damage)
+    end
+    return isShieldDmg, shieldDamage
+end
+
 local m = {}
 
 -- TODO: others
@@ -124,8 +135,17 @@ m.SubscribeBooster = function(worldState: state.Main, get_state: (int) -> PSS.Pl
         else
             -- player collided with the booster for the first time, set the flag for the check above and do the logic
             playerState.state:set(boosterGuid, C.BitsetNonPers, Id.flag_or(flags, Id.PlayerF.BOOSTER_TOUCHED))
-            local hp = WorldService.world:get(boosterGuid, W.HP)
-            playerState:DeductHp(hp)
+            local isShieldDmg, shieldDamage = getShieldDamage(playerState)
+            -- apply shield damage, if there is still a booster afterwards, apply damage to the player
+            if isShieldDmg then
+                Signal.Fire(Id.S2S.SHIELD_DAMAGE_SERVER, playerState.player_id, boosterGuid, shieldDamage)
+            end
+            if worldState:has(boosterGuid) then
+                local boosterHp = WorldService.world:get(boosterGuid, W.HP)
+                if boosterHp > 0 then
+                    playerState:DeductHp(boosterHp - shieldDamage)
+                end
+            end
         end
     end)
 end

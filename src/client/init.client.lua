@@ -221,6 +221,7 @@ on[Id.S2C.BOOSTER_DESTROYED] = function(state: state.Replica, boost_ref_id: id, 
 end
 
 on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause: id?)
+    UIPlayerUpgrades.OnPlayerDead(state, LOCAL_CHARACTER)
     if deducted_hp then
         -- player died because they were damaged, otherwise it's the session finished
         onPlayerDamaged(deducted_hp, cause)
@@ -262,6 +263,10 @@ on[Id.S2C.SHOW_POPUP_SERVER] = function(state: state.Replica, event_id: id)
             ok = function() end,
         })
     end
+end
+
+on[Id.S2C.SHIELD_DAMAGE] = function(state: state.Replica, damage: int)
+    UIPlayerUpgrades.FlickerShield(PLAYER_STATE, LOCAL_CHARACTER)
 end
 
 -- Server Broadcasts
@@ -1090,6 +1095,26 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
         end
     end
 end)
+
+-- WORLD:set_on_modify(W.HP, function(guid: guid, newValue: flag, oldValue: flag)
+--     if type(guid) == "string" then
+--         local playerFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+--         local isPlayerInSession = playerFlags and Id.flag_test(playerFlags, Id.PlayerF.READY)
+--         if not isPlayerInSession then
+--             return
+--         end
+--         local refId = WORLD:get(guid, W.RefId)
+--         if newValue < oldValue and (Id.kind(refId) == Id.Kind.Enemy or Id.kind(refId) == Id.Kind.Obstacle or Id.kind(refId) == Id.Kind.Boost) then
+--             -- when any obstacle is hit, if shield damage is active, flicker the aura
+--             local shieldDamage = 0
+--             local shieldFlags = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
+--             local shieldDmgFlags = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE, C.Bitset)
+--             if Id.flag_test(shieldFlags, Id.PlayerF.PERK_ACTIVE) and Id.flag_test(shieldDmgFlags, Id.PlayerF.PERK_ACTIVE) then
+--                 UIPlayerUpgrades.FlickerShield(PLAYER_STATE, LOCAL_CHARACTER)
+--             end
+--         end
+--     end
+-- end)
 
 PLAYER_STATE:set_on_attach(C.RefId, function(guid: guid, newValue: num)
     if Id.kind(newValue) == Id.Kind.PlayerUpgradeNonPersistent then

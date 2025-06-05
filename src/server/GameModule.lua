@@ -401,6 +401,17 @@ local function updatePlayerUpgrades(player_state: PSS.PlayerState, dt: num)
     end
 end
 
+local function getShieldDamage(player_state: PSS.PlayerState)
+    local shieldDamage = 0
+    local shieldFlags = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
+    local shieldDmgFlags = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE, C.Bitset)
+    local isShieldDmg = Id.flag_test(shieldFlags, Id.PlayerF.PERK_ACTIVE) and Id.flag_test(shieldDmgFlags, Id.PlayerF.PERK_ACTIVE)
+    if isShieldDmg then
+        shieldDamage = assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE].damage)
+    end
+    return isShieldDmg, shieldDamage
+end
+
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     m.get_state = get_state
     -- init first batch of ground units and fill in the data table
@@ -459,9 +470,19 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                             local obstWidth = obstacleTemplate.Size.X
                             if proximityByX < obstWidth and proximityByZ < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
                                 if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
+                                    -- apply shield damage, if there is still an obstacle afterwards, apply damage to the player
                                     Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
                                     local dmg = assert(S.Obstacle[refId].damage)
-                                    player_state:DeductHp(dmg, guid)
+                                    local isShieldDmg, shieldDamage = getShieldDamage(player_state)
+                                    if isShieldDmg then
+                                        Signal.Fire(Id.S2S.SHIELD_DAMAGE_SERVER, player_state.player_id, guid :: str, shieldDamage)
+                                    end
+                                    if worldState:has(guid) then
+                                        local obstacleHp = WorldService.world:get(guid, W.HP)
+                                        if obstacleHp > 0 then
+                                            player_state:DeductHp(dmg - shieldDamage)
+                                        end
+                                    end
                                 end
                             end
                         end
@@ -495,6 +516,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     continue
                 end
                 -- with boosters
+                -- TODO: FIXIT. Collisions are not registered
                 local currentGroundUnit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
                 local playerRootPart = playerState.root :: BasePart
                 local rootPos = playerRootPart.Position
@@ -610,7 +632,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                         local dmg = assert(S.EnemyFlying[ownerRefId].damage)
                                         local playerState = get_state(player.UserId)
                                         if playerState then
-                                            playerState:DeductHp(dmg, guid)
+                                            playerState:DeductHp(dmg)
                                         end
                                         WorldService.RemoveEntity(guid)
                                     end
@@ -621,8 +643,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 end
             -- infantry enemies
             elseif Id.kind(refId) == Id.Kind.Enemy then
-                -- sanity check
-                assert(typeof(guid) == "string")
+                assert(typeof(guid) == "string") -- sanity check
                 local flags = worldState:get(guid, W.Bitset)
                 local enemyTemplate = assert(S.Enemy[refId].meshTemplate)
                 local speed = log:assert(S.Enemy[refId].speed, "S.Enemy has no speed for: '%*'", refId)
@@ -719,12 +740,19 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                             local proximity = (currentPos - root.Position).Magnitude
                             local thickness = enemyTemplate.Size.Z / 2
                             if proximity < thickness then
-                                -- enemy is critically close to player, harm them, then die (boss is an exception)
-                                local enemyDamage = S.Enemy[refId].damage
-                                thisPlayerState:DeductHp(enemyDamage)
-                                if refId ~= Id.Enemy.OCTOBOSS then
-                                    -- TODO: effects
-                                    m.DestroyEnemy(guid)
+                                -- enemy is critically close to player, check for shield damage
+                                local isShieldDmg, shieldDamage = getShieldDamage(thisPlayerState)
+                                if isShieldDmg then
+                                    Signal.Fire(Id.S2S.SHIELD_DAMAGE_SERVER, thisPlayerState.player_id, guid :: str, shieldDamage)
+                                end
+                                -- if there is still an enemy afterwards, apply damage to the player, then die (boss is an exception)
+                                if worldState:has(guid) then
+                                    local enemyDamage = S.Enemy[refId].damage
+                                    thisPlayerState:DeductHp(enemyDamage - shieldDamage)
+                                    if refId ~= Id.Enemy.OCTOBOSS then
+                                        -- TODO: effects
+                                        m.DestroyEnemy(guid)
+                                    end
                                 end
                             end
                         end

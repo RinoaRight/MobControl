@@ -30,7 +30,6 @@ local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local W = SharedConfig.World.CId
 local C = SharedConfig.PlayerState.CId
-local state = require(shared.state)
 
 local m = {}
 m.__index = m

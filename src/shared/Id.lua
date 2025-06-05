@@ -434,8 +434,8 @@ Id.PlayerUpgradeNonPersistent = enum.with_id "Id.PlayerUpgradeNonPersistent" {
     CLONE_FACTORY        = iota'',
     SHIELD_RECHARGE      = iota'',
     ARMOR                = iota'',
-    -- TODO: the rest of the upgrades
     SHIELD_DAMAGE        = iota'',
+    -- TODO: the rest of the upgrades
     SHIELD_COOLDOWN_MULT = iota'',
 }
 -- TODO: add all-players upgrades? weapon unlocks? drones?
@@ -769,12 +769,14 @@ export type STMState = typeof(Id.STMState)
 -- S2S
 -----------------------------
 Id.S2S = enum.with_id "Id.S2S" {
+    -- NOTE: has to pass player_id as a first argument
     _NONE                     = iota(Id.Kind.S2S, 0),
     PASS_GRANTED              = iota'',
     PURCHASE_FINISHED         = iota'',
-    CHANGE_WEAPON             = iota'', -- weapon_id
-    PLAYER_DIED               = iota'', -- int (player damage)?, cause_id\uid?
-    RANK_UP                   = iota'', -- player_state, next_rank, next_xp
+    CHANGE_WEAPON             = iota'', -- player_id,weapon_id
+    PLAYER_DIED               = iota'', -- player_id, int (player damage)?, cause_id\uid?
+    -- RANK_UP                   = iota'', -- player_state, next_rank, next_xp
+    SHIELD_DAMAGE_SERVER      = iota'', -- player_id, target_guid, damage
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)
@@ -822,6 +824,7 @@ Id.S2C = enum.with_id "Id.S2C" {
     UPDATE_WORLD      = iota'',
     PLAYER_DAMAGED    = iota'', -- int (player damage), cause_id\uid?
     PLAYER_DIED       = iota'', -- int (player damage), cause_id\uid?
+    SHIELD_DAMAGE     = iota'', -- int (shield damage)
     SHOW_POPUP_SERVER = iota'', -- event_id
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C

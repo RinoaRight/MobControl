@@ -399,6 +399,88 @@ local function updatePlayerXP(playerState: PSS.PlayerState, received_xp: int): (
     return next_rank, next_xp
 end
 
+local function onTargetHit(playerState: PSS.PlayerState, targetGuid: string, dmg: num)
+    local targetRefId = WorldService.world:get(targetGuid, W.RefId)
+    if Id.kind(targetRefId) == Id.Kind.Boost then
+        local boosterServerInstance = WorldService.world:get(targetGuid, W.ServerInstance)
+        local booster_hp = WorldService.world:get(targetGuid, W.HP)
+        local new_hp = booster_hp - dmg
+        local boosterGui = boosterServerInstance:FindFirstChildWhichIsA("SurfaceGui")
+        if boosterGui then
+            boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
+        end
+        if new_hp <= 0 then
+            -- give boost to the player who killed the booster
+            local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
+            local value = WorldService.world:get(targetGuid, W.Value)
+            BoosterServer.DeleteBooster(WorldService.world, targetGuid :: str, get_state)
+            local _ = playerState:UpdateSessionDamageStats(booster_hp)
+
+            -- give reward for killing booster
+            local reward = S.Boost[targetRefId].baseReward or 0
+            playerState:AddCountablePersistent(Id.CountablePersistent.COIN, reward)
+
+            -- give XP for killing booster
+            local xp = S.Boost[targetRefId].xp or 0
+            updatePlayerXP(playerState, xp)
+
+            GameModule.HandleBoosterDeath(playerState, targetGuid :: str, targetRefId, value, boostContentId)
+        else
+            local _ = playerState:UpdateSessionDamageStats(dmg)
+            WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
+        end
+    elseif Id.kind(targetRefId) == Id.Kind.Enemy then
+        local enemyHP = WorldService.world:get(targetGuid, W.HP)
+        local newHP = enemyHP - dmg
+
+        if enemyHP - dmg <= 0 then
+            local _ = playerState:UpdateSessionDamageStats(enemyHP)
+            local _ = playerState:UpdateSessionEnemyKills()
+
+            -- add reward for killing enemies
+            local bounty = 0
+            if S.Enemy[targetRefId].reward then
+                bounty = S.Enemy[targetRefId].reward
+            end
+            playerState:AddCountablePersistent(Id.CountablePersistent.COIN, bounty)
+
+            -- give XP for killing enemies
+            local xp = S.Enemy[targetRefId].xp or 0
+            updatePlayerXP(playerState, xp)
+
+            GameModule.DestroyEnemy(targetGuid :: str, playerState.player_id)
+
+            -- check if the enemy was the final boss, if yes, finish round
+            if targetRefId == Id.Enemy.OCTOBOSS then
+                if WorldService.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then -- we are checking player_id, other checks are redundant
+                    WorldService.SetBossFightOff()
+                    onFinalBossKilledByPlayer(playerState)
+                end
+            end
+        else
+            local _ = playerState:UpdateSessionDamageStats(dmg)
+            WorldService.world:set(targetGuid, W.HP, newHP)
+        end
+    elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
+        local obstacleHP = WorldService.world:get(targetGuid, W.HP)
+        local newHP = obstacleHP - dmg
+        if newHP <= 0 then
+            local _ = playerState:UpdateSessionDamageStats(newHP)
+            -- give reward for destroying obstacle
+            local reward = S.Obstacle[targetRefId].reward or 0
+            playerState:AddCountablePersistent(Id.CountablePersistent.COIN, reward)
+            WorldService.world:delete(targetGuid)
+
+            -- give XP for destroying obstacle
+            local xp = S.Obstacle[targetRefId].xp or 0
+            updatePlayerXP(playerState, xp)
+        else
+            local _ = playerState:UpdateSessionDamageStats(dmg)
+            WorldService.world:set(targetGuid, W.HP, newHP)
+        end
+    end
+end
+
 ----------------------------
 -- Event Handling
 -----------------------------
@@ -561,87 +643,90 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
             end
 
             if Id.kind(targetRefId) == Id.Kind.Enemy then
-                local enemyHP = WorldService.world:get(targetGuid, W.HP)
+                -- local enemyHP = WorldService.world:get(targetGuid, W.HP)
                 local dmg = 0
                 if bulletWeaponDataEntry and bulletWeaponDataEntry.damage then
                     dmg = math.floor(bulletWeaponDataEntry.damage * firepowerBonus)
                 end
-                local newHP = enemyHP - dmg
+                onTargetHit(playerState, targetGuid :: str, dmg)
+                -- local newHP = enemyHP - dmg
 
-                if enemyHP - dmg <= 0 then
-                    local _ = playerState:UpdateSessionDamageStats(enemyHP)
-                    local _ = playerState:UpdateSessionEnemyKills()
+                -- if enemyHP - dmg <= 0 then
+                --     local _ = playerState:UpdateSessionDamageStats(enemyHP)
+                --     local _ = playerState:UpdateSessionEnemyKills()
 
-                    -- add reward for killing enemies
-                    local bounty = 0
-                    if S.Enemy[targetRefId].reward then
-                        bounty = S.Enemy[targetRefId].reward
-                    end
-                    playerState:AddCountablePersistent(Id.CountablePersistent.COIN, bounty)
+                --     -- add reward for killing enemies
+                --     local bounty = 0
+                --     if S.Enemy[targetRefId].reward then
+                --         bounty = S.Enemy[targetRefId].reward
+                --     end
+                --     playerState:AddCountablePersistent(Id.CountablePersistent.COIN, bounty)
 
-                    -- give XP for killing enemies
-                    local xp = S.Enemy[targetRefId].xp or 0
-                    updatePlayerXP(playerState, xp)
+                --     -- give XP for killing enemies
+                --     local xp = S.Enemy[targetRefId].xp or 0
+                --     updatePlayerXP(playerState, xp)
 
-                    GameModule.DestroyEnemy(targetGuid :: str, playerState.player_id)
+                --     GameModule.DestroyEnemy(targetGuid :: str, playerState.player_id)
 
-                    -- check if the enemy was the final boss, if yes, finish round
-                    if targetRefId == Id.Enemy.OCTOBOSS then
-                        if WorldService.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then -- we are checking player_id, other checks are redundant
-                            WorldService.SetBossFightOff()
-                            onFinalBossKilledByPlayer(playerState)
-                        end
-                    end
-                else
-                    local _ = playerState:UpdateSessionDamageStats(dmg)
-                    WorldService.world:set(targetGuid, W.HP, newHP)
-                end
+                --     -- check if the enemy was the final boss, if yes, finish round
+                --     if targetRefId == Id.Enemy.OCTOBOSS then
+                --         if WorldService.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then -- we are checking player_id, other checks are redundant
+                --             WorldService.SetBossFightOff()
+                --             onFinalBossKilledByPlayer(playerState)
+                --         end
+                --     end
+                -- else
+                --     local _ = playerState:UpdateSessionDamageStats(dmg)
+                --     WorldService.world:set(targetGuid, W.HP, newHP)
+                -- end
             elseif Id.kind(targetRefId) == Id.Kind.Boost then
                 local dmg = math.floor(S.Weapon[bulletWeaponId].damage + firepowerBonus)
-                local booster_hp = WorldService.world:get(targetGuid, W.HP)
-                local new_hp = booster_hp - dmg
-                local boosterGui = boosterServerInstance:FindFirstChildWhichIsA("SurfaceGui")
-                if boosterGui then
-                    boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
-                end
-                if new_hp <= 0 then
-                    -- give boost to the player who killed the booster
-                    local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
-                    local value = WorldService.world:get(targetGuid, W.Value)
-                    BoosterServer.DeleteBooster(WorldService.world, targetGuid :: str, get_state)
-                    local _ = playerState:UpdateSessionDamageStats(booster_hp)
+                onTargetHit(playerState, targetGuid :: str, dmg)
+                -- local booster_hp = WorldService.world:get(targetGuid, W.HP)
+                -- local new_hp = booster_hp - dmg
+                -- local boosterGui = boosterServerInstance:FindFirstChildWhichIsA("SurfaceGui")
+                -- if boosterGui then
+                --     boosterGui.TextLabel.Text = NumFormat.format_damage(new_hp)
+                -- end
+                -- if new_hp <= 0 then
+                --     -- give boost to the player who killed the booster
+                --     local boostContentId = WorldService.world:get(targetGuid, W.BoostContentId)
+                --     local value = WorldService.world:get(targetGuid, W.Value)
+                --     BoosterServer.DeleteBooster(WorldService.world, targetGuid :: str, get_state)
+                --     local _ = playerState:UpdateSessionDamageStats(booster_hp)
 
-                    -- give reward for killing booster
-                    local reward = S.Boost[targetRefId].baseReward or 0
-                    playerState:AddCountablePersistent(Id.CountablePersistent.COIN, reward)
+                --     -- give reward for killing booster
+                --     local reward = S.Boost[targetRefId].baseReward or 0
+                --     playerState:AddCountablePersistent(Id.CountablePersistent.COIN, reward)
 
-                    -- give XP for killing booster
-                    local xp = S.Boost[targetRefId].xp or 0
-                    updatePlayerXP(playerState, xp)
+                --     -- give XP for killing booster
+                --     local xp = S.Boost[targetRefId].xp or 0
+                --     updatePlayerXP(playerState, xp)
 
-                    GameModule.HandleBoosterDeath(playerState, targetGuid :: str, targetRefId, value, boostContentId)
-                else
-                    local _ = playerState:UpdateSessionDamageStats(dmg)
-                    WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
-                end
+                --     GameModule.HandleBoosterDeath(playerState, targetGuid :: str, targetRefId, value, boostContentId)
+                -- else
+                --     local _ = playerState:UpdateSessionDamageStats(dmg)
+                --     WorldService.world:set(targetGuid, W.HP, booster_hp - dmg)
+                -- end
             elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
                 local dmg = math.floor(S.Weapon[bulletWeaponId].damage + firepowerBonus)
-                local obstacleHP = WorldService.world:get(targetGuid, W.HP)
-                local newHP = obstacleHP - dmg
-                if newHP <= 0 then
-                    local _ = playerState:UpdateSessionDamageStats(newHP)
-                    -- give reward for destroying obstacle
-                    local reward = S.Obstacle[targetRefId].reward or 0
-                    playerState:AddCountablePersistent(Id.CountablePersistent.COIN, reward)
-                    WorldService.world:delete(targetGuid)
+                onTargetHit(playerState, targetGuid :: str, dmg)
+                -- local obstacleHP = WorldService.world:get(targetGuid, W.HP)
+                -- local newHP = obstacleHP - dmg
+                -- if newHP <= 0 then
+                --     local _ = playerState:UpdateSessionDamageStats(newHP)
+                --     -- give reward for destroying obstacle
+                --     local reward = S.Obstacle[targetRefId].reward or 0
+                --     playerState:AddCountablePersistent(Id.CountablePersistent.COIN, reward)
+                --     WorldService.world:delete(targetGuid)
 
-                    -- give XP for destroying obstacle
-                    local xp = S.Obstacle[targetRefId].xp or 0
-                    updatePlayerXP(playerState, xp)
-                else
-                    local _ = playerState:UpdateSessionDamageStats(dmg)
-                    WorldService.world:set(targetGuid, W.HP, newHP)
-                end
+                --     -- give XP for destroying obstacle
+                --     local xp = S.Obstacle[targetRefId].xp or 0
+                --     updatePlayerXP(playerState, xp)
+                -- else
+                --     local _ = playerState:UpdateSessionDamageStats(dmg)
+                --     WorldService.world:set(targetGuid, W.HP, newHP)
+                -- end
             else
                 return
             end
@@ -757,6 +842,12 @@ s2s[Id.S2S.PLAYER_DIED] = function(player_state, deducted_hp: int, cause_id: id 
     onPlayerSessionFinishedPlayerState(player_state)
 end
 
+s2s[Id.S2S.SHIELD_DAMAGE_SERVER] = function(player_state, target_guid: str, damage: int, ...)
+    if damage > 0 then
+        player_state:NotifyClient(Id.S2C.SHIELD_DAMAGE, damage)
+    end
+    onTargetHit(player_state, target_guid, damage)
+end
 -----------------------------
 -- Player Connect
 -----------------------------

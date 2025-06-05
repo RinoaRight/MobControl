@@ -320,6 +320,7 @@ m.PlayerUpgradeNonPersistent = {
         isRenewable = false,
         isLooped = false,
         isExpirable = false,
+        damage = 5,
         color = Color3.fromRGB(255, 0, 0),
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT] = {
