@@ -416,7 +416,6 @@ Id.PlayerUpgradePersistent = enum.with_id "Id.PlayerUpgradePersistent" {
     INIT_CLONE_3       = iota'',
     XP_MULT              = iota'',
 }
--- TODO: add all-players upgrades? weapon unlocks? drones?
 KIND_TO_ENUM[Id.Kind.PlayerUpgradePersistent] = Id.PlayerUpgradePersistent
 export type PlayerUpgradePersistent = typeof(Id.PlayerUpgradePersistent)
 
@@ -435,7 +434,6 @@ Id.PlayerUpgradeNonPersistent = enum.with_id "Id.PlayerUpgradeNonPersistent" {
     SHIELD_RECHARGE      = iota'',
     ARMOR                = iota'',
     SHIELD_DAMAGE        = iota'',
-    -- TODO: the rest of the upgrades
     SHIELD_COOLDOWN_MULT = iota'',
 }
 -- TODO: add all-players upgrades? weapon unlocks? drones?

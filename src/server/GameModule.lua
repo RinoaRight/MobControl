@@ -371,6 +371,7 @@ local function updatePlayerUpgrades(player_state: PSS.PlayerState, dt: num)
                     player_state.state:set(upgrade_id, C.TTE, currentTTE - dt)
                 end
                 if currentTTE < 0 then
+                    local period = S.PlayerUpgradeNonPersistent[upgrade_id].period
                     -- when time is up, do the logic and reset the tte
                     if upgrade_id == Id.PlayerUpgradeNonPersistent.CLONE_FACTORY then
                         -- clone perk
@@ -388,8 +389,15 @@ local function updatePlayerUpgrades(player_state: PSS.PlayerState, dt: num)
                         if not Id.flag_test(shieldFlags, Id.PlayerF.PERK_ACTIVE) then
                             player_state:ActivatePlayerUpgradeNonPers(Id.PlayerUpgradeNonPersistent.SHIELD)
                         end
+                        -- if SHIELD COOLDOWN MULT is active, reduce the SHIELD RECHARGE period
+                        local shieldCooldownFlags = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT, C.Bitset)
+                        if Id.flag_test(shieldCooldownFlags, Id.PlayerF.PERK_ACTIVE) then
+                            local cooldownMult = S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT].multiplier:: num
+                            local cooldownStage = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT, C.ValueNonPers)
+                            assert(cooldownStage > 0)
+                            period -= period * cooldownMult * cooldownStage
+                        end
                     end
-                    local period = S.PlayerUpgradeNonPersistent[upgrade_id].period
                     if period then
                         player_state.state:set(upgrade_id, C.TTE, period)
                     else
@@ -516,8 +524,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     continue
                 end
                 -- with boosters
-                -- TODO: FIXIT. Collisions are not registered
-                local currentGroundUnit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
+                -- checking second unit, not middle because the units' indeces has already shifted
+                local currentGroundUnit = GROUND_UNITS[FIELD_NAMES.SECOND].unit :: Part
                 local playerRootPart = playerState.root :: BasePart
                 local rootPos = playerRootPart.Position
                 local cloneIndex = worldState:get(cloneGuid, W.Value)
