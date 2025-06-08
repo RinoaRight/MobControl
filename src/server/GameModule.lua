@@ -394,8 +394,10 @@ local function updatePlayerUpgrades(player_state: PSS.PlayerState, dt: num)
                         if Id.flag_test(shieldCooldownFlags, Id.PlayerF.PERK_ACTIVE) then
                             local cooldownMult = S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT].multiplier:: num
                             local cooldownStage = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT, C.ValueNonPers)
-                            assert(cooldownStage > 0)
-                            period -= period * cooldownMult * cooldownStage
+                            if cooldownStage and cooldownStage > 0 then
+                                cooldownMult *= cooldownStage
+                            end
+                            period -= period * cooldownMult
                         end
                     end
                     if period then
@@ -515,69 +517,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
         -- TODO: stop it altogether after some time when boss fight is on to prevent new unit generation and lock player on the current unit
         oldPos = DRIVING_BOX_BACK_PART.Position
-
-        -- check clones collisions
-        for cloneGuid, refId, playerId in worldState:select(W.RefId, W.PlayerId) do
-            if Id.kind(refId) == Id.Kind.Clone then
-                local playerState = get_state(playerId)
-                if not playerState then
-                    continue
-                end
-                -- with boosters
-                -- checking second unit, not middle because the units' indeces has already shifted
-                local currentGroundUnit = GROUND_UNITS[FIELD_NAMES.SECOND].unit :: Part
-                local playerRootPart = playerState.root :: BasePart
-                local rootPos = playerRootPart.Position
-                local cloneIndex = worldState:get(cloneGuid, W.Value)
-                local alreadyInCol = (cloneIndex - 1) % SharedConfig.CLONES_IN_A_ROW
-                local row = math.floor((cloneIndex - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
-                local clonePos = Misc.GetClonePos(rootPos, alreadyInCol, row)
-                local isCollided = false
-                for _, booster in currentGroundUnit:GetChildren() do
-                    if not worldState:has(booster.Name) then
-                        continue
-                    end
-                    local boosterInstance = worldState:get(booster.Name, W.ServerInstance)
-                    local boosterSizeZ = boosterInstance.Size.Z
-                    local boosterSizeX = boosterInstance.Size.X
-                    local distZ = math.abs(clonePos.Z - boosterInstance.Position.Z)
-                    local distX = math.abs(clonePos.X - boosterInstance.Position.X)
-                    if distZ < boosterSizeZ / 2 and distX < boosterSizeX / 2 then
-                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
-                        WorldService.RemoveEntity(cloneGuid)
-                        isCollided = true
-                        break
-                    end
-                end
-
-                if isCollided then
-                    continue
-                end
-
-                -- with obstacles and bombs
-                for obstacleGuid, refId, obstaclePos in worldState:select(W.RefId, W.Position) do
-                    if Id.kind(refId) == Id.Kind.Obstacle then
-                        local proximityByX = math.abs(rootPos.X - obstaclePos.X)
-                        local proximityByZ = math.abs(rootPos.Z - obstaclePos.Z)
-                        local obstacleTemplate = assert(S.Obstacle[refId].meshTemplateFull)
-                        local obstWidth = obstacleTemplate.Size.X
-                        if proximityByX < obstWidth and proximityByZ < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
-                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
-                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.THUMP_LOCALIZED], clonePos, 0)
-                            WorldService.RemoveEntity(cloneGuid)
-                            isCollided = true
-                            break
-                        end
-                    elseif Id.kind(refId) == Id.Kind.Bomb then
-                        -- TODO:
-                    end
-                end
-
-                if isCollided then
-                    continue
-                end
-            end
-        end
 
         -- handle enemies
         for guid, refId, currentPos in worldState:select(W.RefId, W.Position) do
@@ -780,6 +719,76 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         -- activate seek mode on collision with the driver box's front
                         worldState:set(guid, W.Bitset, Id.flag_or(flags, Id.EnemyF.SEEK_ACTIVATED))
                     end
+                end
+            end
+        end
+
+        -- check clones collisions
+        for cloneGuid, refId, playerId in worldState:select(W.RefId, W.PlayerId) do
+            if Id.kind(refId) == Id.Kind.Clone then
+                local playerState = get_state(playerId)
+                if not playerState then
+                    continue
+                end
+                -- with boosters
+                -- checking second unit, not middle because the units' indeces has already shifted
+                local currentGroundUnit = GROUND_UNITS[FIELD_NAMES.SECOND].unit :: Part
+                local playerRootPart = playerState.root :: BasePart
+                local rootPos = playerRootPart.Position
+                local cloneIndex = worldState:get(cloneGuid, W.Value)
+                local alreadyInCol = (cloneIndex - 1) % SharedConfig.CLONES_IN_A_ROW
+                local row = math.floor((cloneIndex - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
+                local clonePos = Misc.GetClonePos(rootPos, alreadyInCol, row)
+                local isCollided = false
+                for _, booster in currentGroundUnit:GetChildren() do
+                    if not worldState:has(booster.Name) then
+                        continue
+                    end
+                    local boosterInstance = worldState:get(booster.Name, W.ServerInstance)
+                    local boosterSizeZ = boosterInstance.Size.Z
+                    local boosterSizeX = boosterInstance.Size.X
+                    local distZ = math.abs(clonePos.Z - boosterInstance.Position.Z)
+                    local distX = math.abs(clonePos.X - boosterInstance.Position.X)
+                    if distZ < boosterSizeZ / 2 and distX < boosterSizeX / 2 then
+                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
+                        WorldService.RemoveEntity(cloneGuid)
+                        isCollided = true
+                        break
+                    end
+                end
+
+                if isCollided then
+                    continue
+                end
+
+                -- with obstacles and bombs
+                for obstacleGuid, refId, obstaclePos in worldState:select(W.RefId, W.Position) do
+                    if Id.kind(refId) == Id.Kind.Obstacle then
+                        -- local proximityByX = math.abs(clonePos.X - obstaclePos.X)
+                        -- local proximityByZ = math.abs(clonePos.Z - obstaclePos.Z)
+                        -- local obstacleTemplate = assert(S.Obstacle[refId].meshTemplateFull)
+                        -- local obstWidth = obstacleTemplate.Size.X
+                        -- if proximityByX < obstWidth and proximityByZ < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
+                        if (clonePos - obstaclePos).Magnitude < 10 then
+                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
+                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.THUMP_LOCALIZED], clonePos, 0)
+                            WorldService.RemoveEntity(cloneGuid)
+                            isCollided = true
+                            break
+                        end
+                    elseif Id.kind(refId) == Id.Kind.Bomb then
+                        if (clonePos - obstaclePos).Magnitude < 20 then
+                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
+                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.THUMP_LOCALIZED], clonePos, 0)
+                            WorldService.RemoveEntity(cloneGuid)
+                            isCollided = true
+                            break
+                        end
+                    end
+                end
+
+                if isCollided then
+                    continue
                 end
             end
         end

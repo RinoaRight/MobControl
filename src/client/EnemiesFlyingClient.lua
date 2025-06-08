@@ -119,8 +119,7 @@ end
 -- flickerEnemy("Part", part)
 
 -- local function animateTargetSign(worldState: state.Replica, flyer: BasePart)
---     -- TODO: spawn bombs and subscribe them to collision with player, animate target sign
---     task.spawn(function()
+--     TaskPool.spawn(function()
 --         -- spawn target sign
 --         local targetSign = TARGET_SIGN_TEMPLATE:Clone()
 --         targetSign.Parent = flyer
@@ -212,7 +211,7 @@ m.OnBombActivated = function(worldState: state.Replica, bombGuid: str)
     bomb.CanCollide = false
     bomb.Anchored = false
     bomb.Color = Color3.fromRGB(255, 0, 0)
-    bomb.Size = Vector3.new(5, 5, 5)
+    bomb.Size = Vector3.new(10, 10, 10)
     local ownerGuid = worldState:get(bombGuid, W.OwnerGuid)
     local ownerInstance = worldState:get(ownerGuid, W.ClientInstance)
     if not ownerInstance then
@@ -223,6 +222,7 @@ m.OnBombActivated = function(worldState: state.Replica, bombGuid: str)
     bomb.Position = pos
     worldState:set(bombGuid, W.ClientFlags, false) -- set "bomb exploded" flag to false
     worldState:set(bombGuid, W.ClientInstance, bomb)
+    animateBomb(worldState, pos, bomb)
 end
 
 m.CleanupClientFlyer = function(worldState: state.Replica, instanceGuid: str)
