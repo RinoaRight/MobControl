@@ -130,7 +130,7 @@ m.SubscribeBooster = function(worldState: state.Main, get_state: (int) -> PSS.Pl
             end
             for _, cloneId in ipairs(cloneGuidsToKill) do
                 WorldService.RemoveEntity(cloneId)
-                Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], triggerer.Position, 0)
+                -- Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], triggerer.Position, 0)
             end
         else
             -- player collided with the booster for the first time, set the flag for the check above and do the logic

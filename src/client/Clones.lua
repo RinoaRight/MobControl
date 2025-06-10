@@ -93,7 +93,8 @@ function m.CreateCloneInstance(worldState, playerId: int, cloneGuid: num | str)
 
         local vacantRow = math.floor((existingClonesNum - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
         local alreadyInCol = existingClonesNum % SharedConfig.CLONES_IN_A_ROW
-        cloneRootPart.CFrame = CFrame.new(Misc.GetClonePos(humanoidRootPart.Position, alreadyInCol, vacantRow))
+        -- cloneRootPart.CFrame = CFrame.new(Misc.GetClonePos(humanoidRootPart.CFrame, alreadyInCol, vacantRow))
+        cloneRootPart.CFrame = Misc.GetCloneCFrame(humanoidRootPart.CFrame, alreadyInCol, vacantRow)
         -- for _, child in cloneInstance:GetChildren() do
         --     if child:IsA("BasePart") then
         --         Misc.AddInstanceToRaycastFilter(child)

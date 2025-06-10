@@ -269,6 +269,10 @@ on[Id.S2C.SHIELD_DAMAGE] = function(state: state.Replica, damage: int)
     UIPlayerUpgrades.FlickerShield(PLAYER_STATE, LOCAL_CHARACTER)
 end
 
+on[Id.S2C.BOMB_HIT] = function(state: state.Replica, bomb_guid: id, pos: Vector3)
+    SFX.PLAY_SOUND(Id.Sound.EXPLOSION_SHORT)
+end
+
 -- Server Broadcasts
 local on_cc = {} :: { [id]: (...any) -> () }
 
@@ -787,8 +791,9 @@ RunService.Heartbeat:Connect(function(dt)
 
             local alreadyInCol = (i - 1) % SharedConfig.CLONES_IN_A_ROW
             local row = math.floor((i - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
-            local clonePos = Misc.GetClonePos(pos, alreadyInCol, row)
-            local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
+            local cloneCFrame = Misc.GetCloneCFrame(playerRootPart.CFrame, alreadyInCol, row)
+            -- local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
+            local cloneTarget = CFrame.lookAlong(cloneCFrame.Position, playerRootPart.CFrame.LookVector, Vector3.yAxis)
             table.insert(clonesRootParts, cloneRootPart)
             table.insert(clonesTargets, cloneTarget)
             workspace:BulkMoveTo(clonesRootParts, clonesTargets, Enum.BulkMoveMode.FireCFrameChanged)
@@ -829,7 +834,7 @@ RunService.Heartbeat:Connect(function(dt)
             -- spawn explosion if the bomb is below the player root
             if newPos.Y < playerRootPart.Position.Y and not WORLD:get(guid, W.ClientFlags) then
                 local explosionSize = assert(S.Weapon[Id.Weapon.ROCKET].explosionSize)
-                Misc.SpawnExplosion(bombInstance, explosionSize)
+                Misc.SpawnExplosion(newPos, explosionSize)
                 WORLD:set(guid, W.ClientFlags, true)
             end
         end
@@ -888,7 +893,7 @@ RunService.Heartbeat:Connect(function(dt)
                     if weapon_id == Id.Weapon.ROCKET then
                         -- animate the explosion
                         local explosionSize = assert(S.Weapon[weapon_id].explosionSize)
-                        Misc.SpawnExplosion(target, explosionSize)
+                        Misc.SpawnExplosion(target.Position, explosionSize)
 
                         -- check if there other targets hit by the explosion
                         local otherTargets = Misc.GetBulletCollidablesInRadius(target.CFrame, explosionSize)
@@ -1070,10 +1075,15 @@ end)
 WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
     if Id.kind(oldValue) == Id.Kind.Clone then
         -- remove clone instance
-        local cloneInstance = workspace:FindFirstChild(guid, true)
-        if cloneInstance then
-            cloneInstance:Destroy()
-        end
+        -- local cloneInstance = workspace:FindFirstChild(guid, true)
+        -- if cloneInstance then
+        --     local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+        --     if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+        --         Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], cloneInstance.Position, 0)
+        --     end
+        --     cloneInstance:Destroy()
+        -- end
+        SFX.PLAY_SOUND(Id.Sound.SCREAM_HIGH)
     elseif Id.kind(oldValue) == Id.Kind.Obstacle then
         local instanceGuid = guid :: string
         Obstacles.CleanupClientObstacle(WORLD, instanceGuid)

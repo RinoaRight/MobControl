@@ -82,6 +82,14 @@ m.Weapon = {
     },
 }
 
+m.Bomb = {
+    [Id.Bomb.ZOMBALLOON_BOMB] = {
+        bombSpeed = 1,
+        damage = 40,
+        explosionSize = Vector3.new(30, 30, 30),
+    },
+}
+
 -- stylua: ignore
 m.Boost = {
     -- TODO: real values
@@ -126,14 +134,14 @@ m.Enemy = {
 
 m.EnemyFlying = {
     [Id.EnemyFlying.ZOMBALLOON] = {
-        damage = 40,
+        -- damage = 40,
         health = 10,
         period = Vector2.new(1.5, 3.0),
-        bombSpeed = 1,
+        -- bombSpeed = 1,
         flyerHeight = 50,
         reward = 3,
         xp = 10,
-        explosionSize = Vector3.new(10, 10, 10),
+        -- explosionSize = Vector3.new(20, 20, 20),
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_9"),
     },
 }
@@ -363,10 +371,12 @@ m.Sound = {
     [Id.Sound.ENERGY_SHIELD_HIT] = assert(SOUNDS_ROOT:WaitForChild("EnergyShieldHit")),
     [Id.Sound.ENERGY_SWEEP] = assert(SOUNDS_ROOT:WaitForChild("EnergySweep")),
     [Id.Sound.ERROR] = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
+    [Id.Sound.EXPLOSION_SHORT] = assert(SOUNDS_ROOT:WaitForChild("ExplosionShort")),
     [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.POP] = assert(SOUNDS_ROOT:WaitForChild("Pop")),
     [Id.Sound.RELOAD] = assert(SOUNDS_ROOT:WaitForChild("Reload")),
     [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
+    [Id.Sound.SCREAM_HIGH] = assert(SOUNDS_ROOT:WaitForChild("ScreamHigh")),
     [Id.Sound.THUMP] = assert(SOUNDS_ROOT:WaitForChild("Thump")),
     [Id.Sound.WEAK_BULLET] = assert(SOUNDS_ROOT:WaitForChild("WeakBullet")),
     -- localized sounds

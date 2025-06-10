@@ -143,17 +143,29 @@ local function isAura(playerState: state.Replica, localCharacter: Model, perk_id
     return isAura, aura
 end
 
-local function createAura(playerState: state.Replica, perk_id: id)
+local function destroyAuraFast(playerState: state.Replica, localCharacter: Model, perk_id: id)
+    local _, aura = isAura(playerState, localCharacter, perk_id)
+    local isAuraBeingDestroyedAlready = playerState:get(perk_id, C.ClientFlags)
+    if aura and not isAuraBeingDestroyedAlready then
+        _maid.flickerShield = nil
+
+        SFX.PLAY_SOUND(Id.Sound.POP)
+        playerState:set(perk_id, C.ClientFlags, false)
+        aura:Destroy()
+    end
+end
+
+local function createAura(playerState: state.Replica, localCharacter: Model, perk_id: id)
     local localPlayer = game.Players.LocalPlayer
     local playerCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 
-    -- check if there is already an aura
+    -- check if there is already an aura, if it is, destroy it
     local _, oldAura = isAura(playerState, playerCharacter, perk_id)
     if oldAura then
-        return
+        destroyAuraFast(playerState, localCharacter, perk_id)
     end
 
-    -- if not, create a new aura
+    -- create a new aura
     local aura = S.VFX[Id.VFX.INVINCIBILITY_AURA]:Clone()
     local color = assert(S.PlayerUpgradeNonPersistent[perk_id].color)
     local name
@@ -219,17 +231,6 @@ local function destroyAuraSlow(playerState: state.Replica, localCharacter: Model
     end
 end
 
-local function destroyAuraFast(playerState: state.Replica, localCharacter: Model, perk_id: id)
-    local _, aura = isAura(playerState, localCharacter, perk_id)
-    local isAuraBeingDestroyedAlready = playerState:get(perk_id, C.ClientFlags)
-    if aura and not isAuraBeingDestroyedAlready then
-        _maid.flickerShield = nil
-
-        SFX.PLAY_SOUND(Id.Sound.POP)
-        playerState:set(perk_id, C.ClientFlags, false)
-        aura:Destroy()
-    end
-end
 
 local function hidePerkPanel()
     local tweenTimeUp = 0.5
@@ -479,7 +480,7 @@ function m.OnModifyBitset(playerState: state.Replica, localCharacter, guid: guid
         or guid == Id.PlayerUpgradeNonPersistent.ARMOR
     then
         if isAcquired and isActive then
-            createAura(playerState, guid :: id)
+            createAura(playerState, localCharacter, guid :: id)
         elseif not isActive then
             destroyAuraFast(playerState, localCharacter, guid :: id)
         end

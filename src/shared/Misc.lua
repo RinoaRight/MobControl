@@ -162,16 +162,15 @@ m.ShowCollidableHP = function(worldState, targetGuids, killables, weapon_id, gui
     end
 end
 
-m.SpawnExplosion = function(target: BasePart, explosionSize: Vector3)
+m.SpawnExplosion = function(pos: Vector3, explosionSize: Vector3)
     local explosionInstance = Instance.new("Explosion")
-    explosionInstance.Position = target.Position
+    explosionInstance.Position = pos
     explosionInstance.BlastRadius = explosionSize.X * 3 --explosionSize.X / 2
     explosionInstance.BlastPressure = 0
     explosionInstance.ExplosionType = Enum.ExplosionType.NoCraters
     explosionInstance.DestroyJointRadiusPercent = 0
     explosionInstance.Parent = workspace
 end
-
 
 -- DEBUG:
 -- local counters = table.create(5, 0)
@@ -187,7 +186,7 @@ end
 --     local total = counters[RC_COUNT]/micro -- for microseconds
 --     print(fmt("~coolisions~ %d calls, %.3f pre, %.3f do, %.3f calc,",
 --         total, counters[RC_TPC_PRE] / total, counters[RC_TPC_DO] / total, counters[RC_TPC_CALC] / total))
---     print("~coolisions~ II ", counters[RC_COUNT], 
+--     print("~coolisions~ II ", counters[RC_COUNT],
 --         counters[RC_TPC_PRE]*micro, counters[RC_TPC_DO]*micro, counters[RC_TPC_CALC]*micro,
 --         os.clock() - counters[RC_TPC_WALL])
 --     counters[RC_COUNT] = 0
@@ -259,23 +258,44 @@ m.CloneOrPlayer = function(world_state, character: Model)
     return isClone, playerId
 end
 
-m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
-    local dist = SharedConfig.INTERCLONES_DISTANCE
-    local new_pos = Vector3.new(pos.X, pos.Y, pos.Z + dist)
-    local x = 0
-    local z = dist
+-- m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
+--     local dist = SharedConfig.INTERCLONES_DISTANCE
+--     local new_pos = Vector3.new(pos.X, pos.Y, pos.Z + dist)
+--     local x = 0
+--     local z = dist
+
+--     if alreadyInCol == 1 then
+--         x = -dist
+--     elseif alreadyInCol == 2 then
+--         x = dist
+--     elseif alreadyInCol == 3 then
+--         x = -dist * 2
+--     elseif alreadyInCol == 4 then
+--         x = dist * 2
+--     end
+--     new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z + z * row)
+--     return new_pos
+-- end
+
+m.GetCloneCFrame = function(cFrame: CFrame, alreadyInCol: int, row: int)
+    local dist = SharedConfig.INTERCLONES_DISTANCE + 1
+
+    local sideOffset = 0
+    local behindOffset = dist * row
 
     if alreadyInCol == 1 then
-        x = -dist
+        sideOffset = -dist
     elseif alreadyInCol == 2 then
-        x = dist
+        sideOffset = dist
     elseif alreadyInCol == 3 then
-        x = -dist * 2
+        sideOffset = -dist * 2
     elseif alreadyInCol == 4 then
-        x = dist * 2
+        sideOffset = dist * 2
     end
-    new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z + z * row)
-    return new_pos
+
+    local offset = -cFrame.LookVector * behindOffset + cFrame.RightVector * sideOffset
+
+    return CFrame.new(cFrame.Position + offset, cFrame.Position + cFrame.LookVector)
 end
 
 m.GetCloneDummyPos = function(pos: Vector3, alreadyInCol: int, row: int)

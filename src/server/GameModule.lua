@@ -392,7 +392,7 @@ local function updatePlayerUpgrades(player_state: PSS.PlayerState, dt: num)
                         -- if SHIELD COOLDOWN MULT is active, reduce the SHIELD RECHARGE period
                         local shieldCooldownFlags = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT, C.Bitset)
                         if Id.flag_test(shieldCooldownFlags, Id.PlayerF.PERK_ACTIVE) then
-                            local cooldownMult = S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT].multiplier:: num
+                            local cooldownMult = S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT].multiplier :: num
                             local cooldownStage = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT, C.ValueNonPers)
                             if cooldownStage and cooldownStage > 0 then
                                 cooldownMult *= cooldownStage
@@ -518,7 +518,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         -- TODO: stop it altogether after some time when boss fight is on to prevent new unit generation and lock player on the current unit
         oldPos = DRIVING_BOX_BACK_PART.Position
 
-        -- handle enemies
+        -- handle enemies and bombs
         for guid, refId, currentPos in worldState:select(W.RefId, W.Position) do
             -- flying enemies
             if Id.kind(refId) == Id.Kind.EnemyFlying then
@@ -546,12 +546,12 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     local ownerGuid = worldState:get(guid, W.OwnerGuid)
                     if not ownerGuid then
                         log:error("no ownerGuid found for bomb: '%*'", guid)
-                        return
+                        continue
                     end
                     local ownerRefId = worldState:get(ownerGuid, W.RefId)
                     local bombSpeed = 0.1
                     if ownerRefId then
-                        bombSpeed = assert(S.EnemyFlying[ownerRefId].bombSpeed)
+                        bombSpeed = assert(S.Bomb[refId].bombSpeed)
                     end
                     worldState:set(guid, W.Position, bombPos - Vector3.new(0, bombSpeed, 0))
 
@@ -564,25 +564,25 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     end
 
                     -- check for collisions with players
-                    if ownerRefId then
-                        local players = game.Players:GetPlayers()
-                        for _, player in ipairs(players) do
-                            local weaponId = worldState:get(player.UserId, W.WeaponId)
-                            if weaponId ~= Id.Weapon._NONE then
-                                local playerHead = player.Character:FindFirstChild("Head")
-                                if playerHead then
-                                    local playerHeadPos = playerHead.Position
-                                    local dist = (bombPos - playerHeadPos).Magnitude
-                                    local explosionSize = assert(S.EnemyFlying[ownerRefId].explosionSize)
-                                    if dist < explosionSize.X then
-                                        -- harm player, delete bomb
-                                        local dmg = assert(S.EnemyFlying[ownerRefId].damage)
-                                        local playerState = get_state(player.UserId)
-                                        if playerState then
-                                            playerState:DeductHp(dmg)
-                                        end
-                                        WorldService.RemoveEntity(guid)
+                    local players = game.Players:GetPlayers()
+                    for _, player in ipairs(players) do
+                        local weaponId = worldState:get(player.UserId, W.WeaponId)
+                        if weaponId ~= Id.Weapon._NONE then
+                            local playerHead = player.Character:FindFirstChild("Head")
+                            if playerHead then
+                                local playerHeadPos = playerHead.Position
+                                local dist = (bombPos - playerHeadPos).Magnitude
+                                local explosionSize = assert(S.Bomb[refId].explosionSize)
+                                if dist < explosionSize.X then
+                                    -- harm player, delete bomb
+                                    local dmg = assert(S.Bomb[refId].damage)
+                                    local playerState = get_state(player.UserId)
+                                    if playerState then
+                                        playerState:DeductHp(dmg)
                                     end
+                                    local thisPlayerState = assert(get_state(player.UserId))
+                                    thisPlayerState:NotifyClient(Id.S2C.BOMB_HIT, guid, playerHeadPos)
+                                    WorldService.RemoveEntity(guid)
                                 end
                             end
                         end
@@ -734,11 +734,11 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 -- checking second unit, not middle because the units' indeces has already shifted
                 local currentGroundUnit = GROUND_UNITS[FIELD_NAMES.SECOND].unit :: Part
                 local playerRootPart = playerState.root :: BasePart
-                local rootPos = playerRootPart.Position
+                -- local rootPos = playerRootPart.Position
                 local cloneIndex = worldState:get(cloneGuid, W.Value)
                 local alreadyInCol = (cloneIndex - 1) % SharedConfig.CLONES_IN_A_ROW
                 local row = math.floor((cloneIndex - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
-                local clonePos = Misc.GetClonePos(rootPos, alreadyInCol, row)
+                local cloneCFrame = Misc.GetCloneCFrame(playerRootPart.CFrame, alreadyInCol, row)
                 local isCollided = false
                 for _, booster in currentGroundUnit:GetChildren() do
                     if not worldState:has(booster.Name) then
@@ -747,10 +747,12 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     local boosterInstance = worldState:get(booster.Name, W.ServerInstance)
                     local boosterSizeZ = boosterInstance.Size.Z
                     local boosterSizeX = boosterInstance.Size.X
-                    local distZ = math.abs(clonePos.Z - boosterInstance.Position.Z)
-                    local distX = math.abs(clonePos.X - boosterInstance.Position.X)
+                    -- local distZ = math.abs(clonePos.Z - boosterInstance.Position.Z)
+                    -- local distX = math.abs(clonePos.X - boosterInstance.Position.X)
+                    local distZ = math.abs(cloneCFrame.Position.Z - boosterInstance.Position.Z)
+                    local distX = math.abs(cloneCFrame.Position.X - boosterInstance.Position.X)
                     if distZ < boosterSizeZ / 2 and distX < boosterSizeX / 2 then
-                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
+                        -- Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], cloneCFrame.Position, 0)
                         WorldService.RemoveEntity(cloneGuid)
                         isCollided = true
                         break
@@ -762,24 +764,32 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 end
 
                 -- with obstacles and bombs
-                for obstacleGuid, refId, obstaclePos in worldState:select(W.RefId, W.Position) do
+                for objectGuid, refId, objectPos in worldState:select(W.RefId, W.Position) do
                     if Id.kind(refId) == Id.Kind.Obstacle then
                         -- local proximityByX = math.abs(clonePos.X - obstaclePos.X)
                         -- local proximityByZ = math.abs(clonePos.Z - obstaclePos.Z)
                         -- local obstacleTemplate = assert(S.Obstacle[refId].meshTemplateFull)
                         -- local obstWidth = obstacleTemplate.Size.X
                         -- if proximityByX < obstWidth and proximityByZ < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
-                        if (clonePos - obstaclePos).Magnitude < 10 then
-                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
-                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.THUMP_LOCALIZED], clonePos, 0)
+                        -- if (cloneCFrame - obstaclePos).Magnitude < 10 then
+                        if (cloneCFrame.Position - objectPos).Magnitude < 10 then
+                            -- Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], cloneCFrame.Position, 0)
+                            -- Misc.SoundLocalizedAudio(S.Sound[Id.Sound.THUMP_LOCALIZED], cloneCFrame.Position, 0)
                             WorldService.RemoveEntity(cloneGuid)
                             isCollided = true
                             break
                         end
                     elseif Id.kind(refId) == Id.Kind.Bomb then
-                        if (clonePos - obstaclePos).Magnitude < 20 then
-                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], clonePos, 0)
-                            Misc.SoundLocalizedAudio(S.Sound[Id.Sound.THUMP_LOCALIZED], clonePos, 0)
+                        -- if (cloneCFrame - obstaclePos).Magnitude < 20 then
+                        local ownerGuid = worldState:get(objectGuid, W.OwnerGuid)
+                        if not ownerGuid then
+                            log:error("no ownerGuid found for bomb: '%*'", objectGuid)
+                            continue
+                        end
+                        local explosionSize = assert(S.Bomb[refId].explosionSize)
+                        if (cloneCFrame.Position - objectPos).Magnitude < explosionSize.X then
+                            -- Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], cloneCFrame.Position, 0)
+                            playerState:NotifyClient(Id.S2C.BOMB_HIT, objectGuid, objectPos)
                             WorldService.RemoveEntity(cloneGuid)
                             isCollided = true
                             break
