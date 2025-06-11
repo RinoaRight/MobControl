@@ -199,10 +199,12 @@ end
 local blockcastParams = RaycastParams.new()
 blockcastParams.FilterDescendantsInstances = blacklist
 m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
+    -- TODO: FIXIT: why boosters do not register collisions from the side
     -- counters[RC_COUNT] += 1
     -- local t = os.clock()
     -- local t0 = t
-    local rayDirection = Vector3.new(0, 0, -bulletRange)
+    -- local rayDirection = Vector3.new(0, 0, -bulletRange)
+    local rayDirection = bulletCFrame.LookVector * bulletRange
     -- counters[RC_TPC_PRE] += os.clock() - t; t = os.clock()
     local blockcastResult = workspace:Blockcast(bulletCFrame, bulletSize, rayDirection, blockcastParams)
     -- counters[RC_TPC_DO] += os.clock() - t; t = os.clock()

@@ -46,6 +46,7 @@ m.Weapon = {
         damage = 10,
         cooldown = 0.5, --sec
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
+        barrelLength = 2,
         instance = WEAPONS_ROOT.PistolModel,
         name = "Pistol",
     },
@@ -55,6 +56,7 @@ m.Weapon = {
         damage = 5,
         cooldown = 0.2,
         bulletSize = Vector3.new(1, 1, 1),
+        barrelLength = 2,
         -- TODO: change model
         instance = WEAPONS_ROOT.PistolModel,
         name = "SMG",
@@ -65,6 +67,7 @@ m.Weapon = {
         damage = 5,
         cooldown = 0.7,
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
+        barrelLength = 2,
         -- TODO: change model
         instance = WEAPONS_ROOT.PistolModel,
         name = "Spraygun",
@@ -75,6 +78,7 @@ m.Weapon = {
         damage = 50,
         cooldown = 1.2,
         bulletSize = Vector3.new(4, 4, 6),
+        barrelLength = 2,
         explosionSize = Vector3.new(30, 30, 30),
         -- TODO: change model
         instance = WEAPONS_ROOT.PistolModel,

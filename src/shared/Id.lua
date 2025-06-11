@@ -506,7 +506,7 @@ export type EnemyF = typeof(Id.EnemyF)
 -----------------------------
 Id.WorldF = enum.with_id "Id.WorldF" {
     _NONE                     = flag(Id.Kind.WorldF),
-    -- SEEK_ACTIVATED           = flag'',
+    -- PVP_TIME                  = flag'',
 }
 KIND_TO_ENUM[Id.Kind.WorldF] = Id.WorldF
 export type WorldF = typeof(Id.WorldF)
@@ -720,6 +720,7 @@ Id.WorldSpecs = enum.with_id "Id.WorldSpecs" {
     OBSTACLE_WAVE_COUNT          = iota'', -- number
     ENEMY_WAVE_COUNT             = iota'', -- number
     BOSS_FIGHT_ON                = iota'', -- bool
+    PVP_TIME                     = iota'', -- bool
 }
 KIND_TO_ENUM[Id.Kind.WorldSpecs] = Id.WorldSpecs
 export type WorldSpecs = typeof(Id.WorldSpecs)

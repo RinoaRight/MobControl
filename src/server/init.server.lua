@@ -186,9 +186,9 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
     local spawn_index = math.random(1, #lobby_spawns)
     local lobby_spawn = lobby_spawns[spawn_index]
     player_state.root.CFrame = lobby_spawn.CFrame
-    local constraint = player_state.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
-    if constraint then
-        constraint:Destroy()
+    local algnConstraint = player_state.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
+    if algnConstraint then
+        algnConstraint:Destroy()
     end
     -- workerMaid.playerLoop = nil -- stop updating weapon ttl
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)
@@ -202,6 +202,7 @@ end
 local function doCleanup(exception_player_id: num?)
     WorldService.SetGameSessionOff()
     WorldService.SetBossFightOff()
+    WorldService.SetPvPTimeOff()
     -- WorldService.ResetBoosterWaveCount()
     WorldService.ResetEnemyWaveCount()
     WorldService.ResetObstacleWaveCount()
@@ -383,6 +384,7 @@ local function updatePlayerXP(playerState: PSS.PlayerState, received_xp: int): (
 end
 
 local function onTargetHit(playerState: PSS.PlayerState, targetGuid: string, dmg: num)
+    print("LLLLLLL onTargetHit", targetGuid, dmg)
     local targetRefId = WorldService.world:get(targetGuid, W.RefId)
     if Id.kind(targetRefId) == Id.Kind.Boost then
         local boosterServerInstance = WorldService.world:get(targetGuid, W.ServerInstance)
@@ -486,8 +488,6 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
     -- check the legitimacy of the shot
     local currentTTE = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE)
     local tolerance = 0.1
-    -- local playerId = tostring(player_state.player_id)
-    -- if preiousWeaponsInfo[playerId] and (preiousWeaponsInfo[playerId] == current_weapon_id) then
     if current_weapon_id == bullet_weapon_id then
         if currentTTE and currentTTE > tolerance then
             log:error("The shot happened faster than the weapon's cooldown lets it", currentTTE)
@@ -506,7 +506,6 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
         WorldService.AddBulletToState(player_state, bullet_guids[i], current_weapon_id, bulletStartPos, player_state.player_id)
     end
 
-    -- preiousWeaponsInfo[playerId] = current_weapon_id
 end
 
 on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)

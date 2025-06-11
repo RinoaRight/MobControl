@@ -603,23 +603,33 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     end
     local bulletTTL = roflake.time() + range / speed
 
-    bullet.Position = pos
+    -- bullet.Position = pos
+    -- bullet.CFrame = CFrame.new(pos) + rootPart.CFrame.LookVector
+    local barrelLength = S.Weapon[weapon_id].barrelLength or 2
+    local lookVector = rootPart.CFrame.LookVector
+    local flatLookVector = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
+    local displacement: Vector3 = barrelLength * flatLookVector
+    local bulletPosition = rootPart.Position + displacement
+    -- TODO: lock y axis
+    bullet.CFrame = CFrame.new(bulletPosition, bulletPosition + flatLookVector)
+    -- bullet.CFrame = CFrame.new(rootPart.CFrame.Position + displacement, rootPart.CFrame.Position + flatLookVector)
+    -- bullet.CFrame = CFrame.lookAlong(bullet.Position, lookVector, Vector3.yAxis)
 
     table.insert(activeBulletsDataTable, {
         bullet = bullet,
         speed = speed,
         ttl = bulletTTL,
-        -- booster = targetToHit,
         owner = player,
         weapon_id = weapon_id,
-        rotation = CFrame.Angles(0, 0, 0),
+        -- rotation = CFrame.Angles(0, 0, 0),
+        -- rotation = rootPart.CFrame.LookVector,
         range = range,
         size = bulletSize,
     })
 
     local indexInTable = #activeBulletsDataTable
 
-    return pos, indexInTable, guid
+    return bullet, pos, indexInTable, guid
 end
 
 local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
@@ -627,7 +637,7 @@ local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
     local pos
     local guids = {}
     for i = 1, 5 do
-        local bulletPos, indexInTable, guid = spawnBullet(player, playerRootPart, weapon_id)
+        local bullet, bulletPos, indexInTable, guid = spawnBullet(player, playerRootPart, weapon_id)
         table.insert(guids, guid)
         local yRot = 0
         if i == 2 then
@@ -639,9 +649,21 @@ local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
         elseif i == 5 then
             yRot = -4
         end
-        pos = bulletPos -- they are overwriting each other, but it doesnt' matter cuz they are the same
-        local rot = CFrame.Angles(0, math.rad(yRot), 0)
-        activeBulletsDataTable[indexInTable].rotation = rot
+        -- pos = bulletPos -- they are overwriting each other, but it doesnt' matter cuz they are the same
+        -- TODO: change rotation according to LookVector
+        -- local rot = CFrame.Angles(0, math.rad(yRot), 0)
+        -- local rot = (playerRootPart.CFrame * CFrame.Angles(0, math.rad(yRot), 0)).LookVector
+        -- activeBulletsDataTable[indexInTable].rotation = rot
+        -- local barrelLength = S.Weapon[weapon_id].barrelLength or 2
+        -- local displacement: Vector3 = barrelLength * playerRootPart.CFrame.LookVector
+        -- bullet.CFrame = (playerRootPart.CFrame + displacement) * CFrame.Angles(0, math.rad(yRot), 0)
+        local barrelLength = S.Weapon[weapon_id].barrelLength or 2
+        local lookVector = playerRootPart.CFrame.LookVector
+        local flatLookVector = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
+        local displacement: Vector3 = barrelLength * flatLookVector
+        local bulletPosition = playerRootPart.Position + displacement
+        -- TODO: lock y axis
+        bullet.CFrame = CFrame.new(bulletPosition, bulletPosition + flatLookVector) * CFrame.Angles(0, math.rad(yRot), 0)
     end
     return pos, guids
 end
@@ -668,7 +690,7 @@ local function fireBullet(player)
         pos = startingPos
         table.move(newGuids, 1, #newGuids, #bulletGuids + 1, bulletGuids)
     else
-        local startingPos, _, newGuid = spawnBullet(player, playerRootPart, weapon_id)
+        local bullet, startingPos, _, newGuid = spawnBullet(player, playerRootPart, weapon_id)
         pos = startingPos
         table.insert(bulletGuids, newGuid)
     end
@@ -683,7 +705,7 @@ local function fireBullet(player)
                 pos = startingPos
                 table.move(newGuids, 1, #newGuids, #bulletGuids + 1, bulletGuids)
             else
-                local startingPos, _, newGuid = spawnBullet(player, rootPart, weapon_id)
+                local bulletInstance, startingPos, _, newGuid = spawnBullet(player, rootPart, weapon_id)
                 pos = startingPos
                 if player == LOCAL_PLAYER then
                     -- insert guids of clones' bullets to pass them to server to set to world state
@@ -852,14 +874,14 @@ RunService.Heartbeat:Connect(function(dt)
         local bullet = bulletData.bullet :: Part
         local owner = bulletData.owner
         local ttl = bulletData.ttl
-        local rot = bulletData.rotation
+        -- local rot = bulletData.rotation
         local weapon_id = bulletData.weapon_id
         local speed = bulletData.speed
         local start_pos = bulletData.start_pos
         local bullet_range = bulletData.range
         local bullet_size = bulletData.size
-
-        local newBulletCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * speed * dt)) * rot
+        local newBulletCframe = bullet.CFrame + bullet.CFrame.LookVector * (speed * dt)
+        -- local newBulletCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * (speed * dt))) * rot
 
         -- check for collisions
         local raycast_length = bullet_size.Z / 2 + (speed * dt)
@@ -916,6 +938,7 @@ RunService.Heartbeat:Connect(function(dt)
                         end
                     end
                     -- showCollidableHP(targetGuids, killables, weapon_id)
+                    print("LLLLLLL target hit")
                     fire_server(Id.C2S.TARGET_HIT, targetGuids, bullet.Name)
                 end
             end

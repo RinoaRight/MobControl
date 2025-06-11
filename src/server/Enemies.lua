@@ -44,7 +44,6 @@ local SharedUtils = require(shared.util)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Rand = require(shared.rand)
 
-
 local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_UNIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
@@ -71,17 +70,23 @@ end
 
 -- TODO: add more waves
 local ENEMIES_DATA_TABLE = {
-    { count = 20, gacha = {[Id.Enemy.BASIC] = 1}},
-    { count = 20, gacha = {[Id.Enemy.BASIC] = 1}},
-    { count = 20, gacha = {[Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = .3}},
-    { count = 20, gacha = {[Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = .3}},
+    { count = 20, gacha = { [Id.Enemy.BASIC] = 1 } },
+    { count = 20, gacha = { [Id.Enemy.BASIC] = 1 } },
+    { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = 0.3 } },
+    { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = 0.3 } },
 }
 local m = {}
 
--- NOTE: Every odd wave spawns in the current ground unit in front of the boosters, 
+-- NOTE: Every odd wave spawns in the current ground unit in front of the boosters,
 -- every even - after some time, behind the boosters
 
-function m.AddEnemies(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, waveNumber :int)
+function m.AddEnemies(
+    worldState: state.Main,
+    get_state: (player_id: int) -> PSS.PlayerState?,
+    groundUnit: BasePart,
+    isFirstHalf: bool,
+    waveNumber: int
+)
     local enemiesGuids = {}
     if waveNumber == SharedConfig.FINAL_BOSS_WAVE_NUMBER then
         local bossGuid = spawnBoss(Id.Enemy.OCTOBOSS, groundUnit.Position)

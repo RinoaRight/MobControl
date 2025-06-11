@@ -166,6 +166,24 @@ function m.SetGameSessionOff()
     end
 end
 
+local _pvp_time = m.world:constructor(W.Value)
+function m.SetPvPTimeOn()
+    local value = m.world:get(Id.WorldSpecs.PVP_TIME, W.Value)
+    if value == nil then
+        _pvp_time(Id.WorldSpecs.PVP_TIME, true)
+    else
+        m.world:set(Id.WorldSpecs.PVP_TIME, W.Value, true)
+    end
+end
+function m.SetPvPTimeOff()
+    local value = m.world:get(Id.WorldSpecs.PVP_TIME, W.Value)
+    if value == nil then
+        _pvp_time(Id.WorldSpecs.PVP_TIME, false)
+    else
+        m.world:set(Id.WorldSpecs.PVP_TIME, W.Value, false)
+    end
+end
+
 function m.AddClone(id: id, player_id: int)
     local guid = m.nullary_transient(_roflake.uida())
     m.world:set(guid, W.RefId, id)

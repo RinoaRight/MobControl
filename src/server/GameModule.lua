@@ -49,6 +49,7 @@ local Obstacles = require(server.Obstacles)
 local ClonesServer = require(server.ClonesServer)
 local Remote = require(shared.Remote)
 local Rand = require(shared.rand)
+local TweenService = game:GetService("TweenService")
 
 local CLONES = {}
 
@@ -226,10 +227,10 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     end
 end
 
-local function generateEnemies(worldState: state.Main)
+local function generateEnemies(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     local newWaveNumber = WorldService.UpdateEnemyWaveCount()
     local unit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
-    local enemyWalkingGuids = Enemies.AddEnemies(worldState, unit, true, newWaveNumber) :: {}
+    local enemyWalkingGuids = Enemies.AddEnemies(worldState, get_state, unit, true, newWaveNumber) :: {}
     local enemiesFlyingGuids = EnemiesFlying.AddEnemiesFlying(worldState, unit, true, newWaveNumber) :: {}
     local enemyGuids = {}
     for _, enemyGuid in ipairs(enemyWalkingGuids) do
@@ -247,6 +248,49 @@ local function generateEnemies(worldState: state.Main)
             end
         end
     end
+end
+
+local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?)
+    -- TODO: uncomment everything
+    local waveNumber = WorldService.GetEnemyWaveNumber()
+    local isPvPTime = false
+    -- if waveNumber == SharedConfig.FINAL_BOSS_WAVE_NUMBER then
+        local allPlayers = game.Players:GetPlayers()
+        local playersInSession = 0
+        -- if #allPlayers > 1 then
+            for _, player in ipairs(allPlayers) do
+                local thisPlayerState = get_state(player.UserId)
+                if thisPlayerState then
+                    local playerFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+                    if Id.flag_test(playerFlags, Id.PlayerF.READY) then
+                        playersInSession += 1
+                        local algnConstraint = thisPlayerState.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
+                        if algnConstraint then
+                            algnConstraint:Destroy()
+                        end
+                    end
+                end
+            end
+        -- end
+        -- if there are more than 1 player in the session, it's PvP time, otherwise spawn boss
+        -- if playersInSession > 1 then
+            isPvPTime = true
+            WorldService.SetPvPTimeOn()
+            -- TODO:
+            local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
+            TaskPool.spawn(function()
+            for _, unit in ipairs(unitsFolder) do
+                -- unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
+                local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+                local tween = TweenService:Create(unit, tweenInfo, { AssemblyLinearVelocity = Vector3.new(0, 0, 0) })
+                tween:Play()
+            end
+            -- task.wait(10)
+        end)
+        -- end
+    -- end
+    isPvPTime = true -- TODO: remove
+    return isPvPTime
 end
 
 local function subscribeTrigger(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, index, groundUnit)
@@ -271,7 +315,9 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
 
             if worldState:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value) then
-                generateEnemies(worldState)
+                if not isPvPTime(get_state) then
+                    generateEnemies(worldState, get_state)
+                end
             end
 
             local isToSpawn = true
@@ -288,7 +334,9 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
                     end
                 end
                 if isToSpawn and countdown < 0 then
-                    generateEnemies(worldState)
+                    if not isPvPTime(get_state) then
+                        generateEnemies(worldState, get_state)
+                    end
                 end
             end)
         end
@@ -296,14 +344,9 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
 end
 
 local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3, enemyRefId: id): (Player?, BasePart?, num?)
-    -- local totalPlayers = #playersInSession
-    -- local ind = 0
-    -- local distToTarget = 150
     local playerPool = {}
-    -- local player, playerRoot
 
     for _, p in ipairs(playersInSession) do
-        -- player = playersInSession[ind] :: Player
         local char = p.Character :: Model
         local playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
         local distToTarget = (enemyPos - playerRoot.Position).Magnitude
@@ -322,18 +365,6 @@ local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3, ene
     local selectedPlayer = playerPool[ind].player
     local playerRoot = playerPool[ind].playerRoot
     local distToTarget = playerPool[ind].distToTarget
-    -- while distToTarget >= 150 do
-    --     ind += 1
-    --     if ind > totalPlayers then
-    --         -- no player is close enough
-    --         return nil, nil, nil
-    --     end
-    --     player = playersInSession[ind] :: Player
-    --     local char = player.Character :: Model
-    --     playerRoot = char:FindFirstChild("HumanoidRootPart") :: BasePart
-    --     local toTarget = enemyPos - playerRoot.Position
-    --     distToTarget = toTarget.Magnitude
-    -- end
 
     local closenessByX = math.abs(enemyPos.X - playerRoot.Position.X)
     if closenessByX > SharedConfig.ENEMY_SIGHT_RADIUS then
@@ -341,8 +372,6 @@ local function selectPlayer(playersInSession: { Player }, enemyPos: Vector3, ene
         return nil, nil, nil
     end
 
-    -- player selected
-    -- return player, playerRoot, distToTarget
     return selectedPlayer, playerRoot, distToTarget
 end
 
@@ -510,10 +539,13 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
         -- driving box movement
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
-        if not isBossFightOn then
-            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5))
-        else
+        local isPvPTime = worldState:get(Id.WorldSpecs.PVP_TIME, W.Value)
+        if isBossFightOn then
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.1))
+        elseif isPvPTime then
+            -- do nothing
+        else
+            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5))
         end
         -- TODO: stop it altogether after some time when boss fight is on to prevent new unit generation and lock player on the current unit
         oldPos = DRIVING_BOX_BACK_PART.Position
@@ -677,7 +709,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     end
                 end
 
-                -- if distToTarget and playerState then
                 -- check for "collision" with players
                 if #playersInSession > 0 then
                     for _, player in ipairs(playersInSession) do
