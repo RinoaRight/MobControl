@@ -563,6 +563,49 @@ do
     end)
 end
 
+local function getBulletDirection(rootPart: BasePart, humanoid: Humanoid): Vector3
+    local moveDir = humanoid.MoveDirection
+    local flatMove = Vector3.new(moveDir.X, 0, moveDir.Z)
+    local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z)
+
+    if flatMove.Magnitude > 0.1 then
+        local crossMag = flatMove.Unit:Cross(facing.Unit).Magnitude
+        if crossMag < 0.5 then
+            -- Movement is mostly forward (less side motion)
+            return flatMove.Unit
+        end
+    end
+
+    -- Fallback to facing direction
+    return facing.Unit
+end
+
+local function defineBulletCframe(rootPart: BasePart, bulletInstance: BasePart, weapon_id: id, humanoid: Humanoid)
+    -- local velocity = rootPart.AssemblyLinearVelocity
+    -- local flatVelocity = Vector3.new(velocity.X, 0, velocity.Z)
+
+    -- -- fallback to current facing if velocity is near zero
+    -- local direction: Vector3
+    -- if flatVelocity.Magnitude > 0.1 then
+    --     direction = flatVelocity.Unit
+    -- else
+    --     -- fallback: use flat facing direction
+    --     direction = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z).Unit
+    -- end
+
+    -- -- compute final bullet CFrame
+    -- local barrelLength = S.Weapon[weapon_id].barrelLength or 2
+    -- local displacement = direction * barrelLength
+    -- local position = rootPart.Position + displacement
+    -- bulletInstance.CFrame = CFrame.new(position, position + direction)
+
+    local barrelLength = S.Weapon[weapon_id].barrelLength or 2
+    local direction = getBulletDirection(rootPart, humanoid)
+    local displacement = direction * barrelLength
+    local position = rootPart.Position + displacement
+    bulletInstance.CFrame = CFrame.new(position, position + direction)
+end
+
 local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     local bullet
     local pos
@@ -605,15 +648,18 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
 
     -- bullet.Position = pos
     -- bullet.CFrame = CFrame.new(pos) + rootPart.CFrame.LookVector
-    local barrelLength = S.Weapon[weapon_id].barrelLength or 2
-    local lookVector = rootPart.CFrame.LookVector
-    local flatLookVector = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
-    local displacement: Vector3 = barrelLength * flatLookVector
-    local bulletPosition = rootPart.Position + displacement
-    -- TODO: lock y axis
-    bullet.CFrame = CFrame.new(bulletPosition, bulletPosition + flatLookVector)
+
+    -- local barrelLength = S.Weapon[weapon_id].barrelLength or 2
+    -- local lookVector = rootPart.CFrame.LookVector
+    -- local flatLookVector = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
+    -- local displacement: Vector3 = barrelLength * flatLookVector
+    -- local bulletPosition = rootPart.Position + displacement
+    -- bullet.CFrame = CFrame.new(bulletPosition, bulletPosition + flatLookVector)
+
     -- bullet.CFrame = CFrame.new(rootPart.CFrame.Position + displacement, rootPart.CFrame.Position + flatLookVector)
     -- bullet.CFrame = CFrame.lookAlong(bullet.Position, lookVector, Vector3.yAxis)
+
+    defineBulletCframe(rootPart, bullet, weapon_id, LOCAL_HUMANOID)
 
     table.insert(activeBulletsDataTable, {
         bullet = bullet,
@@ -657,13 +703,8 @@ local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
         -- local barrelLength = S.Weapon[weapon_id].barrelLength or 2
         -- local displacement: Vector3 = barrelLength * playerRootPart.CFrame.LookVector
         -- bullet.CFrame = (playerRootPart.CFrame + displacement) * CFrame.Angles(0, math.rad(yRot), 0)
-        local barrelLength = S.Weapon[weapon_id].barrelLength or 2
-        local lookVector = playerRootPart.CFrame.LookVector
-        local flatLookVector = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
-        local displacement: Vector3 = barrelLength * flatLookVector
-        local bulletPosition = playerRootPart.Position + displacement
-        -- TODO: lock y axis
-        bullet.CFrame = CFrame.new(bulletPosition, bulletPosition + flatLookVector) * CFrame.Angles(0, math.rad(yRot), 0)
+
+        defineBulletCframe(playerRootPart, bullet, weapon_id, LOCAL_HUMANOID)
     end
     return pos, guids
 end
@@ -737,10 +778,10 @@ end
 
 local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_size)
     local bulletCFrame = bullet.CFrame
-    local bulletPos = bullet.Position
-    local targetPos = Vector3.new(bulletPos.X, bulletPos.Y, bulletPos.Z - bullet_size.Z)
-    local targetCFrame = CFrame.new(targetPos)
-    local target, _dist = Misc.IsBulletCollidableToHit(targetCFrame, raycast_length, bullet_size)
+    -- local bulletPos = bullet.Position
+    -- local targetPos = Vector3.new(bulletPos.X, bulletPos.Y, bulletPos.Z - bullet_size.Z)
+    -- local targetCFrame = CFrame.new(targetPos)
+    local target, _dist = Misc.IsBulletCollidableToHit(bulletCFrame, raycast_length, bullet_size)
     local targetThickness
     local targetRefId
     local isTargetKillable
@@ -937,8 +978,6 @@ RunService.Heartbeat:Connect(function(dt)
                             end
                         end
                     end
-                    -- showCollidableHP(targetGuids, killables, weapon_id)
-                    print("LLLLLLL target hit")
                     fire_server(Id.C2S.TARGET_HIT, targetGuids, bullet.Name)
                 end
             end

@@ -384,7 +384,6 @@ local function updatePlayerXP(playerState: PSS.PlayerState, received_xp: int): (
 end
 
 local function onTargetHit(playerState: PSS.PlayerState, targetGuid: string, dmg: num)
-    print("LLLLLLL onTargetHit", targetGuid, dmg)
     local targetRefId = WorldService.world:get(targetGuid, W.RefId)
     if Id.kind(targetRefId) == Id.Kind.Boost then
         local boosterServerInstance = WorldService.world:get(targetGuid, W.ServerInstance)

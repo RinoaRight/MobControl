@@ -116,6 +116,8 @@ for _, child in ipairs(chldrn) do
     end
 end
 
+local HUMANOID_Y_OFFSET
+
 local function deleteGroundUnit(groundUnit: Part, index: int)
     local children = groundUnit:GetChildren()
     for _, v in ipairs(children) do
@@ -142,10 +144,10 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
 end
 
 local function onBossArrival()
-    local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
-    for _, unit in ipairs(unitsFolder) do
-        unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
-    end
+    -- local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
+    -- for _, unit in ipairs(unitsFolder) do
+    --     unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
+    -- end
     WorldService.SetBossFightOn()
 end
 
@@ -254,10 +256,10 @@ local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?)
     -- TODO: uncomment everything
     local waveNumber = WorldService.GetEnemyWaveNumber()
     local isPvPTime = false
-    -- if waveNumber == SharedConfig.FINAL_BOSS_WAVE_NUMBER then
+    if waveNumber == SharedConfig.FINAL_BOSS_WAVE_NUMBER then
         local allPlayers = game.Players:GetPlayers()
         local playersInSession = 0
-        -- if #allPlayers > 1 then
+        if #allPlayers > 1 then
             for _, player in ipairs(allPlayers) do
                 local thisPlayerState = get_state(player.UserId)
                 if thisPlayerState then
@@ -271,25 +273,24 @@ local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?)
                     end
                 end
             end
-        -- end
+        end
         -- if there are more than 1 player in the session, it's PvP time, otherwise spawn boss
-        -- if playersInSession > 1 then
+        if playersInSession > 1 then
             isPvPTime = true
             WorldService.SetPvPTimeOn()
             -- TODO:
             local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
             TaskPool.spawn(function()
-            for _, unit in ipairs(unitsFolder) do
-                -- unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
-                local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-                local tween = TweenService:Create(unit, tweenInfo, { AssemblyLinearVelocity = Vector3.new(0, 0, 0) })
-                tween:Play()
-            end
-            -- task.wait(10)
-        end)
-        -- end
-    -- end
-    isPvPTime = true -- TODO: remove
+                for _, unit in ipairs(unitsFolder) do
+                    -- unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
+                    local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+                    local tween = TweenService:Create(unit, tweenInfo, { AssemblyLinearVelocity = Vector3.new(0, 0, 0) })
+                    tween:Play()
+                end
+                task.wait(10)
+            end)
+        end
+    end
     return isPvPTime
 end
 
@@ -480,6 +481,15 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             return
         end
 
+        local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
+        local isPvPTime = worldState:get(Id.WorldSpecs.PVP_TIME, W.Value)
+        local studPerTick = SharedConfig.MOVEMENT_SPEED * dt
+        if isBossFightOn then
+            studPerTick = SharedConfig.MOVEMENT_SPEED_BOSS * dt
+        elseif isPvPTime then
+            studPerTick = 0
+        end
+
         for _, player in game.Players:GetPlayers() do
             local player_state = get_state(player.UserId)
             if not player_state then
@@ -496,8 +506,21 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 shot_tte -= dt
                 player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
 
+                -- player movement
+                local character = player_state.character
+                local humanoid = player_state.humanoid
+                local playerRootPart = player_state.root
+                local playerRootPartPos = playerRootPart.Position
+                
+                local input = humanoid.MoveDirection -- client's current input
+                -- local forward = Vector3.new(playerRootPart.CFrame.LookVector.X, 0, playerRootPart.CFrame.LookVector.Z).Unit * studPerTick
+                -- combine forward force + input (e.g., input.X for strafe)
+                -- local moveVector = forward + Vector3.new(input.X, HUMANOID_Y_OFFSET, -studPerTick)
+                -- humanoid:Move(moveVector, false)
+                player_state.humanoid.WalkSpeed = SharedConfig.MOVEMENT_SPEED
+                character:MoveTo(Vector3.new(playerRootPartPos.X + input.X/4, HUMANOID_Y_OFFSET, oldPos.Z - studPerTick - SharedConfig.PLAYER_OFFSET_FROM_DRIVER))
+
                 -- check obstacle collision for player and driver
-                local playerRootPart = player_state.root :: BasePart
                 for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
                     if Id.kind(refId) == Id.Kind.Obstacle then
                         -- check if the player is colliding with the obstacle
@@ -538,14 +561,12 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         -- driving box movement
-        local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
-        local isPvPTime = worldState:get(Id.WorldSpecs.PVP_TIME, W.Value)
         if isBossFightOn then
-            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.1))
+            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - studPerTick))
         elseif isPvPTime then
             -- do nothing
         else
-            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - 0.5))
+            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - studPerTick))
         end
         -- TODO: stop it altogether after some time when boss fight is on to prevent new unit generation and lock player on the current unit
         oldPos = DRIVING_BOX_BACK_PART.Position
@@ -944,7 +965,7 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
     end
     x_pos = boosters[index].Position.X
     local y_pos = playerRootPart.Position.Y
-    local z_pos = driver_pos.Z - 5
+    local z_pos = driver_pos.Z - SharedConfig.PLAYER_OFFSET_FROM_DRIVER
     if players_in_session > 1 then
         local all_players = game.Players:GetPlayers()
         local isInSession = false
@@ -976,6 +997,8 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
     attClones.Name = SharedConfig.CLONE_ATTACHMENT_NAME
     attClones.CFrame = playerRootPart.CFrame
     attClones.Parent = playerRootPart
+
+    HUMANOID_Y_OFFSET = y_pos
 end
 
 print("[Game Module -- started]")
