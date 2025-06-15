@@ -603,7 +603,8 @@ local function defineBulletCframe(rootPart: BasePart, bulletInstance: BasePart, 
     local direction = getBulletDirection(rootPart, humanoid)
     local displacement = direction * barrelLength
     local position = rootPart.Position + displacement
-    bulletInstance.CFrame = CFrame.new(position, position + direction)
+    local newCFrame = CFrame.new(position, position + direction)
+    return newCFrame
 end
 
 local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
@@ -646,20 +647,7 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     end
     local bulletTTL = roflake.time() + range / speed
 
-    -- bullet.Position = pos
-    -- bullet.CFrame = CFrame.new(pos) + rootPart.CFrame.LookVector
-
-    -- local barrelLength = S.Weapon[weapon_id].barrelLength or 2
-    -- local lookVector = rootPart.CFrame.LookVector
-    -- local flatLookVector = Vector3.new(lookVector.X, 0, lookVector.Z).Unit
-    -- local displacement: Vector3 = barrelLength * flatLookVector
-    -- local bulletPosition = rootPart.Position + displacement
-    -- bullet.CFrame = CFrame.new(bulletPosition, bulletPosition + flatLookVector)
-
-    -- bullet.CFrame = CFrame.new(rootPart.CFrame.Position + displacement, rootPart.CFrame.Position + flatLookVector)
-    -- bullet.CFrame = CFrame.lookAlong(bullet.Position, lookVector, Vector3.yAxis)
-
-    defineBulletCframe(rootPart, bullet, weapon_id, LOCAL_HUMANOID)
+    bullet.CFrame = defineBulletCframe(rootPart, bullet, weapon_id, LOCAL_HUMANOID)
 
     table.insert(activeBulletsDataTable, {
         bullet = bullet,
@@ -704,7 +692,7 @@ local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
         -- local displacement: Vector3 = barrelLength * playerRootPart.CFrame.LookVector
         -- bullet.CFrame = (playerRootPart.CFrame + displacement) * CFrame.Angles(0, math.rad(yRot), 0)
 
-        defineBulletCframe(playerRootPart, bullet, weapon_id, LOCAL_HUMANOID)
+        bullet.CFrame = defineBulletCframe(playerRootPart, bullet, weapon_id, LOCAL_HUMANOID) * CFrame.Angles(0, math.rad(yRot), 0)
     end
     return pos, guids
 end

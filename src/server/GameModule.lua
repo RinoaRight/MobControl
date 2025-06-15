@@ -483,10 +483,13 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
         local isPvPTime = worldState:get(Id.WorldSpecs.PVP_TIME, W.Value)
+        local studPerSec = SharedConfig.MOVEMENT_SPEED
         local studPerTick = SharedConfig.MOVEMENT_SPEED * dt
         if isBossFightOn then
+            studPerSec = SharedConfig.MOVEMENT_SPEED_BOSS
             studPerTick = SharedConfig.MOVEMENT_SPEED_BOSS * dt
         elseif isPvPTime then
+            studPerSec = 0
             studPerTick = 0
         end
 
@@ -517,7 +520,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 -- combine forward force + input (e.g., input.X for strafe)
                 -- local moveVector = forward + Vector3.new(input.X, HUMANOID_Y_OFFSET, -studPerTick)
                 -- humanoid:Move(moveVector, false)
-                player_state.humanoid.WalkSpeed = SharedConfig.MOVEMENT_SPEED
+                player_state.humanoid.WalkSpeed = studPerSec
                 character:MoveTo(Vector3.new(playerRootPartPos.X + input.X/4, HUMANOID_Y_OFFSET, oldPos.Z - studPerTick - SharedConfig.PLAYER_OFFSET_FROM_DRIVER))
 
                 -- check obstacle collision for player and driver
@@ -865,7 +868,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 end
 
 m.DestroyEnemy = function(guid, playerId: num?)
-    -- TODO: effects
     if WorldService.world:has(guid) then
         WorldService.RemoveEntity(guid)
     end
