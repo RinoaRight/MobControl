@@ -46,7 +46,7 @@ m.Weapon = {
         damage = 10,
         cooldown = 0.5, --sec
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
-        barrelLength = 2,
+        -- barrelLength = 2,
         instance = WEAPONS_ROOT.PistolModel,
         name = "Pistol",
     },
@@ -56,9 +56,8 @@ m.Weapon = {
         damage = 5,
         cooldown = 0.2,
         bulletSize = Vector3.new(1, 1, 1),
-        barrelLength = 2,
-        -- TODO: change model
-        instance = WEAPONS_ROOT.PistolModel,
+        -- barrelLength = 2,
+        instance = WEAPONS_ROOT.SMGModel,
         name = "SMG",
     },
     [Id.Weapon.SPRAYGUN] = {
@@ -67,9 +66,8 @@ m.Weapon = {
         damage = 5,
         cooldown = 0.7,
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
-        barrelLength = 2,
-        -- TODO: change model
-        instance = WEAPONS_ROOT.PistolModel,
+        -- barrelLength = 2,
+        instance = WEAPONS_ROOT.ShotgunModel,
         name = "Spraygun",
     },
     [Id.Weapon.ROCKET] = {
@@ -78,10 +76,9 @@ m.Weapon = {
         damage = 50,
         cooldown = 1.2,
         bulletSize = Vector3.new(4, 4, 6),
-        barrelLength = 2,
+        -- barrelLength = 2,
         explosionSize = Vector3.new(30, 30, 30),
-        -- TODO: change model
-        instance = WEAPONS_ROOT.PistolModel,
+        instance = WEAPONS_ROOT.RocketLauncherModel,
         name = "Rocket",
     },
 }
@@ -379,7 +376,7 @@ m.Sound = {
     [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.HURT] = assert(SOUNDS_ROOT:WaitForChild("Hurt")),
     [Id.Sound.POP] = assert(SOUNDS_ROOT:WaitForChild("Pop")),
-    [Id.Sound.RELOAD] = assert(SOUNDS_ROOT:WaitForChild("Reload")),
+    [Id.Sound.RELOAD_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("ReloadPistol")),
     [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
     [Id.Sound.SCREAM_HIGH] = assert(SOUNDS_ROOT:WaitForChild("ScreamHigh")),
     [Id.Sound.THUMP] = assert(SOUNDS_ROOT:WaitForChild("Thump")),

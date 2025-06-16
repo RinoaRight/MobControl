@@ -67,6 +67,11 @@ function m.ChangeWeapon(player_state, player_id, weapon_id)
 
         m.world:set(player_id, W.WeaponId, weapon_id)
         m.world:set(player_id, W.ServerInstance, weapon_instance)
+
+        local sound = weapon_instance:FindFirstChild("Reload", true)
+        if sound then
+            sound:Play()
+        end
     end
     Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end

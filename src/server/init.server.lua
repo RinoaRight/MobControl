@@ -190,6 +190,9 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
     if algnConstraint then
         algnConstraint:Destroy()
     end
+    
+    player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
+
     -- workerMaid.playerLoop = nil -- stop updating weapon ttl
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, 0)
@@ -494,11 +497,19 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
         end
     end
 
+    -- play SFX
+    local weaponServerInstance = WorldService.world:get(player_state.player_id, W.ServerInstance)
+    local sound = weaponServerInstance:FindFirstChild("Fired", true)
+    if sound then
+        sound:Play()
+    end
+
     -- reset  weapon's cooldown
     local cooldown = S.Weapon[current_weapon_id].cooldown
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, cooldown)
 
     local playerRoot = player_state.root
+    -- TODO: refactor to coordinate this with the client ->
     local bulletStartPos = playerRoot.Position + playerRoot.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
 
     for i = 1, #bullet_guids do

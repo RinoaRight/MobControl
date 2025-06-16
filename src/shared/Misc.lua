@@ -372,7 +372,13 @@ m.EquipWeaponModel = function(char, weapon_id: int)
     end
     weapon_instance.Parent = weldingSpot
     weapon_instance.Name = S.Weapon[weapon_id].name
-    local newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), math.rad(180), 0)
+    local newCF
+    -- TODO: each weapon model requires each own rotation. Do every one
+    if weapon_id == Id.Weapon.BASIC then
+        newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), math.rad(180), 0)
+    else
+        newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+    end
     weapon_instance.PrimaryPart:PivotTo(newCF)
     w.Part0 = weldingSpot
     w.Part1 = weapon_instance.PrimaryPart

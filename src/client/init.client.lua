@@ -386,11 +386,14 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
     end
 
     -- SFX and initial bullet TTE
-    if player_id == LOCAL_PLAYER.UserId then
-        if weapon_id ~= Id.Weapon._NONE then
-            SFX.PLAY_SOUND(Id.Sound.RELOAD)
-        end
-    else
+    -- if player_id == LOCAL_PLAYER.UserId then
+    --     if weapon_id ~= Id.Weapon._NONE then
+    --         SFX.PLAY_SOUND(Id.Sound.RELOAD_PISTOL)
+    --     end
+    -- else
+    
+    -- set initial TTE for other players' weapons
+    if player_id ~= LOCAL_PLAYER.UserId then
         local tte = S.Weapon[Id.Weapon.BASIC].cooldown
         if weapon_id ~= Id.Weapon._NONE then
             tte = S.Weapon[weapon_id].cooldown
@@ -599,9 +602,14 @@ local function defineBulletCframe(rootPart: BasePart, bulletInstance: BasePart, 
     -- local position = rootPart.Position + displacement
     -- bulletInstance.CFrame = CFrame.new(position, position + direction)
 
-    local barrelLength = S.Weapon[weapon_id].barrelLength or 2
+    -- local barrelLength = S.Weapon[weapon_id].barrelLength or 2
     local direction = getBulletDirection(rootPart, humanoid)
-    local displacement = direction * barrelLength
+    -- local displacement = direction * barrelLength
+    local bulletSize = Vector3.new(1, 1, 1)
+    if S.Weapon[weapon_id].bulletSize then
+        bulletSize = S.Weapon[weapon_id].bulletSize
+    end
+    local displacement = direction * (bulletSize.Z / 2 + SharedConfig.BULLET_RAYCAST_START_MULT)
     local position = rootPart.Position + displacement
     local newCFrame = CFrame.new(position, position + direction)
     return newCFrame
@@ -630,7 +638,7 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     bullet.Size = bulletSize
 
     -- set bullet's position
-    local pos = rootPart.Position + rootPart.CFrame.LookVector * (bulletSize.Z / 2 + SharedConfig.BULLET_RAYCAST_START_MULT)
+    -- local pos = rootPart.Position + rootPart.CFrame.LookVector * (bulletSize.Z / 2 + SharedConfig.BULLET_RAYCAST_START_MULT)
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
     local speedPerkFlags = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT, C.Bitset)
     local isSpeedPerkActive = Id.flag_test(speedPerkFlags, Id.PlayerF.PERK_ACTIVE)
@@ -648,6 +656,7 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     local bulletTTL = roflake.time() + range / speed
 
     bullet.CFrame = defineBulletCframe(rootPart, bullet, weapon_id, LOCAL_HUMANOID)
+    pos = bullet.Position
 
     table.insert(activeBulletsDataTable, {
         bullet = bullet,
@@ -751,7 +760,7 @@ local function fireBullet(player)
         -- reset tte server-side
         fire_server(Id.C2S.BULLET_SHOT, bulletGuids, weapon_id)
         -- TODO: change sound for each type of weapon
-        SFX.PLAY_SOUND(Id.Sound.FIRE_PISTOL)
+        -- SFX.PLAY_SOUND(Id.Sound.FIRE_PISTOL)
     else
         weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
         -- TODO: change sound for each type of weapon
