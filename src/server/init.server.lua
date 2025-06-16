@@ -435,7 +435,10 @@ local function onTargetHit(playerState: PSS.PlayerState, targetGuid: string, dmg
             local xp = S.Enemy[targetRefId].xp or 0
             updatePlayerXP(playerState, xp)
 
-            GameModule.DestroyEnemy(targetGuid :: str, playerState.player_id)
+            -- if enemy is still alive, kill off the enemy
+            if WorldService.world:has(targetGuid) then
+                GameModule.DestroyEnemy(targetGuid :: str, playerState.player_id)
+            end
 
             -- check if the enemy was the final boss, if yes, finish round
             if targetRefId == Id.Enemy.OCTOBOSS then
@@ -456,7 +459,10 @@ local function onTargetHit(playerState: PSS.PlayerState, targetGuid: string, dmg
             -- give reward for destroying obstacle
             local reward = S.Obstacle[targetRefId].reward or 0
             playerState:AddCountablePersistent(Id.CountablePersistent.COIN, reward)
-            WorldService.world:delete(targetGuid)
+            -- if obstacle is still alive, destroy it
+            if WorldService.world:has(targetGuid) then
+                WorldService.world:delete(targetGuid)
+            end
 
             -- give XP for destroying obstacle
             local xp = S.Obstacle[targetRefId].xp or 0

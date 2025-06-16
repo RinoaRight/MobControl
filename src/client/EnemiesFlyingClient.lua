@@ -48,7 +48,7 @@ local TweenService = game:GetService("TweenService")
 local _roflake = require(shared.roflake)
 local TARGET_SIGN_TEMPLATE = assert(ReplicatedStorage:WaitForChild("TargetSign"))
 
-local function animateBomb(worldState: state.Replica, signPos: Vector3, flyer: BasePart)
+local function animateBomb(worldState: state.Replica, signPos: Vector3, bomb: BasePart)
     TaskPool.spawn(function()
         -- animate target sign
         local targetInstance = TARGET_SIGN_TEMPLATE:Clone()
@@ -62,7 +62,7 @@ local function animateBomb(worldState: state.Replica, signPos: Vector3, flyer: B
         local Y = 0.5
         imageLabel.Size = origSize
         targetInstance.Position = Vector3.new(signPos.X, Y, signPos.Z)
-        targetInstance.Parent = flyer
+        targetInstance.Parent = bomb
         local duration1 = 0.3
         local times1 = 2
         local tweenInfo1 = TweenInfo.new(duration1, Enum.EasingStyle.Linear)
@@ -80,9 +80,9 @@ local function animateBomb(worldState: state.Replica, signPos: Vector3, flyer: B
         local times2 = 2
         local tweenInfo2 = TweenInfo.new(duration2, Enum.EasingStyle.Linear)
         local tween3 = TweenService:Create(imageLabel, tweenInfo2, { ImageTransparency = 0.2, Size = targetSize })
-        local tween4 = TweenService:Create(imageLabel, tweenInfo2, { ImageTransparency = 0, Size = origSize })
+        local tween4 = TweenService:Create(imageLabel, tweenInfo2, { ImageTransparency = 0.1, Size = origSize })
         for i = 1, times2 do
-            if worldState:has(flyer.Name) then
+            if worldState:has(bomb.Name) then
                 tween3:Play()
                 task.wait(duration2)
                 tween4:Play()
@@ -93,10 +93,10 @@ local function animateBomb(worldState: state.Replica, signPos: Vector3, flyer: B
         local times3 = 8
         local tweenInfo3 = TweenInfo.new(duration3, Enum.EasingStyle.Linear)
         local tween5 = TweenService:Create(imageLabel, tweenInfo3, { ImageTransparency = 0.2, Size = targetSize })
-        local tween6 = TweenService:Create(imageLabel, tweenInfo3, { ImageTransparency = 0, Size = origSize })
+        local tween6 = TweenService:Create(imageLabel, tweenInfo3, { ImageTransparency = 0.1, Size = origSize })
         redImage.Visible = true
         for i = 1, times3 do
-            if worldState:has(flyer.Name) then
+            if worldState:has(bomb.Name) then
                 tween5:Play()
                 task.wait(duration3)
                 tween6:Play()

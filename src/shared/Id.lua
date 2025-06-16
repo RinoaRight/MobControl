@@ -436,7 +436,7 @@ Id.PlayerUpgradeNonPersistent = enum.with_id "Id.PlayerUpgradeNonPersistent" {
     SHIELD_DAMAGE        = iota'',
     SHIELD_COOLDOWN_MULT = iota'',
 }
--- TODO: add all-players upgrades? weapon unlocks? drones?
+-- TODO: add all-players upgrades? weapon unlocks? drones? ->> definitely drones, we need something anti-bomb
 KIND_TO_ENUM[Id.Kind.PlayerUpgradeNonPersistent] = Id.PlayerUpgradeNonPersistent
 export type PlayerUpgradeNonPersistent = typeof(Id.PlayerUpgradeNonPersistent)
 

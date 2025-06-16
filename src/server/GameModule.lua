@@ -627,9 +627,11 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                             local playerHead = player.Character:FindFirstChild("Head")
                             if playerHead then
                                 local playerHeadPos = playerHead.Position
-                                local dist = (bombPos - playerHeadPos).Magnitude
+                                -- local dist = (bombPos - playerHeadPos).Magnitude
+                                local distByX = math.abs(bombPos.X - playerHeadPos.X)
+                                local distByZ = math.abs(bombPos.Z - playerHeadPos.Z)
                                 local explosionSize = assert(S.Bomb[refId].explosionSize)
-                                if dist < explosionSize.X then
+                                if distByX < explosionSize.X and distByZ < explosionSize.Z then
                                     -- harm player, delete bomb
                                     local dmg = assert(S.Bomb[refId].damage)
                                     local playerState = get_state(player.UserId)

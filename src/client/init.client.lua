@@ -234,9 +234,9 @@ on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause
     --     attachement:Destroy()
     -- end
     for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
-        if v.Name == SharedConfig.RUN_ANIMATION_NAME then
+        -- if v.Name == SharedConfig.RUN_ANIMATION_NAME then
             v:Stop()
-        end
+        -- end
     end
     handleGunHoldingAnimation(LOCAL_CHARACTER, Id.Weapon._NONE)
     -- kill his clones
@@ -584,34 +584,15 @@ local function getBulletDirection(rootPart: BasePart, humanoid: Humanoid): Vecto
 end
 
 local function defineBulletCframe(rootPart: BasePart, bulletInstance: BasePart, weapon_id: id, humanoid: Humanoid)
-    -- local velocity = rootPart.AssemblyLinearVelocity
-    -- local flatVelocity = Vector3.new(velocity.X, 0, velocity.Z)
-
-    -- -- fallback to current facing if velocity is near zero
-    -- local direction: Vector3
-    -- if flatVelocity.Magnitude > 0.1 then
-    --     direction = flatVelocity.Unit
-    -- else
-    --     -- fallback: use flat facing direction
-    --     direction = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z).Unit
-    -- end
-
-    -- -- compute final bullet CFrame
-    -- local barrelLength = S.Weapon[weapon_id].barrelLength or 2
-    -- local displacement = direction * barrelLength
-    -- local position = rootPart.Position + displacement
-    -- bulletInstance.CFrame = CFrame.new(position, position + direction)
-
-    -- local barrelLength = S.Weapon[weapon_id].barrelLength or 2
     local direction = getBulletDirection(rootPart, humanoid)
-    -- local displacement = direction * barrelLength
     local bulletSize = Vector3.new(1, 1, 1)
     if S.Weapon[weapon_id].bulletSize then
         bulletSize = S.Weapon[weapon_id].bulletSize
     end
-    local displacement = direction * (bulletSize.Z / 2 + SharedConfig.BULLET_RAYCAST_START_MULT)
-    local position = rootPart.Position + displacement
-    local newCFrame = CFrame.new(position, position + direction)
+    local barrelLength = S.Weapon[weapon_id].barrelLength or 2
+    local displacement = direction * (bulletSize.Z / 2 + barrelLength + SharedConfig.BULLET_RAYCAST_START_MULT)
+    local targetPos = Vector3.new(rootPart.Position.X + 1.2, rootPart.Position.Y, rootPart.Position.Z) + displacement
+    local newCFrame = CFrame.new(targetPos, targetPos + direction)
     return newCFrame
 end
 
@@ -638,7 +619,6 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     bullet.Size = bulletSize
 
     -- set bullet's position
-    -- local pos = rootPart.Position + rootPart.CFrame.LookVector * (bulletSize.Z / 2 + SharedConfig.BULLET_RAYCAST_START_MULT)
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
     local speedPerkFlags = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT, C.Bitset)
     local isSpeedPerkActive = Id.flag_test(speedPerkFlags, Id.PlayerF.PERK_ACTIVE)

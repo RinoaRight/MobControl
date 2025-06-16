@@ -373,9 +373,10 @@ m.EquipWeaponModel = function(char, weapon_id: int)
     weapon_instance.Parent = weldingSpot
     weapon_instance.Name = S.Weapon[weapon_id].name
     local newCF
-    -- TODO: each weapon model requires each own rotation. Do every one
-    if weapon_id == Id.Weapon.BASIC then
+    if weapon_id == Id.Weapon.BASIC or weapon_id == Id.Weapon.SPRAYGUN then
         newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), math.rad(180), 0)
+    -- elseif weapon_id == Id.Weapon.ROCKET then
+        -- newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(0, math.rad(180), 0)
     else
         newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), 0, 0)
     end
