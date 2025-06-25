@@ -253,7 +253,6 @@ local function generateEnemies(worldState: state.Main, get_state: (player_id: in
 end
 
 local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?)
-    -- TODO: uncomment everything
     local waveNumber = WorldService.GetEnemyWaveNumber()
     local isPvPTime = false
     if waveNumber == SharedConfig.FINAL_BOSS_WAVE_NUMBER then
@@ -316,9 +315,9 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
 
             if worldState:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value) then
-                if not isPvPTime(get_state) then
-                    generateEnemies(worldState, get_state)
-                end
+                -- if not isPvPTime(get_state) then
+                generateEnemies(worldState, get_state)
+                -- end
             end
 
             local isToSpawn = true
@@ -335,9 +334,9 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
                     end
                 end
                 if isToSpawn and countdown < 0 then
-                    if not isPvPTime(get_state) then
-                        generateEnemies(worldState, get_state)
-                    end
+                    -- if not isPvPTime(get_state) then
+                    generateEnemies(worldState, get_state)
+                    -- end
                 end
             end)
         end
@@ -475,22 +474,22 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
 end
 
 function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
-    local oldPos = SharedConfig.DRIVING_BOX_STARTING_POS
+    local driverOldPos = SharedConfig.DRIVING_BOX_STARTING_POS
     return function(dt)
         if not worldState:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value) then
             return
         end
 
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
-        local isPvPTime = worldState:get(Id.WorldSpecs.PVP_TIME, W.Value)
+        -- local isPvPTime = isPvPTime(get_state)
         local studPerSec = SharedConfig.MOVEMENT_SPEED
         local studPerTick = SharedConfig.MOVEMENT_SPEED * dt
         if isBossFightOn then
             studPerSec = SharedConfig.MOVEMENT_SPEED_BOSS
             studPerTick = SharedConfig.MOVEMENT_SPEED_BOSS * dt
-        elseif isPvPTime then
-            studPerSec = 0
-            studPerTick = 0
+            -- elseif isPvPTime then
+            --     studPerSec = 0
+            --     studPerTick = 0
         end
 
         for _, player in game.Players:GetPlayers() do
@@ -514,14 +513,13 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 local humanoid = player_state.humanoid
                 local playerRootPart = player_state.root
                 local playerRootPartPos = playerRootPart.Position
-                
+
                 local input = humanoid.MoveDirection -- client's current input
-                -- local forward = Vector3.new(playerRootPart.CFrame.LookVector.X, 0, playerRootPart.CFrame.LookVector.Z).Unit * studPerTick
-                -- combine forward force + input (e.g., input.X for strafe)
-                -- local moveVector = forward + Vector3.new(input.X, HUMANOID_Y_OFFSET, -studPerTick)
-                -- humanoid:Move(moveVector, false)
                 player_state.humanoid.WalkSpeed = studPerSec
-                character:MoveTo(Vector3.new(playerRootPartPos.X + input.X/4, HUMANOID_Y_OFFSET, oldPos.Z - studPerTick - SharedConfig.PLAYER_OFFSET_FROM_DRIVER))
+                character:MoveTo(
+                    -- Vector3.new(playerRootPartPos.X + input.X / 4, HUMANOID_Y_OFFSET, driverOldPos.Z - studPerTick - SharedConfig.PLAYER_OFFSET_FROM_DRIVER)
+                    Vector3.new(playerRootPartPos.X + input.X / 4, HUMANOID_Y_OFFSET, playerRootPartPos.Z - studPerTick)
+                )
 
                 -- check obstacle collision for player and driver
                 for guid, refId, obstPos in WorldService.world:select(W.RefId, W.Position) do
@@ -565,14 +563,14 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
         -- driving box movement
         if isBossFightOn then
-            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - studPerTick))
-        elseif isPvPTime then
-            -- do nothing
+            -- DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - studPerTick))
+            -- elseif isPvPTime then
+            --     -- do nothing
         else
-            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - studPerTick))
+            DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(driverOldPos.X, driverOldPos.Y, driverOldPos.Z - studPerTick))
         end
         -- TODO: stop it altogether after some time when boss fight is on to prevent new unit generation and lock player on the current unit
-        oldPos = DRIVING_BOX_BACK_PART.Position
+        driverOldPos = DRIVING_BOX_BACK_PART.Position
 
         -- handle enemies and bombs
         for guid, refId, currentPos in worldState:select(W.RefId, W.Position) do
@@ -631,7 +629,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                 local distByX = math.abs(bombPos.X - playerHeadPos.X)
                                 local distByZ = math.abs(bombPos.Z - playerHeadPos.Z)
                                 local explosionSize = assert(S.Bomb[refId].explosionSize)
-                                if distByX < explosionSize.X and distByZ < explosionSize.Z then
+                                if distByX < explosionSize.X / 2 and distByZ < explosionSize.Z / 2 then
                                     -- harm player, delete bomb
                                     local dmg = assert(S.Bomb[refId].damage)
                                     local playerState = get_state(player.UserId)

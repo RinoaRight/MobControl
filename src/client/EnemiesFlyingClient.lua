@@ -68,14 +68,14 @@ local function animateBomb(worldState: state.Replica, signPos: Vector3, bomb: Ba
         local tweenInfo1 = TweenInfo.new(duration1, Enum.EasingStyle.Linear)
         local tween1 = TweenService:Create(imageLabel, tweenInfo1, { ImageTransparency = 0.2, Size = targetSize })
         local tween2 = TweenService:Create(imageLabel, tweenInfo1, { ImageTransparency = 0, Size = origSize })
-        -- for i = 1, times1 do
-        --     if worldState:has(flyer.Name) then
-        --         tween1:Play()
-        --         task.wait(duration1)
-        --         tween2:Play()
-        --         task.wait(duration1)
-        --     end
-        -- end
+        for i = 1, times1 do
+            if worldState:has(bomb.Name) then
+                tween1:Play()
+                task.wait(duration1)
+                tween2:Play()
+                task.wait(duration1)
+            end
+        end
         local duration2 = 0.2
         local times2 = 2
         local tweenInfo2 = TweenInfo.new(duration2, Enum.EasingStyle.Linear)

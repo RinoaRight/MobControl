@@ -717,6 +717,7 @@ end
 
 on[Id.C2S.PERK_SELECTED] = function(player_state, whichPerk, ...)
     local playerFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    -- check if player is in still session
     local isPlayerInSession = playerFlags and Id.flag_test(playerFlags, Id.PlayerF.READY)
     if not isPlayerInSession then
         return

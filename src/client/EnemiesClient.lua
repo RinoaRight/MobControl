@@ -77,12 +77,12 @@ end
 
 
 local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: string)
-    local enemyId = worldState:get(enemyGuid, W.RefId)
+    local enemyRefId = worldState:get(enemyGuid, W.RefId)
     local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
 
     local enemyInstance
-    if S.Enemy[enemyId].meshTemplate then
-        enemyInstance = S.Enemy[enemyId].meshTemplate:Clone()
+    if S.Enemy[enemyRefId].meshTemplate then
+        enemyInstance = S.Enemy[enemyRefId].meshTemplate:Clone()
     else
         enemyInstance = Instance.new("Part")
         enemyInstance.Size = Vector3.new(2, 6, 2)
@@ -96,6 +96,9 @@ local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: s
     enemyInstance.Name = enemyGuid
 
     worldState:set(enemyGuid, W.ClientInstance, enemyInstance)
+
+    if enemyRefId == Id.Enemy.OCTOBOSS then
+    end
 end
 
 local m = {}

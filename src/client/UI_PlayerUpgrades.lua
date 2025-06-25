@@ -482,7 +482,10 @@ function m.OnModifyBitset(playerState: state.Replica, localCharacter, guid: guid
         if isAcquired and isActive then
             createAura(playerState, localCharacter, guid :: id)
         elseif not isActive then
-            destroyAuraFast(playerState, localCharacter, guid :: id)
+            local isAuraBeingDestroyedAlready = playerState:get(guid, C.ClientFlags)
+            if not isAuraBeingDestroyedAlready then
+                destroyAuraFast(playerState, localCharacter, guid :: id)
+            end
         end
     end
 end

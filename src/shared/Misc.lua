@@ -47,6 +47,30 @@ m.AddInstanceToRaycastFilter = function(instance)
     -- end
 end
 
+m.ShowAnnouncement = function(text, announcementGui, fontFace: Enum.Font?)
+    local textBox = assert(announcementGui:WaitForChild("ContainerFrame").Message) :: TextLabel
+    if fontFace then
+        textBox.FontFace = Font.fromEnum(fontFace)
+    end
+    textBox.Text = text
+    announcementGui.Enabled = true
+    Taskpool.defer(function()
+        local t = .5
+        local tweenInfo = TweenInfo.new(t)
+        local origSize = UDim2.fromScale(1, 1)
+        local targetSize = UDim2.fromScale(1, 1.3)
+        local tween1 = TweenService:Create(textBox, tweenInfo, { Size = targetSize })
+        local tween2 = TweenService:Create(textBox, tweenInfo, { Size = origSize })
+        for i = 1, 2 do
+            tween1:Play()
+            task.wait(t)
+            tween2:Play()
+            task.wait(t)
+        end
+        announcementGui.Enabled = false
+    end)
+end
+
 local function playFlickerAnim(textBox, mult, value, isToDestroy)
     Taskpool.spawn(function()
         local originalSize = textBox.Size :: UDim2

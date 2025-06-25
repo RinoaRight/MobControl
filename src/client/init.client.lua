@@ -125,6 +125,8 @@ local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
 local SETTINGS_BTN_PANEL = assert(MAIN_GUI.GearPanel)
 local TOP_RIGHT_PANEL = assert(MAIN_GUI:WaitForChild("TopRightPanel"))
 
+local ANNOUNCEMENT_GUI = assert(PLAYER_GUI:WaitForChild("AnnouncementGUI"))
+
 local COLLIDABLES_HP_GUI_NAME = "CollidableHpGui"
 local COLLIDABLES_HP_GUI_TEMPLATE = assert(PLAYER_GUI:WaitForChild(COLLIDABLES_HP_GUI_NAME)) :: BillboardGui
 
@@ -897,13 +899,14 @@ RunService.Heartbeat:Connect(function(dt)
         local speed = bulletData.speed
         local start_pos = bulletData.start_pos
         local bullet_range = bulletData.range
-        local bullet_size = bulletData.size
+        -- enlarge Y axis to check for collisions with obstacles  (graves) when they are partly destroyed already
+        local raycast_size = Vector3.new(bulletData.size.X, 5, bulletData.size.Z)
         local newBulletCframe = bullet.CFrame + bullet.CFrame.LookVector * (speed * dt)
         -- local newBulletCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * (speed * dt))) * rot
 
         -- check for collisions
-        local raycast_length = bullet_size.Z / 2 + (speed * dt)
-        local target, isTargetKillable, targetThickness, targetRefId = getCollisionSpecifics(bullet, raycast_length, bullet_size)
+        local raycast_length = raycast_size.Z / 2 + (speed * dt)
+        local target, isTargetKillable, targetThickness, targetRefId = getCollisionSpecifics(bullet, raycast_length, raycast_size)
 
         local hit_z
         if target and isTargetKillable then
@@ -1075,6 +1078,10 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         Obstacles.onObstacleAdded(WORLD, obstacleGuid, LOCAL_HUMANOID_ROOT_PART)
     elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
         Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
+        if WORLD:get(guid, W.RefId) == Id.Enemy.OCTOBOSS then
+            local font = Enum.Font.Creepster
+            Misc.ShowAnnouncement("BOSS INCOMING", ANNOUNCEMENT_GUI, font)
+        end
     elseif Id.kind(newValue) == Id.Kind.EnemyFlying and WORLD:get(guid, W.PlayerId) then
         EnemiesFlying.OnFlyerAdded(WORLD, PLAYER_STATE, guid :: string, LOCAL_HUMANOID_ROOT_PART)
     elseif Id.kind(newValue) == Id.Kind.Bomb and WORLD:get(guid, W.OwnerGuid) then
