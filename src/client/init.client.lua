@@ -230,15 +230,11 @@ on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause
     end
 
     LOCAL_HUMANOID.JumpPower = 50
-    -- NOTE: moved to server
-    -- local attachement = LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
-    -- if attachement then
-    --     attachement:Destroy()
-    -- end
     for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
-        -- if v.Name == SharedConfig.RUN_ANIMATION_NAME then
+        if v.Name == SharedConfig.RUN_ANIMATION_NAME then
+            v.Looped = false
             v:Stop()
-        -- end
+        end
     end
     handleGunHoldingAnimation(LOCAL_CHARACTER, Id.Weapon._NONE)
     -- kill his clones
@@ -393,7 +389,7 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
     --         SFX.PLAY_SOUND(Id.Sound.RELOAD_PISTOL)
     --     end
     -- else
-    
+
     -- set initial TTE for other players' weapons
     if player_id ~= LOCAL_PLAYER.UserId then
         local tte = S.Weapon[Id.Weapon.BASIC].cooldown
@@ -569,6 +565,7 @@ do
 end
 
 local function getBulletDirection(rootPart: BasePart, humanoid: Humanoid): Vector3
+    -- TODO: FIXIT, bullet flies backwards when input is pointed backwards
     local moveDir = humanoid.MoveDirection
     local flatMove = Vector3.new(moveDir.X, 0, moveDir.Z)
     local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z)
@@ -1040,29 +1037,29 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
-local ACTIVE_RUN_ANIM_TRACK
-local infrequentLoop = supervisor.create(1, "client-infrequent")
-infrequentLoop:start(function(dt)
-    -- player character animation check
-    local isRunAnimActive
-    local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-    if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
-        for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
-            if v.Name == SharedConfig.RUN_ANIMATION_NAME then
-                isRunAnimActive = true
-                break
-            end
-        end
-        if not isRunAnimActive then
-            if not ACTIVE_RUN_ANIM_TRACK then
-                -- animation track not loaded yet
-                ACTIVE_RUN_ANIM_TRACK = startRunAnim(LOCAL_CHARACTER)
-            else
-                playRunAnimTrack(ACTIVE_RUN_ANIM_TRACK)
-            end
-        end
-    end
-end, 1, "test")
+-- local ACTIVE_RUN_ANIM_TRACK
+-- local infrequentLoop = supervisor.create(1, "client-infrequent")
+-- infrequentLoop:start(function(dt)
+--     -- player character animation check
+--     local isRunAnimActive
+--     local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
+--     if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+--         for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
+--             if v.Name == SharedConfig.RUN_ANIMATION_NAME then
+--                 isRunAnimActive = true
+--                 break
+--             end
+--         end
+--         if not isRunAnimActive then
+--             if not ACTIVE_RUN_ANIM_TRACK then
+--                 -- animation track not loaded yet
+--                 ACTIVE_RUN_ANIM_TRACK = startRunAnim(LOCAL_CHARACTER)
+--             else
+--                 playRunAnimTrack(ACTIVE_RUN_ANIM_TRACK)
+--             end
+--         end
+--     end
+-- end, 1, "test")
 
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     -- log:trace("~~~>", guid, newValue)
@@ -1137,6 +1134,9 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
         local clientInstance = ENEMIES_FOLDER:FindFirstChild(guid)
         if clientInstance then
             clientInstance:Destroy()
+        end
+        if oldValue == Id.Enemy.OCTOBOSS then
+            EnemiesClient.OnBossDestroyed(WORLD, guid :: string)
         end
     elseif Id.kind(oldValue) == Id.Kind.EnemyFlying then
         local clientInstance = ENEMY_FLYERS_FOLDER:FindFirstChild(guid)

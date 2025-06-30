@@ -161,6 +161,7 @@ local function onPlayerSessionFinishedWorld(player_state, playerId)
     end
 end
 
+
 local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState, deducted_hp: int?, cause_id: id | uid?)
     print("Player dead")
     -- check if the player is not already dead
@@ -186,12 +187,10 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
     local spawn_index = math.random(1, #lobby_spawns)
     local lobby_spawn = lobby_spawns[spawn_index]
     player_state.root.CFrame = lobby_spawn.CFrame
-    local algnConstraint = player_state.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
-    if algnConstraint then
-        algnConstraint:Destroy()
-    end
-    
-    player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
+
+    player_state.humanoid.AutoRotate = true
+
+    GameModule.UnconstrainPlayer(player_state)
 
     -- workerMaid.playerLoop = nil -- stop updating weapon ttl
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)

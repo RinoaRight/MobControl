@@ -62,7 +62,7 @@ local NUM_OF_COLUMNS = math.floor((GROUND_UNIT_LENGTH - X_MARGIN * 2) / X_INTERV
 
 local function spawnBoss(enemyId, unitPos)
     local bossTemplate = S.Enemy[enemyId].meshTemplate
-    local y = bossTemplate.Size.Y - bossTemplate.Size.Y / 2 + 1
+    local y = bossTemplate.Size.Y - bossTemplate.Size.Y / 2
     local bossPos = Vector3.new(unitPos.X, y, unitPos.Z)
     local bossGuid = WorldService.AddEnemyToState(enemyId, bossPos)
     return bossGuid
@@ -103,7 +103,7 @@ function m.AddEnemies(
         return enemiesGuids
     end
     local groundUnitPos = groundUnit.Position
-    local y = ENEMY_CELL_SIZE.Z - ENEMY_CELL_SIZE.Z / 2 + 1
+    local y = ENEMY_CELL_SIZE.Z - ENEMY_CELL_SIZE.Z / 2 --+ 1
     local z = groundUnitPos.Z
     if isFirstHalf then
         z = z - DISTANCE_FROM_MID_TO_BOOSTER

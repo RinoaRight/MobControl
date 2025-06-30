@@ -97,11 +97,28 @@ local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: s
 
     worldState:set(enemyGuid, W.ClientInstance, enemyInstance)
 
+    -- if the enemy is a boss, attach the player's align constraint to the boss
     if enemyRefId == Id.Enemy.OCTOBOSS then
+        local bossAtt = Instance.new("Attachment") :: Attachment
+        bossAtt.Parent = enemyInstance
+        local character = LOCAL_PLAYER.Character
+        local playerAlignConst = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
+        if playerAlignConst then
+            playerAlignConst.Attachment1 = bossAtt
+        end
     end
 end
 
 local m = {}
+
+m.OnBossDestroyed = function(worldState, enemyGuid: string)
+    local character = LOCAL_PLAYER.Character
+    local playerAlignConst = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
+    if playerAlignConst then
+        playerAlignConst.Attachment1 = nil
+        print("LLLLLLL", playerAlignConst.Attachment1)
+    end
+end
 
 workerMaid.subToAdd = Signal.Connect(Id.C2C.NEW_ENEMY_ADDED, onEnemyAdded)
 
