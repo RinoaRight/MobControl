@@ -43,6 +43,7 @@ local NumFormat = require(shared.num_format)
 local SharedUtils = require(shared.util)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Rand = require(shared.rand)
+local TweenService = game:GetService("TweenService")
 
 local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)

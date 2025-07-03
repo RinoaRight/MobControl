@@ -75,7 +75,6 @@ local function flickerEnemy(guid: string, part: BasePart)
     end)
 end
 
-
 local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: string)
     local enemyRefId = worldState:get(enemyGuid, W.RefId)
     local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
@@ -109,6 +108,36 @@ local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: s
     end
 end
 
+function jump(worldState, enemyGuid: string, part: BasePart)
+    assert(part and part:IsA("BasePart"), "Invalid part")
+    local height = 5
+
+    local y = Misc.DefineEnemyY(part)
+
+    local enemyRefId = worldState:get(enemyGuid, W.RefId)
+    local durationUp = assert(S.Enemy[enemyRefId].jumpUpDuration)
+    local durationDown = assert(S.Enemy[enemyRefId].jumpDownDuration)
+
+    local jumpUp = TweenService:Create(part, TweenInfo.new(durationUp, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Position = part.Position + Vector3.new(0, height, 0),
+    })
+
+    worldState:set(enemyGuid, W.ClientFlags, true)
+    jumpUp:Play()
+    jumpUp.Completed:Connect(function()
+        local newPos = worldState:get(enemyGuid, W.Position) :: Vector3
+        local landingPosition = Vector3.new(newPos.X, y, newPos.Z)
+        local jumpDown = TweenService:Create(part, TweenInfo.new(durationDown, Enum.EasingStyle.Bounce, Enum.EasingDirection.In), {
+            Position = landingPosition,
+        })
+        jumpDown:Play()
+        jumpDown.Completed:Connect(function()
+            -- TODO: VFX and SFX
+            worldState:set(enemyGuid, W.ClientFlags, false)
+        end)
+    end)
+end
+
 local m = {}
 
 m.OnBossDestroyed = function(worldState, enemyGuid: string)
@@ -116,7 +145,16 @@ m.OnBossDestroyed = function(worldState, enemyGuid: string)
     local playerAlignConst = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
     if playerAlignConst then
         playerAlignConst.Attachment1 = nil
-        print("LLLLLLL", playerAlignConst.Attachment1)
+    end
+end
+
+m.OnEnemyTTEUp = function(worldState: state.Replica, enemyGuid: string)
+    local refId = worldState:get(enemyGuid, W.RefId)
+    if refId == Id.Enemy.OCTOBOSS then
+        local enemyInstance = worldState:get(enemyGuid, W.ClientInstance)
+        if enemyInstance then
+            jump(worldState, enemyGuid, enemyInstance)
+        end
     end
 end
 

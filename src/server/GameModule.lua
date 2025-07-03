@@ -151,7 +151,7 @@ local function onBossArrival(get_state: (player_id: int) -> PSS.PlayerState?, en
     -- for _, unit in ipairs(unitsFolder) do
     --     unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
     -- end
-    WorldService.SetBossFightOn()
+    WorldService.SetBossFightOn(enemyGuid)
     for _, player in game.Players:GetPlayers() do
         local player_state = get_state(player.UserId)
         if not player_state then
@@ -696,9 +696,15 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             elseif Id.kind(refId) == Id.Kind.Enemy then
                 assert(typeof(guid) == "string") -- sanity check
                 local flags = worldState:get(guid, W.Bitset)
+                local isBoss = Id.flag_test(flags, Id.EnemyF.IS_BOSS)
                 local enemyTemplate = assert(S.Enemy[refId].meshTemplate)
                 local speed = log:assert(S.Enemy[refId].speed, "S.Enemy has no speed for: '%*'", refId)
                 local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + dt * speed)
+                -- local ttl = worldState:get(guid, W.TTL)
+                -- if isBoss and ttl and ttl < 0xffff_ffff then
+                --     -- if TTL is not up, client animation is ongoing, do not change pos
+                --     newPos = currentPos
+                -- end
                 local distToTarget
                 local playerId
                 local playerState
@@ -753,10 +759,10 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         end
 
                         if player and playerRoot and distToTarget then
-                            local critDist = 10 --1.5
+                            local critDist = 12 --1.5
                             playerId = player.UserId :: int
                             playerState = get_state(playerId)
-                            if refId == Id.Enemy.OCTOBOSS then
+                            if isBoss then
                                 -- bosses (never remove lock)
                                 newPos = getTargetPos(playerRoot, critDist, currentPos, speed, dt)
                             else
@@ -912,10 +918,32 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             end
         end
 
-        -- delete bullet entity when ttl is up
-        for bulletGuid, startPos, ownerId, weaponId, ttl in worldState:select(W.Position, W.PlayerId, W.WeaponId, W.TTL) do
+        -- handle ttl
+        for guid, ttl in worldState:select(W.TTL) do
             if roflake.time() > ttl then
-                WorldService.RemoveEntity(bulletGuid)
+                if worldState:get(guid, W.WeaponId) and worldState:get(guid, W.PlayerId) then
+                    -- delete bullet entity
+                    WorldService.RemoveEntity(guid)
+                else
+                    local refId = worldState:get(guid, W.RefId)
+                    if Id.kind(refId) == Id.Kind.Enemy then
+                        WorldService.ResetTTL(guid)
+                    end
+                end
+            end
+        end
+
+        -- handle tte
+        for guid, refId, tte in worldState:select(W.RefId, W.TTE) do
+            local newTTE = tte - dt
+            if refId == Id.Enemy.OCTOBOSS then
+                if tte < 0 then
+                    -- TODO: hit players in the radius.
+                    local baseTTE = assert(S.Enemy[refId].tte) :: number
+                    worldState:set(guid, W.TTE, baseTTE)
+                else
+                    worldState:set(guid, W.TTE, newTTE)
+                end
             end
         end
     end

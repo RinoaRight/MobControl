@@ -128,9 +128,9 @@ World.CId = En.with_id("World.CId") {
     Total          = iota'',   -- number
     -- non-replicated
     ClientInstance = iota'',   -- Instance, not replicated    
-    ClientFlags    = iota'', -- bool
-    ClientTTE      = iota'', -- sec (*1)
-    ValueView      = iota'', -- number
+    ClientFlags    = iota'',   -- bool
+    ClientTTE      = iota'',   -- sec (*1)
+    ValueView      = iota'',   -- number
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId

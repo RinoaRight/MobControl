@@ -187,7 +187,7 @@ end
 local m = {}
 
 m.OnFlyerAdded = function(worldState: state.Replica, playerState: state.Replica, instanceGuid: str, localRoot: BasePart)
-    local flyerPos = worldState:get(instanceGuid, W.Position)
+    local flyerPos = worldState:get(instanceGuid, W.Position) :: Vector3
     local refId = worldState:get(instanceGuid, W.RefId)
     local meshTemplate = S.EnemyFlying[refId].meshTemplate
     local flyerInstance = meshTemplate:Clone()

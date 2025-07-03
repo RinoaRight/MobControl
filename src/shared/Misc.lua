@@ -47,6 +47,11 @@ m.AddInstanceToRaycastFilter = function(instance)
     -- end
 end
 
+m.DefineEnemyY = function(enemyInstance: BasePart)
+    local y = enemyInstance.Size.Y - enemyInstance.Size.Y / 2
+    return y
+end
+
 m.ShowAnnouncement = function(text, announcementGui, fontFace: Enum.Font?)
     local textBox = assert(announcementGui:WaitForChild("ContainerFrame").Message) :: TextLabel
     if fontFace then

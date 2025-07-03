@@ -842,10 +842,14 @@ RunService.Heartbeat:Connect(function(dt)
     -- move enemies and bombs
     local enemies = {}
     local enemyTargets = {}
-    for guid, refId, newPos in WORLD:select(W.RefId, W.Position) do
+    for guid, refId, newPos, tte in WORLD:select(W.RefId, W.Position, W.TTE) do
         if Id.kind(refId) == Id.Kind.Enemy then
             local enemyInstance = WORLD:get(guid, W.ClientInstance)
             if not enemyInstance then
+                continue
+            end
+            -- check if jumping animation is not in process
+            if WORLD:get(guid, W.ClientFlags) then
                 continue
             end
             local currentPos: Vector3 = enemyInstance.Position
@@ -859,9 +863,9 @@ RunService.Heartbeat:Connect(function(dt)
                 local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
                 lookAt = playerRoot.Position
             end
-            local y = enemyInstance.Size.Y - enemyInstance.Size.Y / 2 + 1
-            newPos = Vector3.new(newPos.X, y, newPos.Z) -- lock Y axis
-            lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
+            local y = Misc.DefineEnemyY(enemyInstance)
+            newPos = Vector3.new(newPos.X, y, newPos.Z) -- lock Y axis for pos
+            lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis for look
             local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
             table.insert(enemyTargets, newCframe)
         elseif Id.kind(refId) == Id.Kind.Bomb then
@@ -1148,6 +1152,15 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
         local clientInstance = ENEMY_FLYERS_FOLDER:FindFirstChild(guid, true)
         if clientInstance then
             clientInstance:Destroy()
+        end
+    end
+end)
+
+WORLD:set_on_modify(W.TTE, function(guid: guid, newValue: num, oldValue: num)
+    local refId = WORLD:get(guid, W.RefId)
+    if Id.kind(refId) == Id.Kind.Enemy then
+        if newValue > oldValue and newValue > 0 then
+            EnemiesClient.OnEnemyTTEUp(WORLD, guid :: string)
         end
     end
 end)
