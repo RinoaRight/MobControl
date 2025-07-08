@@ -130,8 +130,8 @@ m.Enemy = {
         reward = 10,
         xp = 10,
         tte = 7,
-        jumpUpDuration = 1.5,
-        jumpDownDuration = 0.3,
+        -- jumpUpDuration = 1.5,
+        -- jumpDownDuration = 0.3,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),
     },
 }
@@ -378,6 +378,7 @@ m.Sound = {
     [Id.Sound.EXPLOSION_SHORT] = assert(SOUNDS_ROOT:WaitForChild("ExplosionShort")),
     [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.HURT] = assert(SOUNDS_ROOT:WaitForChild("Hurt")),
+    [Id.Sound.IMPACT] = assert(SOUNDS_ROOT:WaitForChild("Impact")),
     [Id.Sound.POP] = assert(SOUNDS_ROOT:WaitForChild("Pop")),
     [Id.Sound.RELOAD_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("ReloadPistol")),
     [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
@@ -386,8 +387,10 @@ m.Sound = {
     [Id.Sound.WEAK_BULLET] = assert(SOUNDS_ROOT:WaitForChild("WeakBullet")),
     -- localized sounds
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
+    [Id.Sound.IMPACT_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Impact")),
     [Id.Sound.SCREAM_LOCALIZED_HIGH] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ScreamHigh")),
     [Id.Sound.SCREAM_LOCALIZED_REG] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ScreamReg")),
+    [Id.Sound.STOMP_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Stomp")),
     [Id.Sound.THUMP_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Thump")),
 }
 

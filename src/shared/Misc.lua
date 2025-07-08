@@ -47,8 +47,8 @@ m.AddInstanceToRaycastFilter = function(instance)
     -- end
 end
 
-m.DefineEnemyY = function(enemyInstance: BasePart)
-    local y = enemyInstance.Size.Y - enemyInstance.Size.Y / 2
+m.DefineObjectY = function(enemyInstance: BasePart)
+    local y = enemyInstance.Size.Y / 2
     return y
 end
 

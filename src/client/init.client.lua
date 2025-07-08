@@ -863,7 +863,7 @@ RunService.Heartbeat:Connect(function(dt)
                 local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
                 lookAt = playerRoot.Position
             end
-            local y = Misc.DefineEnemyY(enemyInstance)
+            local y = Misc.DefineObjectY(enemyInstance)
             newPos = Vector3.new(newPos.X, y, newPos.Z) -- lock Y axis for pos
             lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis for look
             local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
@@ -1160,7 +1160,7 @@ WORLD:set_on_modify(W.TTE, function(guid: guid, newValue: num, oldValue: num)
     local refId = WORLD:get(guid, W.RefId)
     if Id.kind(refId) == Id.Kind.Enemy then
         if newValue > oldValue and newValue > 0 then
-            EnemiesClient.OnEnemyTTEUp(WORLD, guid :: string)
+            EnemiesClient.OnEnemyTTEUp(WORLD, guid :: string, LOCAL_HUMANOID_ROOT_PART)
         end
     end
 end)

@@ -108,34 +108,64 @@ local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: s
     end
 end
 
-function jump(worldState, enemyGuid: string, part: BasePart)
+function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRootPart: BasePart)
     assert(part and part:IsA("BasePart"), "Invalid part")
-    local height = 5
+    local height = 20
 
-    local y = Misc.DefineEnemyY(part)
+    local originalPosition = part.Position
+    local y = Misc.DefineObjectY(part)
 
-    local enemyRefId = worldState:get(enemyGuid, W.RefId)
-    local durationUp = assert(S.Enemy[enemyRefId].jumpUpDuration)
-    local durationDown = assert(S.Enemy[enemyRefId].jumpDownDuration)
+    local durationUp = 1.5
+    local durationDown = 0.3
+    -- local durationBounce = 0.05
 
-    local jumpUp = TweenService:Create(part, TweenInfo.new(durationUp, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Position = part.Position + Vector3.new(0, height, 0),
+    local jumpUp = TweenService:Create(part, TweenInfo.new(durationUp, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Position = originalPosition + Vector3.new(0, height, 0),
     })
 
     worldState:set(enemyGuid, W.ClientFlags, true)
     jumpUp:Play()
     jumpUp.Completed:Connect(function()
-        local newPos = worldState:get(enemyGuid, W.Position) :: Vector3
-        local landingPosition = Vector3.new(newPos.X, y, newPos.Z)
-        local jumpDown = TweenService:Create(part, TweenInfo.new(durationDown, Enum.EasingStyle.Bounce, Enum.EasingDirection.In), {
-            Position = landingPosition,
-        })
-        jumpDown:Play()
-        jumpDown.Completed:Connect(function()
+        -- local jumpDown = TweenService:Create(part, TweenInfo.new(durationDown, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        --     Position = originalPosition,
+        -- })
+        -- jumpDown:Play()
+        -- jumpDown.Completed:Connect(function()
             -- TODO: VFX and SFX
-            worldState:set(enemyGuid, W.ClientFlags, false)
+            if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+                local newPos = worldState:get(enemyGuid, W.Position) :: Vector3
+                local finalPos = Vector3.new(newPos.X, y, newPos.Z)
+
+                -- Use a proxy to tween CFrame
+                local proxy = Instance.new("CFrameValue")
+                proxy.Value = part.CFrame
+
+                proxy:GetPropertyChangedSignal("Value"):Connect(function()
+                    -- edit look vector to face the player
+                    local humPos = humanoidRootPart.Position
+                    local lookAt = Vector3.new(humPos.X, part.Position.Y, humPos.Z)
+                    local newCframe = CFrame.new(proxy.Value.Position, lookAt) * CFrame.Angles(0, math.pi, 0)
+                    part.CFrame = newCframe
+                end)
+
+                local tween = TweenService:Create(proxy, TweenInfo.new(durationDown, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {
+                    Value = CFrame.new(finalPos),
+                })
+                tween:Play()
+
+                tween.Completed:Connect(function()
+                    -- play impact sound
+                    local localizedThump = S.Sound[Id.Sound.STOMP_LOCALIZED]
+                    Misc.SoundLocalizedAudio(localizedThump, part.Position, 0)
+
+                    proxy:Destroy()
+                    if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+                        worldState:set(enemyGuid, W.ClientFlags, false)
+                    end
+                end)
+            end
         end)
-    end)
+    -- end)
 end
 
 local m = {}
@@ -148,12 +178,12 @@ m.OnBossDestroyed = function(worldState, enemyGuid: string)
     end
 end
 
-m.OnEnemyTTEUp = function(worldState: state.Replica, enemyGuid: string)
+m.OnEnemyTTEUp = function(worldState: state.Replica, enemyGuid: string, humanoidRootPart: BasePart)
     local refId = worldState:get(enemyGuid, W.RefId)
     if refId == Id.Enemy.OCTOBOSS then
         local enemyInstance = worldState:get(enemyGuid, W.ClientInstance)
         if enemyInstance then
-            jump(worldState, enemyGuid, enemyInstance)
+            animateJump(worldState, enemyGuid, enemyInstance, humanoidRootPart)
         end
     end
 end

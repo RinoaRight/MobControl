@@ -145,12 +145,12 @@ function m.SetBossFightOn(enemyGuid: guid)
     local flags = m.world:get(enemyGuid, W.Bitset)
     m.world:set(enemyGuid, W.Bitset, Id.flag_or(flags, Id.EnemyF.IS_BOSS))
 
-    if refId == Id.Enemy.OCTOBOSS then
-        local tte = assert(S.Enemy[refId].tte) :: number
-        m.world:set(enemyGuid, W.TTE, tte)
-        local ttl = _roflake.time() + assert(S.Enemy[refId].jumpUpDuration) + assert(S.Enemy[refId].jumpDownDuration)
-        m.world:set(enemyGuid, W.TTL, ttl)
-    end
+    -- if refId == Id.Enemy.OCTOBOSS then
+    --     local tte = assert(S.Enemy[refId].tte) :: number
+    --     m.world:set(enemyGuid, W.TTE, tte)
+    --     local ttl = _roflake.time() + assert(S.Enemy[refId].jumpUpDuration) + assert(S.Enemy[refId].jumpDownDuration)
+    --     m.world:set(enemyGuid, W.TTL, ttl)
+    -- end
 
     local value = m.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
     if value == nil then
@@ -222,7 +222,7 @@ function m.AddClone(id: id, player_id: int)
     return guid
 end
 
-local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.TTL, W.TTE, W.Bitset)
+local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.TTE, W.Bitset)
 function m.AddEnemyToState(id: id, pos)
     local hp = S.Enemy[id].health
     local guid = _roflake.uida()
@@ -230,7 +230,7 @@ function m.AddEnemyToState(id: id, pos)
     if S.Enemy[id].tte then
         tte = S.Enemy[id].tte :: number
     end
-    _enemy(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, 0xffff_ffff, tte, Id.EnemyF.NONE)
+    _enemy(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, tte, Id.EnemyF.NONE)
     return guid
 end
 
@@ -314,9 +314,9 @@ function m.ResetEnemyWaveCount()
     m.world:set(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value, 0)
 end
 
-function m.ResetTTL(guid: uid)
-    m.world:set(guid, W.TTL, 0xffff_ffff)
-end
+-- function m.ResetTTL(guid: uid)
+--     m.world:set(guid, W.TTL, 0xffff_ffff)
+-- end
 
 -------------------
 -- Methods

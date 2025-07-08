@@ -759,7 +759,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         end
 
                         if player and playerRoot and distToTarget then
-                            local critDist = 12 --1.5
+                            local critDist = 10 --1.5
                             playerId = player.UserId :: int
                             playerState = get_state(playerId)
                             if isBoss then
@@ -924,11 +924,11 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 if worldState:get(guid, W.WeaponId) and worldState:get(guid, W.PlayerId) then
                     -- delete bullet entity
                     WorldService.RemoveEntity(guid)
-                else
-                    local refId = worldState:get(guid, W.RefId)
-                    if Id.kind(refId) == Id.Kind.Enemy then
-                        WorldService.ResetTTL(guid)
-                    end
+                -- else
+                --     local refId = worldState:get(guid, W.RefId)
+                --     if Id.kind(refId) == Id.Kind.Enemy then
+                --         WorldService.ResetTTL(guid)
+                --     end
                 end
             end
         end
