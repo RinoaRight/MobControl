@@ -119,37 +119,38 @@ function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRoot
 
     local originalPosition = part.Position
     local originalCFrame = part.CFrame
-    local normalizedLook = Vector3.new(originalCFrame.LookVector.X, 0, originalCFrame.LookVector.Z)
     local heightPerTurn = height / spinNum / 3
     local y = Misc.DefineObjectY(part)
     -- local durationBounce = 0.05
 
+    local baseRotation = originalCFrame - originalCFrame.Position  -- Extract just the rotation part
+    
     local spin1 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
-        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn, 0), normalizedLook) * CFrame.Angles(0, math.rad(120), 0),
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn, 0)) * baseRotation * CFrame.Angles(0, math.rad(120), 0),
     })
     local spin2 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
-        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 2, 0), normalizedLook) * CFrame.Angles(0, math.rad(240), 0),
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 2, 0)) * baseRotation * CFrame.Angles(0, math.rad(240), 0),
     })
     local spin3 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
-        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 3, 0), normalizedLook) * CFrame.Angles(0, math.rad(360), 0),
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 3, 0)) * baseRotation * CFrame.Angles(0, math.rad(360), 0),
     })
     local spin4 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
-        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 4, 0), normalizedLook) * CFrame.Angles(0, math.rad(120), 0),
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 4, 0)) * baseRotation * CFrame.Angles(0, math.rad(120), 0),
     })
     local spin5 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
-        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 5, 0), normalizedLook) * CFrame.Angles(0, math.rad(240), 0),
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 5, 0)) * baseRotation * CFrame.Angles(0, math.rad(240), 0),
     })
     local spin6 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
-        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 6, 0), normalizedLook) * CFrame.Angles(0, math.rad(360), 0),
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 6, 0)) * baseRotation * CFrame.Angles(0, math.rad(360), 0),
     })
     local spin7 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
-        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 7, 0), normalizedLook) * CFrame.Angles(0, math.rad(120), 0),
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 7, 0)) * baseRotation * CFrame.Angles(0, math.rad(120), 0),
     })
     local spin8 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
-        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 8, 0), normalizedLook) * CFrame.Angles(0, math.rad(240), 0),
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 8, 0)) * baseRotation * CFrame.Angles(0, math.rad(240), 0),
     })
     local spin9 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
-        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 9, 0), normalizedLook) * CFrame.Angles(0, math.rad(360), 0),
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 9, 0)) * baseRotation * CFrame.Angles(0, math.rad(360), 0),
     })
 
     worldState:set(enemyGuid, W.ClientFlags, true)
