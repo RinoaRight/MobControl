@@ -130,8 +130,6 @@ m.Enemy = {
         reward = 10,
         xp = 10,
         tte = 7,
-        -- jumpUpDuration = 1.5,
-        -- jumpDownDuration = 0.3,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),
     },
 }

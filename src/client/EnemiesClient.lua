@@ -110,61 +110,135 @@ end
 
 function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRootPart: BasePart)
     assert(part and part:IsA("BasePart"), "Invalid part")
-    local height = 20
+    local height = 18
+    local spinNum = 3
+    local spinDuration = 0.6
+    local turnDuration = spinDuration / 3
+    local durationUp = spinDuration * spinNum
+    local durationDown = 0.3
 
     local originalPosition = part.Position
+    local originalCFrame = part.CFrame
+    local normalizedLook = Vector3.new(originalCFrame.LookVector.X, 0, originalCFrame.LookVector.Z)
+    local heightPerTurn = height / spinNum / 3
     local y = Misc.DefineObjectY(part)
-
-    local durationUp = 1.5
-    local durationDown = 0.3
     -- local durationBounce = 0.05
 
-    local jumpUp = TweenService:Create(part, TweenInfo.new(durationUp, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        Position = originalPosition + Vector3.new(0, height, 0),
+    local spin1 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn, 0), normalizedLook) * CFrame.Angles(0, math.rad(120), 0),
+    })
+    local spin2 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 2, 0), normalizedLook) * CFrame.Angles(0, math.rad(240), 0),
+    })
+    local spin3 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 3, 0), normalizedLook) * CFrame.Angles(0, math.rad(360), 0),
+    })
+    local spin4 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 4, 0), normalizedLook) * CFrame.Angles(0, math.rad(120), 0),
+    })
+    local spin5 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 5, 0), normalizedLook) * CFrame.Angles(0, math.rad(240), 0),
+    })
+    local spin6 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 6, 0), normalizedLook) * CFrame.Angles(0, math.rad(360), 0),
+    })
+    local spin7 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 7, 0), normalizedLook) * CFrame.Angles(0, math.rad(120), 0),
+    })
+    local spin8 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 8, 0), normalizedLook) * CFrame.Angles(0, math.rad(240), 0),
+    })
+    local spin9 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 9, 0), normalizedLook) * CFrame.Angles(0, math.rad(360), 0),
     })
 
     worldState:set(enemyGuid, W.ClientFlags, true)
-    jumpUp:Play()
-    jumpUp.Completed:Connect(function()
-        -- local jumpDown = TweenService:Create(part, TweenInfo.new(durationDown, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        --     Position = originalPosition,
+
+    -- spin the part
+    spin1:Play()
+    spin1.Completed:Connect(function()
+        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+            spin2:Play()
+        end
+    end)
+    spin2.Completed:Connect(function()
+        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+            spin3:Play()
+        end
+    end)
+    spin3.Completed:Connect(function()
+        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+            spin4:Play()
+        end
+    end)
+    spin4.Completed:Connect(function()
+        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+            spin5:Play()
+        end
+    end)
+    spin5.Completed:Connect(function()
+        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+            spin6:Play()
+        end
+    end)
+    spin6.Completed:Connect(function()
+        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+            spin7:Play()
+        end
+    end)
+    spin7.Completed:Connect(function()
+        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+            spin8:Play()
+        end
+    end)
+    spin8.Completed:Connect(function()
+        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+            spin9:Play()
+        end
+    end)
+    spin9.Completed:Connect(function()
+        -- local jumpUpFinal = TweenService:Create(part, TweenInfo.new(durationUp, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        --     Position = originalPosition + Vector3.new(0, height, 0),
         -- })
-        -- jumpDown:Play()
-        -- jumpDown.Completed:Connect(function()
-            -- TODO: VFX and SFX
-            if worldState:has(enemyGuid) then -- check if the enemy is still in the world
-                local newPos = worldState:get(enemyGuid, W.Position) :: Vector3
-                local finalPos = Vector3.new(newPos.X, y, newPos.Z)
 
-                -- Use a proxy to tween CFrame
-                local proxy = Instance.new("CFrameValue")
-                proxy.Value = part.CFrame
+        -- worldState:set(enemyGuid, W.ClientFlags, true)
+        -- jumpUpFinal:Play()
+        -- jumpUpFinal.Completed:Connect(function()
 
-                proxy:GetPropertyChangedSignal("Value"):Connect(function()
-                    -- edit look vector to face the player
-                    local humPos = humanoidRootPart.Position
-                    local lookAt = Vector3.new(humPos.X, part.Position.Y, humPos.Z)
-                    local newCframe = CFrame.new(proxy.Value.Position, lookAt) * CFrame.Angles(0, math.pi, 0)
-                    part.CFrame = newCframe
-                end)
+        -- TODO: VFX and SFX
+        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+            local newPos = worldState:get(enemyGuid, W.Position) :: Vector3
+            local finalPos = Vector3.new(newPos.X, y, newPos.Z)
 
-                local tween = TweenService:Create(proxy, TweenInfo.new(durationDown, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {
-                    Value = CFrame.new(finalPos),
-                })
-                tween:Play()
+            -- Use a proxy to tween CFrame
+            local proxy = Instance.new("CFrameValue")
+            proxy.Value = part.CFrame
 
-                tween.Completed:Connect(function()
-                    -- play impact sound
-                    local localizedThump = S.Sound[Id.Sound.STOMP_LOCALIZED]
-                    Misc.SoundLocalizedAudio(localizedThump, part.Position, 0)
+            proxy:GetPropertyChangedSignal("Value"):Connect(function()
+                -- edit look vector to face the player
+                local humPos = humanoidRootPart.Position
+                local lookAt = Vector3.new(humPos.X, part.Position.Y, humPos.Z)
+                local newCframe = CFrame.new(proxy.Value.Position, lookAt) * CFrame.Angles(0, math.pi, 0)
+                part.CFrame = newCframe
+            end)
 
-                    proxy:Destroy()
-                    if worldState:has(enemyGuid) then -- check if the enemy is still in the world
-                        worldState:set(enemyGuid, W.ClientFlags, false)
-                    end
-                end)
-            end
-        end)
+            local tweenCFRame = TweenService:Create(proxy, TweenInfo.new(durationDown, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {
+                Value = CFrame.new(finalPos),
+            })
+            tweenCFRame:Play()
+
+            tweenCFRame.Completed:Connect(function()
+                -- play impact sound
+                local localizedThump = S.Sound[Id.Sound.STOMP_LOCALIZED]
+                Misc.SoundLocalizedAudio(localizedThump, part.Position, 0)
+
+                proxy:Destroy()
+                if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+                    worldState:set(enemyGuid, W.ClientFlags, false)
+                end
+            end)
+        end
+    end)
     -- end)
 end
 
