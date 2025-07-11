@@ -924,11 +924,11 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 if worldState:get(guid, W.WeaponId) and worldState:get(guid, W.PlayerId) then
                     -- delete bullet entity
                     WorldService.RemoveEntity(guid)
-                -- else
-                --     local refId = worldState:get(guid, W.RefId)
-                --     if Id.kind(refId) == Id.Kind.Enemy then
-                --         WorldService.ResetTTL(guid)
-                --     end
+                    -- else
+                    --     local refId = worldState:get(guid, W.RefId)
+                    --     if Id.kind(refId) == Id.Kind.Enemy then
+                    --         WorldService.ResetTTL(guid)
+                    --     end
                 end
             end
         end
@@ -1078,9 +1078,15 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
     local attAlign = Instance.new("Attachment") :: Attachment
     attAlign.CFrame = playerRootPart.CFrame
     attAlign.Parent = playerRootPart
+    -- attAlign.Axis = Vector3.new(0, 1, 0) -- lock Y
+    -- attAlign.SecondaryAxis = Vector3.new(0, 1, 0) -- defines plane orientation
+
     local playerAlignConst = Instance.new("AlignOrientation")
     playerAlignConst.Name = SharedConfig.PLAYER_ALIGN_CONSTR_NAME
     playerAlignConst.Parent = playerCharacter
+    -- TODO: this mode doesn't work, need to fix it
+    -- playerAlignConst.Mode = Enum.OrientationAlignmentMode.OneAttachment
+    -- playerAlignConst.AlignType = Enum.AlignType.PrimaryAxisLookAt
     playerAlignConst.Attachment0 = attAlign
     playerAlignConst.Attachment1 = DRIVING_BOX_ATT
 

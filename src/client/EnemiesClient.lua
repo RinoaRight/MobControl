@@ -98,13 +98,48 @@ local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: s
 
     -- if the enemy is a boss, attach the player's align constraint to the boss
     if enemyRefId == Id.Enemy.OCTOBOSS then
+        -- create a controller
+        -- local controller = Instance.new("Part")
+        -- controller.Size = Vector3.new(100, 100, 100)
+        -- controller.CFrame = CFrame.new(enemyPos)
+        -- controller.Name = "Controller"
+        -- controller.Anchored = true
+        -- controller.CanCollide = false
+        -- controller.Transparency = 0
+        -- controller.Parent = enemyInstance
+
+        -- -- add align position to the controller
+        -- local alignPos = Instance.new("AlignPosition")
+        -- alignPos.Parent = controller
+        -- alignPos.RigidityEnabled = true
+        -- alignPos.Responsiveness = 200
+        -- alignPos.MaxForce = math.huge
+        -- alignPos.ApplyAtCenterOfMass = false
+        -- alignPos.Parent = controller
+
+        -- local controllerAtt = Instance.new("Attachment") :: Attachment
+        -- controllerAtt.Parent = controller
         local bossAtt = Instance.new("Attachment") :: Attachment
         bossAtt.Parent = enemyInstance
+        -- alignPos.Attachment0 = bossAtt
+        -- alignPos.Attachment1 = controllerAtt
+        -- controller.Anchored = false
+
+        -- set player's align orientation constraint to the boss controller
         local character = LOCAL_PLAYER.Character
-        local playerAlignConst = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
-        if playerAlignConst then
-            playerAlignConst.Attachment1 = bossAtt
+        local playerAlignOrient = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
+        if playerAlignOrient then
+            playerAlignOrient.Attachment1 = bossAtt
+            -- playerAlignOrient.LookAtPosition = enemyInstance.Position
+
+            -- playerAlignOrient.Attachment1 = controllerAtt
         end
+    end
+end
+
+local function playTween(worldState, enemyGuid: string, tween: Tween)
+    if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+        tween:Play()
     end
 end
 
@@ -123,8 +158,8 @@ function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRoot
     local y = Misc.DefineObjectY(part)
     -- local durationBounce = 0.05
 
-    local baseRotation = originalCFrame - originalCFrame.Position  -- Extract just the rotation part
-    
+    local baseRotation = originalCFrame - originalCFrame.Position -- Extract just the rotation part
+
     local spin1 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
         CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn, 0)) * baseRotation * CFrame.Angles(0, math.rad(120), 0),
     })
@@ -158,44 +193,28 @@ function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRoot
     -- spin the part
     spin1:Play()
     spin1.Completed:Connect(function()
-        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
-            spin2:Play()
-        end
+        playTween(worldState, enemyGuid, spin2)
     end)
     spin2.Completed:Connect(function()
-        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
-            spin3:Play()
-        end
+        playTween(worldState, enemyGuid, spin3)
     end)
     spin3.Completed:Connect(function()
-        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
-            spin4:Play()
-        end
+        playTween(worldState, enemyGuid, spin4)
     end)
     spin4.Completed:Connect(function()
-        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
-            spin5:Play()
-        end
+        playTween(worldState, enemyGuid, spin5)
     end)
     spin5.Completed:Connect(function()
-        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
-            spin6:Play()
-        end
+        playTween(worldState, enemyGuid, spin6)
     end)
     spin6.Completed:Connect(function()
-        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
-            spin7:Play()
-        end
+        playTween(worldState, enemyGuid, spin7)
     end)
     spin7.Completed:Connect(function()
-        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
-            spin8:Play()
-        end
+        playTween(worldState, enemyGuid, spin8)
     end)
     spin8.Completed:Connect(function()
-        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
-            spin9:Play()
-        end
+        playTween(worldState, enemyGuid, spin9)
     end)
     spin9.Completed:Connect(function()
         -- local jumpUpFinal = TweenService:Create(part, TweenInfo.new(durationUp, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {

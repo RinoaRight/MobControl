@@ -565,10 +565,11 @@ do
 end
 
 local function getBulletDirection(rootPart: BasePart, humanoid: Humanoid): Vector3
-    -- TODO: FIXIT, bullet flies backwards when input is pointed backwards
     local moveDir = humanoid.MoveDirection
-    local flatMove = Vector3.new(moveDir.X, 0, moveDir.Z)
-    local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z)
+    -- local flatMove = Vector3.new(moveDir.X, 0, moveDir.Z)
+    local z = rootPart.CFrame.LookVector.Z
+    local flatMove = Vector3.new(moveDir.X, 0, z)
+    local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, z)
 
     if flatMove.Magnitude > 0.1 then
         local crossMag = flatMove.Unit:Cross(facing.Unit).Magnitude
