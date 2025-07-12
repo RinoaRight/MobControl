@@ -73,6 +73,7 @@ local TaskPool = require(shared.TaskPool)
 local SFX = require(script.SFX)
 local Settings = require(script.Settings)
 local EnemiesFlying = require(script.EnemiesFlyingClient)
+local PlayerUtils = require(script.PlayerUtils)
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
@@ -789,6 +790,9 @@ RunService.Heartbeat:Connect(function(dt)
     if #players < 1 then
         return
     end
+
+    local intendedPos = PlayerUtils.GetPredictedPositionWithVelocity(dt)
+    us2cc:FireServer(Id.C2S.PLAYER_INTENDED_POS, intendedPos, roflake.time())
 
     -- move clones
     local clonesRootParts = {}

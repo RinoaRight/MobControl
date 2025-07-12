@@ -141,9 +141,9 @@ local function update_ids(main: state.Main)
         _countable_persistent(id, 0, 0)
     end)
 
-    -- weapon_id, weapon_tte, hp, rank, pers_flags, non_pers_flags
-    local _game_session_params = main:constructor(C.RefId, C.TTE, C.ValueNonPers, C.PlayerRank, C.Bitset, C.BitsetNonPers)
-    merge(Id.PlayerSpecs, function(id)
+    -- weapon_id, intended_pos_time_stamp, weapon_tte, hp, pers_flags, non_pers_flags, intended_pos
+    local _game_session_params = main:constructor(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.BitsetNonPers, C.V3)
+    merge(Id.PlayerSpecs, function()
         _game_session_params(
             Id.PlayerSpecs.GAME_SESSION_PARAMS,
             Id.Weapon._NONE,
@@ -151,7 +151,8 @@ local function update_ids(main: state.Main)
             0,
             SharedConfig.PLAYER_BASE_HP,
             Id.PlayerF._NONE,
-            Id.PlayerF._NONE
+            Id.PlayerF._NONE,
+            Vector3.new(0, 0, 0)
         )
     end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
 
@@ -228,7 +229,20 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
         character = char,
         humanoid = char:WaitForChild("Humanoid", TIMEOUT) :: Humanoid,
         root = char:WaitForChild("HumanoidRootPart", TIMEOUT) :: BasePart,
+        intended_pos = Vector3.new(0, 0, 0),
         maid = disposer.new(),
+        Remote.Server.US2CC.OnServerEvent:Connect(function(player, event_id, intended_pos, timestamp)
+            if event_id == Id.C2S.PLAYER_INTENDED_POS then
+                    -- if new timestamp is older than the previous, the event is expired, disregard
+                    local previous_timestamp = state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL)
+                    if previous_timestamp > timestamp then
+                        return
+                    end
+                    state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3, intended_pos)
+                    state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL, timestamp)
+            end
+        end),
+
         fire_client = fire_client,
         nullary_local = state:constructor("local", "transient"),
         nullary_transient = state:constructor("transient"),

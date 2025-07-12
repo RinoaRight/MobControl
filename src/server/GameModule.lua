@@ -51,8 +51,6 @@ local Remote = require(shared.Remote)
 local Rand = require(shared.rand)
 local TweenService = game:GetService("TweenService")
 
-local CLONES = {}
-
 local m = {} :: {
     get_state: (int) -> PSS.PlayerState?,
     StarFstartmaintMainLoopPlayer: (PSS.PlayerState) -> (num) -> (),
@@ -65,6 +63,7 @@ local m = {} :: {
     SetPlayerAlignment: (PSS.PlayerState) -> (),
     SpawnPlayer: (PSS.PlayerState, int) -> (),
     UnconstrainPlayer: (PSS.PlayerState) -> (),
+    UpdatePlayerIntendedPos: (PSS.PlayerState, Vector3) -> (),
 }
 
 local workerMaid = disposer.new()
@@ -82,8 +81,6 @@ local BOOSTER_OFFSET_Z = -50
 local BOOSTER_GAP = 40
 local GAP_WIDTH = BOOSTER_GAP - BOOSTER_WIDTH
 local BOOSTER_CONTENTS_BILLBOARD_TEMPLATE = assert(ReplicatedStorage.BoosterContentsBillboard)
-
-local CLONES_DUMMY_FOLDER = assert(workspace:FindFirstChild(SharedConfig.CLONES_DUMMY_FOLDER_NAME))
 
 local FIELD_NAMES = En.with_id("*")({
     FIRST = 1,
@@ -461,7 +458,7 @@ local function getShieldDamage(player_state: PSS.PlayerState)
     return isShieldDmg, shieldDamage
 end
 
-local function getTargetPos(playerRoot: BasePart, critDist: num, currentPos: Vector3, speed: num, dt: num)
+local function getEnemyTargetPos(playerRoot: BasePart, critDist: num, currentPos: Vector3, speed: num, dt: num)
     -- predict player's position, binomial distribution add some randomness
     local playerPos = playerRoot.Position
     local targetPos = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z - critDist)
@@ -719,6 +716,17 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         if not player_state then
                             continue
                         end
+                        if isBoss then
+                            local root = player_state.root :: BasePart
+                            local posToLookAt = currentPos
+                            local playerIntendedPos = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
+
+                            -- Direction from character to target (flattened to Y axis)
+                            local flatDir = Vector3.new(posToLookAt.X - playerIntendedPos.X, 0, posToLookAt.Z - playerIntendedPos.Z).Unit
+
+                            -- Apply only the orientation (not the full CFrame)
+                            root.CFrame = CFrame.new(playerIntendedPos) * CFrame.Angles(0, math.atan2(flatDir.X, flatDir.Z), 0) * CFrame.Angles(0, math.pi, 0)
+                        end
                     else
                         -- player is not in session, remove this enemy's lock on him if any
                         playerId = player.UserId :: int
@@ -764,7 +772,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                             playerState = get_state(playerId)
                             if isBoss then
                                 -- bosses (never remove lock)
-                                newPos = getTargetPos(playerRoot, critDist, currentPos, speed, dt)
+                                newPos = getEnemyTargetPos(playerRoot, critDist, currentPos, speed, dt)
                             else
                                 -- other enemies
                                 if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
@@ -775,7 +783,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                     worldState:set(guid, W.Bitset, Id.flag_set(flags, Id.EnemyF.SEEK_ACTIVATED, false))
                                     worldState:set(guid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                                 else
-                                    newPos = getTargetPos(playerRoot, critDist, currentPos, speed, dt)
+                                    newPos = getEnemyTargetPos(playerRoot, critDist, currentPos, speed, dt)
                                     -- -- predict player's position, binomial distribution add some randomness
                                     -- local playerPos = playerRoot.Position
                                     -- local targetPos = Vector3.new(playerPos.X, playerPos.Y, playerPos.Z - critDist)

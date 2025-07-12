@@ -741,10 +741,17 @@ on[Id.C2S.PERK_SELECTED] = function(player_state, whichPerk, ...)
     end
 end
 
+-- on[Id.C2S.PLAYER_INTENDED_POS] = function(player_state, intended_pos, ...)
+--     GameModule.UpdatePlayerIntendedPos(player_state, intended_pos)
+-- end
+
 on[Id.C2S.TOGGLE_PLAYER_FLAG] = function(player_state, isToSwitchOn, flag_id, ...)
     local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, Id.flag_set(flags, flag_id, isToSwitchOn))
 end
+
+-- TODO: subscribe to the player's intended pos
+
 -------------------
 -- S2S
 -------------------

@@ -813,6 +813,7 @@ Id.C2S = enum.with_id "Id.C2S" {
     TARGET_HIT                        = iota'', -- {enemy_guids}, bullet_guid
     TOGGLE_PLAYER_FLAG                = iota'', -- bool, flag_id
     PERK_SELECTED                     = iota'', -- 1 or 2
+    PLAYER_INTENDED_POS               = iota'', -- pos, timestamp
     PLAYER_READY_TO_START             = iota'',               
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
