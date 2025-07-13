@@ -129,7 +129,8 @@ m.Enemy = {
         speed = 10.0,
         reward = 10,
         xp = 10,
-        tte = 7,
+        tte = 3, -- NOTE: should be larger than jump animation duration (EnemiesClient.animateJump). Currently ~= 2
+        specialAttackRange = 60,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),
     },
 }
@@ -138,7 +139,7 @@ m.EnemyFlying = {
     [Id.EnemyFlying.ZOMBALLOON] = {
         -- damage = 40,
         health = 10,
-        period = Vector2.new(1.5, 3.0),
+        period = Vector2.new(2.5, 3.5),
         -- bombSpeed = 1,
         flyerHeight = 50,
         reward = 3,

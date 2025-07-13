@@ -497,6 +497,7 @@ Id.EnemyF = enum.with_id "Id.EnemyF" {
     NONE                     = flag(Id.Kind.EnemyF),
     SEEK_ACTIVATED           = flag'',
     IS_BOSS                  = flag'',
+    PERFORM_SPECIAL_ATTACK   = flag'',
 }
 KIND_TO_ENUM[Id.Kind.EnemyF] = Id.EnemyF
 export type EnemyF = typeof(Id.EnemyF)

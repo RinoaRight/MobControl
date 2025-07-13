@@ -1164,27 +1164,20 @@ end)
 WORLD:set_on_modify(W.TTE, function(guid: guid, newValue: num, oldValue: num)
     local refId = WORLD:get(guid, W.RefId)
     if Id.kind(refId) == Id.Kind.Enemy then
-        if newValue > oldValue and newValue > 0 then
-            EnemiesClient.OnEnemyTTEUp(WORLD, guid :: string, LOCAL_HUMANOID_ROOT_PART)
+        if newValue > oldValue and newValue > 0 then -- tte has just been reset
+            EnemiesClient.OnTTEUp(WORLD, guid :: string, refId, LOCAL_HUMANOID_ROOT_PART)
         end
     end
 end)
 
--- WORLD:set_on_modify(W.HP, function(guid: guid, newValue: flag, oldValue: flag)
+-- WORLD:set_on_modify(W.Bitset, function(guid: guid, newValue: flag, oldValue: flag)
 --     if type(guid) == "string" then
---         local playerFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
---         local isPlayerInSession = playerFlags and Id.flag_test(playerFlags, Id.PlayerF.READY)
---         if not isPlayerInSession then
---             return
---         end
 --         local refId = WORLD:get(guid, W.RefId)
---         if newValue < oldValue and (Id.kind(refId) == Id.Kind.Enemy or Id.kind(refId) == Id.Kind.Obstacle or Id.kind(refId) == Id.Kind.Boost) then
---             -- when any obstacle is hit, if shield damage is active, flicker the aura
---             local shieldDamage = 0
---             local shieldFlags = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
---             local shieldDmgFlags = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE, C.Bitset)
---             if Id.flag_test(shieldFlags, Id.PlayerF.PERK_ACTIVE) and Id.flag_test(shieldDmgFlags, Id.PlayerF.PERK_ACTIVE) then
---                 UIPlayerUpgrades.FlickerShield(PLAYER_STATE, LOCAL_CHARACTER)
+--         if Id.kind(refId) == Id.Kind.Enemy then
+--             local isSpecialAttack = Id.flag_test(newValue, Id.EnemyF.PERFORM_SPECIAL_ATTACK)
+--             print("LLLLLL", isSpecialAttack)
+--             if isSpecialAttack then
+--                 EnemiesClient.PerformSpecialAttack(WORLD, guid :: string, refId, LOCAL_HUMANOID_ROOT_PART)
 --             end
 --         end
 --     end

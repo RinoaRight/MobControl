@@ -98,41 +98,14 @@ local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: s
 
     -- if the enemy is a boss, attach the player's align constraint to the boss
     if enemyRefId == Id.Enemy.OCTOBOSS then
-        -- create a controller
-        -- local controller = Instance.new("Part")
-        -- controller.Size = Vector3.new(100, 100, 100)
-        -- controller.CFrame = CFrame.new(enemyPos)
-        -- controller.Name = "Controller"
-        -- controller.Anchored = true
-        -- controller.CanCollide = false
-        -- controller.Transparency = 0
-        -- controller.Parent = enemyInstance
-
-        -- -- add align position to the controller
-        -- local alignPos = Instance.new("AlignPosition")
-        -- alignPos.Parent = controller
-        -- alignPos.RigidityEnabled = true
-        -- alignPos.Responsiveness = 200
-        -- alignPos.MaxForce = math.huge
-        -- alignPos.ApplyAtCenterOfMass = false
-        -- alignPos.Parent = controller
-
-        -- local controllerAtt = Instance.new("Attachment") :: Attachment
-        -- controllerAtt.Parent = controller
         local bossAtt = Instance.new("Attachment") :: Attachment
         bossAtt.Parent = enemyInstance
-        -- alignPos.Attachment0 = bossAtt
-        -- alignPos.Attachment1 = controllerAtt
-        -- controller.Anchored = false
 
         -- set player's align orientation constraint to the boss controller
         local character = LOCAL_PLAYER.Character
         local playerAlignOrient = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
         if playerAlignOrient then
             playerAlignOrient.Attachment1 = bossAtt
-            -- playerAlignOrient.LookAtPosition = enemyInstance.Position
-
-            -- playerAlignOrient.Attachment1 = controllerAtt
         end
     end
 end
@@ -156,7 +129,6 @@ function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRoot
     local originalCFrame = part.CFrame
     local heightPerTurn = height / spinNum / 3
     local y = Misc.DefineObjectY(part)
-    -- local durationBounce = 0.05
 
     local baseRotation = originalCFrame - originalCFrame.Position -- Extract just the rotation part
 
@@ -272,8 +244,7 @@ m.OnBossDestroyed = function(worldState, enemyGuid: string)
     end
 end
 
-m.OnEnemyTTEUp = function(worldState: state.Replica, enemyGuid: string, humanoidRootPart: BasePart)
-    local refId = worldState:get(enemyGuid, W.RefId)
+m.OnTTEUp = function(worldState: state.Replica, enemyGuid: string, refId: id, humanoidRootPart: BasePart)
     if refId == Id.Enemy.OCTOBOSS then
         local enemyInstance = worldState:get(enemyGuid, W.ClientInstance)
         if enemyInstance then

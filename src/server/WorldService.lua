@@ -41,6 +41,7 @@ local log = logger.create("WorldService"):set_delimiter(" "):set_prettifier(Id.p
 local Remote = require(shared.Remote)
 local Misc = require(shared.Misc)
 local C = SharedConfig.PlayerState.CId
+local Rand = require(shared.rand)
 
 local WeaponsFolder = workspace.Weapons
 
@@ -238,7 +239,8 @@ local _enemy_flying = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId,
 function m.AddEnemyFlyingToState(id: id, pos: v3)
     local hp = S.EnemyFlying[id].health
     local guid = _roflake.uida()
-    local tte = _roflake.time() + SharedConfig.FIRST_BOMB_DELAY
+    local period = assert(S.EnemyFlying[id].period)
+    local tte = _roflake.time() + SharedConfig.FIRST_BOMB_DELAY + Rand.uniform(period.X, period.Y)
     _enemy_flying(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, tte, Id.EnemyF.NONE)
     return guid
 end
