@@ -57,7 +57,7 @@ m.W = W
 m.world = state.main(SharedConfig.World.main_config)
 m.nullary_transient = m.world:constructor("transient")
 
-function m.ftest(guid: uid, flag: id)
+function m.ftest(guid: uid, flag: id): bool
     local flags = m.world:get(guid, W.Bitset)
     if not flags then
         log:error("flags not found for guid: ", guid, debug.traceback)
@@ -70,7 +70,7 @@ function m.ftest(guid: uid, flag: id)
     return Id.flag_test(flags, flag)
 end
 
-function m.fset(guid: uid, flag: id, value: bool)
+function m.fset(guid: uid, flag: id, value: bool): ()
     local flags = m.world:get(guid, W.Bitset)
     if not flags then
         log:error("flags not found for guid: ", guid, debug.traceback)
@@ -81,6 +81,14 @@ function m.fset(guid: uid, flag: id, value: bool)
         return
     end
     m.world:set(guid, W.Bitset, Id.flag_set(flags, flag, value))
+end
+
+function m.fflags(guid): Id.flag?
+    local flags = m.world:get(guid, W.Bitset)
+    if not flags then
+        log:error("flags not found for guid: ", guid, debug.traceback)
+    end
+    return flags
 end
 
 function m.ChangeWeapon(player_state, player_id, weapon_id)
