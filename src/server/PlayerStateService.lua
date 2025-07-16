@@ -115,8 +115,8 @@ export type PlayerState = {
     nullary_transient: (state.uid_or_gen) -> uid,
     __index: any,
     __tostring: (self: PlayerState) -> str,
-    set_flag: (self: PlayerState, uid: state.uid, comp: state.cid, flags: Id.flag, val: bool) -> (),
-    test_flag: (self: PlayerState, uid: state.uid, comp: state.cid, flags: Id.flag) -> bool,
+    set_flag: (self: PlayerState, uid: state.uid, comp: state.cid, flag: Id.flag, val: bool) -> (),
+    test_flag: (self: PlayerState, uid: state.uid, comp: state.cid, flag: Id.flag) -> bool,
 }
 
 -- note: was warm_up cache

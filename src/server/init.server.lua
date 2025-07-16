@@ -161,7 +161,6 @@ local function onPlayerSessionFinishedWorld(player_state, playerId)
     end
 end
 
-
 local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState, deducted_hp: int?, cause_id: id | uid?)
     print("Player dead")
     -- check if the player is not already dead
@@ -196,7 +195,15 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, 0)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, 0)
-    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.flag_set(nonPersFlags, Id.PlayerF.READY, false))
+    -- reset player flags
+    -- local playerNonPerFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    for _, player_flag_id in Id.PlayerF:ids() do
+        if player_flag_id > Id.PlayerF._NON_PERSISTENT then
+            player_state:set_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, player_flag_id, false)
+        end
+    end
+
+    -- player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.flag_set(nonPersFlags, Id.PlayerF.READY, false))
 
     onPlayerSessionFinishedWorld(player_state, player_state.player_id)
 end
@@ -520,7 +527,6 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
     for i = 1, #bullet_guids do
         WorldService.AddBulletToState(player_state, bullet_guids[i], current_weapon_id, bulletStartPos, player_state.player_id)
     end
-
 end
 
 on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
@@ -797,6 +803,12 @@ local function init_player(player_state: PlayerState)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_BULLETS_ON)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_CLONES_ON)
         player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, persFlags)
+        -- TaskPool.defer(function() -- testing knockback
+        --     task.wait(1)
+        --     local currentPos = player_state.root.Position
+        --     local explosionPos = Vector3.new(currentPos.X, 0, currentPos.Z - 20)
+        --     GameModule.ApplyExplosionKnockback(player_state, explosionPos, 100, 50)
+        -- end)
         -- NOTE: not needed currently, this is for future purposes
         -- player_state:ResetCountable(Id.Countable.COIN)
     end

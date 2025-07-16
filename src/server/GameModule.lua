@@ -51,6 +51,9 @@ local Remote = require(shared.Remote)
 local Rand = require(shared.rand)
 local TweenService = game:GetService("TweenService")
 
+local ftest = WorldService.ftest
+local fset = WorldService.fset
+
 local m = {} :: {
     get_state: (int) -> PSS.PlayerState?,
     StarFstartmaintMainLoopPlayer: (PSS.PlayerState) -> (num) -> (),
@@ -64,6 +67,7 @@ local m = {} :: {
     SpawnPlayer: (PSS.PlayerState, int) -> (),
     UnconstrainPlayer: (PSS.PlayerState) -> (),
     UpdatePlayerIntendedPos: (PSS.PlayerState, Vector3) -> (),
+    ApplyExplosionKnockback: (PSS.PlayerState, Vector3, num?, num?) -> (),
 }
 
 local workerMaid = disposer.new()
@@ -602,11 +606,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         -- driving box movement
-        if isBossFightOn then
-            -- DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(oldPos.X, oldPos.Y, oldPos.Z - studPerTick))
-            -- elseif isPvPTime then
-            --     -- do nothing
-        else
+        if not isBossFightOn then
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(driverOldPos.X, driverOldPos.Y, driverOldPos.Z - studPerTick))
         end
         -- TODO: stop it altogether after some time when boss fight is on to prevent new unit generation and lock player on the current unit
@@ -687,9 +687,9 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             -- infantry enemies
             elseif Id.kind(refId) == Id.Kind.Enemy then
                 assert(typeof(guid) == "string") -- sanity check
-                local enemyFlags = assert(worldState:get(guid, W.Bitset))
-                local isBoss = Id.flag_test(enemyFlags, Id.EnemyF.IS_BOSS)
-                local isSeekActivated = Id.flag_test(enemyFlags, Id.EnemyF.SEEK_ACTIVATED)
+                -- local enemyFlags = assert(worldState:get(guid, W.Bitset))
+                local isBoss = ftest(guid, Id.EnemyF.IS_BOSS)
+                local isSeekActivated = ftest(guid, Id.EnemyF.SEEK_ACTIVATED)
                 local enemyTemplate = assert(S.Enemy[refId].meshTemplate)
                 local speed = log:assert(S.Enemy[refId].speed, "S.Enemy has no speed for: '%*'", refId)
                 local newPos = Vector3.new(currentPos.X, currentPos.Y, currentPos.Z + dt * speed)
@@ -704,24 +704,25 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     local weaponId = worldState:get(player.UserId, W.WeaponId)
                     if weaponId ~= Id.Weapon._NONE then
                         table.insert(playersInSession, player)
-                        local player_state = get_state(player.UserId)
-                        if not player_state then
-                            continue
-                        end
-                        if isBoss then
-                            -- lock player's orientation to the boss
-                            local root = player_state.root :: BasePart
-                            local posToLookAt = currentPos
-                            local playerIntendedPos = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
+                        -- NOTE: moved below
+                        -- local player_state = get_state(player.UserId)
+                        -- if not player_state then
+                        --     continue
+                        -- end
+                        -- if isBoss then
+                        --     -- lock player's orientation to the boss
+                        --     -- local root = player_state.root :: BasePart
+                        --     -- local posToLookAt = currentPos
+                        --     -- local playerIntendedPos = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
 
-                            -- Direction from character to target (flattened to Y axis)
-                            local flatDir = Vector3.new(posToLookAt.X - playerIntendedPos.X, 0, posToLookAt.Z - playerIntendedPos.Z).Unit
+                        --     -- -- Direction from character to target (flattened to Y axis)
+                        --     -- local flatDir = Vector3.new(posToLookAt.X - playerIntendedPos.X, 0, posToLookAt.Z - playerIntendedPos.Z).Unit
 
-                            -- Apply only the orientation (not the full CFrame)
-                            root.CFrame = CFrame.new(playerIntendedPos)
-                                * CFrame.Angles(0, math.atan2(flatDir.X, flatDir.Z), 0)
-                                * CFrame.Angles(0, math.pi, 0)
-                        end
+                        --     -- -- Apply only the orientation (not the full CFrame)
+                        --     -- root.CFrame = CFrame.new(playerIntendedPos)
+                        --     --     * CFrame.Angles(0, math.atan2(flatDir.X, flatDir.Z), 0)
+                        --     --     * CFrame.Angles(0, math.pi, 0)
+                        -- end
                     else
                         -- player is not in session, remove this enemy's lock on him if any
                         playerId = player.UserId :: int
@@ -772,11 +773,13 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                             else
                                 -- other enemies
                                 if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
-                                    worldState:set(guid, W.Bitset, Id.flag_set(enemyFlags, Id.EnemyF.SEEK_ACTIVATED, false))
+                                    fset(guid, Id.EnemyF.SEEK_ACTIVATED, false)
+                                    -- worldState:set(guid, W.Bitset, Id.flag_set(enemyFlags, Id.EnemyF.SEEK_ACTIVATED, false))
                                     worldState:set(guid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                                 elseif currentPos.Z > playerRoot.Position.Z - critDist then
                                     -- enemy is pretty close to player, cancel seeking
-                                    worldState:set(guid, W.Bitset, Id.flag_set(enemyFlags, Id.EnemyF.SEEK_ACTIVATED, false))
+                                    fset(guid, Id.EnemyF.SEEK_ACTIVATED, false)
+                                    -- worldState:set(guid, W.Bitset, Id.flag_set(enemyFlags, Id.EnemyF.SEEK_ACTIVATED, false))
                                     worldState:set(guid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                                 else
                                     newPos = getEnemyTargetPos(playerRoot, critDist, currentPos, speed, dt)
@@ -818,18 +821,51 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                 -- promixity is not critical, check if it's time for boss to perform special attack
                                 local specialAttackRange = assert(S.Enemy[refId].specialAttackRange)
                                 if proximity < specialAttackRange then
+                                    local baseTTE = assert(S.Enemy[refId].tte) :: number
                                     if worldState:get(guid, W.TTE) < 0 then
-                                        -- worldState:set(guid, W.Bitset, Id.flag_or(enemyFlags, Id.EnemyF.PERFORM_SPECIAL_ATTACK))
-                                        -- TODO: hit players in the radius.
-                                        -- reset tte and flag
-                                        local baseTTE = assert(S.Enemy[refId].tte) :: number
+                                        -- worldState:set(guid, W.Bitset, Id.flag_or(worldState:get(guid, W.Bitset), Id.EnemyF.PERFORM_SPECIAL_ATTACK))
+                                        fset(guid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, true)
+                                        -- reset tte
                                         worldState:set(guid, W.TTE, baseTTE)
-                                        -- worldState:set(guid, W.Bitset, Id.flag_set(enemyFlags, Id.EnemyF.PERFORM_SPECIAL_ATTACK, false))
+                                    end
+                                    if ftest(guid, Id.EnemyF.PERFORM_SPECIAL_ATTACK) then
+                                        -- boss's special attack
+                                        local playerNonPerFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+                                        -- do player knockback if it is not done already and reset the flag
+                                        if not Id.flag_test(playerNonPerFlags, Id.PlayerF.LOGIC_ALREADY_DONE) then
+                                            thisPlayerState.state:set(
+                                                Id.PlayerSpecs.GAME_SESSION_PARAMS,
+                                                C.BitsetNonPers,
+                                                Id.flag_or(playerNonPerFlags, Id.PlayerF.LOGIC_ALREADY_DONE)
+                                            )
+                                            -- TODO: FIXIT: doesn't do the knockback, though the function is called and velocity is changed
+                                            m.ApplyExplosionKnockback(thisPlayerState, currentPos, 100, 50)
+                                            TaskPool.spawn(function()
+                                                task.wait(baseTTE - 0.5)
+                                                fset(guid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, false)
+                                            end)
+                                        end
+                                    else
+                                        -- no boss's special attack, lock player's orientation to the boss
+                                        local posToLookAt = currentPos
+                                        local playerIntendedPos = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
+
+                                        -- Direction from character to target (flattened to Y axis)
+                                        local flatDir = Vector3.new(posToLookAt.X - playerIntendedPos.X, 0, posToLookAt.Z - playerIntendedPos.Z).Unit
+
+                                        -- Apply only the orientation (not the full CFrame)
+                                        root.CFrame = CFrame.new(playerIntendedPos)
+                                            * CFrame.Angles(0, math.atan2(flatDir.X, flatDir.Z), 0)
+                                            * CFrame.Angles(0, math.pi, 0)
                                     end
                                 end
                             end
                         end
                     end
+                    -- if Id.flag_test(worldState:get(guid, W.Bitset), Id.EnemyF.PERFORM_SPECIAL_ATTACK) then
+                    --     -- if boss's special attack was performed, reset the flag after all players are iterated
+                    --     -- worldState:set(guid, W.Bitset, Id.flag_set(enemyFlags, Id.EnemyF.PERFORM_SPECIAL_ATTACK, false))
+                    -- end
                 end
 
                 if worldState:has(guid) then
@@ -843,7 +879,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         end
                     elseif DRIVING_BOX_FRONT.Position.Z <= currentPos.Z then
                         -- activate seek mode on collision with the driver box's front
-                        worldState:set(guid, W.Bitset, Id.flag_or(enemyFlags, Id.EnemyF.SEEK_ACTIVATED))
+                        fset(guid, Id.EnemyF.SEEK_ACTIVATED, true)
                     end
                 end
             end
@@ -1076,15 +1112,10 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
     local attAlign = Instance.new("Attachment") :: Attachment
     attAlign.CFrame = playerRootPart.CFrame
     attAlign.Parent = playerRootPart
-    -- attAlign.Axis = Vector3.new(0, 1, 0) -- lock Y
-    -- attAlign.SecondaryAxis = Vector3.new(0, 1, 0) -- defines plane orientation
 
     local playerAlignConst = Instance.new("AlignOrientation")
     playerAlignConst.Name = SharedConfig.PLAYER_ALIGN_CONSTR_NAME
     playerAlignConst.Parent = playerCharacter
-    -- TODO: this mode doesn't work, need to fix it
-    -- playerAlignConst.Mode = Enum.OrientationAlignmentMode.OneAttachment
-    -- playerAlignConst.AlignType = Enum.AlignType.PrimaryAxisLookAt
     playerAlignConst.Attachment0 = attAlign
     playerAlignConst.Attachment1 = DRIVING_BOX_ATT
 
@@ -1097,5 +1128,37 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
     HUMANOID_Y_OFFSET = y_pos
 end
 
+function m.ApplyExplosionKnockback(player_state: PSS.PlayerState, explosionPos: Vector3, maxForce: num?, maxRange: num?)
+    local playerRoot = player_state.root :: BasePart
+    if not playerRoot then
+        log:error("No player root found for knockback: '%*'", player_state.player_id)
+        return
+    end
+
+    -- Default values
+    local force_limit = maxForce or 100 -- Maximum knockback force
+    local range_limit = maxRange or 50 -- Maximum range for knockback effect
+
+    local playerPos = playerRoot.Position
+    local toPlayer = playerPos - explosionPos
+    local distance = toPlayer.Magnitude
+
+    -- TODO: FIXIT. nothing happens
+
+    -- Calculate knockback direction (only X and Z, no vertical launch)
+    local direction = Vector3.new(toPlayer.X, 0, toPlayer.Z).Unit
+
+    -- Apply distance falloff (inverse square with minimum)
+    local falloff = math.max(0.1, 1 - (distance / range_limit) ^ 2)
+    local force = force_limit * falloff
+
+    -- Apply slight upward component for more realistic effect
+    local knockbackVector = direction * force + Vector3.new(0, force * 0.3, 0)
+
+    -- Apply the knockback
+    playerRoot.AssemblyLinearVelocity = playerRoot.AssemblyLinearVelocity + knockbackVector
+end
+
 print("[Game Module -- started]")
+
 return m

@@ -1170,19 +1170,6 @@ WORLD:set_on_modify(W.TTE, function(guid: guid, newValue: num, oldValue: num)
     end
 end)
 
--- WORLD:set_on_modify(W.Bitset, function(guid: guid, newValue: flag, oldValue: flag)
---     if type(guid) == "string" then
---         local refId = WORLD:get(guid, W.RefId)
---         if Id.kind(refId) == Id.Kind.Enemy then
---             local isSpecialAttack = Id.flag_test(newValue, Id.EnemyF.PERFORM_SPECIAL_ATTACK)
---             print("LLLLLL", isSpecialAttack)
---             if isSpecialAttack then
---                 EnemiesClient.PerformSpecialAttack(WORLD, guid :: string, refId, LOCAL_HUMANOID_ROOT_PART)
---             end
---         end
---     end
--- end)
-
 PLAYER_STATE:set_on_attach(C.RefId, function(guid: guid, newValue: num)
     if Id.kind(newValue) == Id.Kind.PlayerUpgradeNonPersistent then
         -- set the flag for when the aura is being destroyed
