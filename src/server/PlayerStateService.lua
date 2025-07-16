@@ -115,6 +115,8 @@ export type PlayerState = {
     nullary_transient: (state.uid_or_gen) -> uid,
     __index: any,
     __tostring: (self: PlayerState) -> str,
+    set_flag: (self: PlayerState, uid: state.uid, comp: state.cid, flags: Id.flag, val: bool) -> (),
+    test_flag: (self: PlayerState, uid: state.uid, comp: state.cid, flags: Id.flag) -> bool,
 }
 
 -- note: was warm_up cache
@@ -486,6 +488,33 @@ function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
         end
     end
     return clonesAmount
+end
+
+function PlayerState.set_flag(self: PlayerState, uid: state.uid, comp:state.cid, flag: Id.flag, value: bool)
+    assert(comp == C.Bitset or comp == C.BitsetNonPers, "not Bitset of BitsetNonPers")
+    local flags = self.state:get(uid, comp)
+    if not flags then
+        log:error("no component", uid, comp, debug.traceback)
+        return
+    end
+    if Id.kind(flags) ~= Id.kind(flag) then
+        log:error("different kinds", flags, flag, debug.traceback)
+        return
+    end
+    self.state:set(uid, comp, Id.flag_set(flags, flag, value))
+end
+function PlayerState.test_flag(self: PlayerState, uid: state.uid, comp:state.cid, flag: Id.flag): bool
+    assert(comp == C.Bitset or comp == C.BitsetNonPers, "not Bitset of BitsetNonPers")
+    local flags = self.state:get(uid, comp)
+    if not flags then
+        log:error("no component", uid, comp, debug.traceback)
+        return false
+    end
+    if Id.kind(flags) ~= Id.kind(flag) then
+        log:error("different kinds", flags, flag, debug.traceback)
+        return false
+    end
+    return Id.flag_test(flags, flag)
 end
 
 function PlayerState.AddBooster(self: PlayerState, instanceGuid: string): ()
