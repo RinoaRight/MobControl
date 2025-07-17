@@ -581,8 +581,8 @@ function m.OnPlayerRankUpdate(state: state.Replica)
     _maid.waitingToClosePerkPanel = TaskPool.spawn(function()
         tweenDown:Play()
         task.wait(tweenTimeDown)
-        -- close the panel after 8 seconds
-        task.wait(8)
+        -- close the panel after some time
+        task.wait(4)
         if PERK_SELECTION_GUI.Enabled then
             hidePerkPanel()
         end

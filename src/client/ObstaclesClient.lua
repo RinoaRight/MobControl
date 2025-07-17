@@ -37,18 +37,18 @@ local PlayerService = game:GetService("Players")
 local Misc = require(shared.Misc)
 local S = require(shared.StaticData)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
-local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
-local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
-local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
+-- local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
+-- local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
+-- local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
+-- local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
 local SFX = require(script.Parent.SFX)
 local TaskPool = require(shared.TaskPool)
 local TweenService = game:GetService("TweenService")
 local _roflake = require(shared.roflake)
-local WARNING_SPOT_TEMPLATE = assert(ReplicatedStorage:WaitForChild("WarningSpot"))
+-- local WARNING_SPOT_TEMPLATE = assert(ReplicatedStorage:WaitForChild("WarningSpot"))
 local COLOR_1 = Color3.fromHex("246b34")
 local COLOR_2 = Color3.fromHex("4fee00")
-local DEBRIS_TEMPLATE = assert(ReplicatedStorage:WaitForChild("Debris"))
+-- local DEBRIS_TEMPLATE = assert(ReplicatedStorage:WaitForChild("Debris"))
 
 local _doUpAndDown = function(tween: Tween, tween2: Tween, duration: number)
     tween:Play()
@@ -175,46 +175,6 @@ local cleanupObstacle = function(worldState: state.Replica, instanceGuid: str)
     end
 end
 
--- local function subscribeInstance(worldState: state.Replica, instanceGuid: string, refId: id, instance)
---     workerMaid[instanceGuid] = instance.Touched:Connect(function(triggerer)
---         if triggerer.Name ~= "HumanoidRootPart" then
---             return
---         end
---         local character = triggerer.Parent
---         assert(character:IsA("Model")) -- sanity check
---         -- check if this player already collided with this instance
---         if not worldState:has(instanceGuid) then
---             log:error("worldState is nil for this guid %s", instanceGuid)
---             return
---         end
---         -- if the player already collided with this instance, do nothing
---         if worldState:get(instanceGuid, W.ClientFlags) then
---             return
---         end
-
---         -- local player has not yet collided with this instance, do the checks
---         local triggererId
---         local isClone, playerId = Misc.CloneOrPlayer(worldState, character)
---         if playerId and playerId == LOCAL_PLAYER.UserId then
---             if isClone then
---                 -- player's clone collided with the instance
---                 Misc.DestroyClientClone(character)
---                 triggererId = character.Name
---             else
---                 -- player themselves collided with the instance for the first time, set the flag for the check above
---                 worldState:set(instanceGuid, W.ClientFlags, true)
---                 triggererId = LOCAL_PLAYER.UserId
---             end
-
---             -- handle client instance
---             onPlayerCollisionWithObstacle(worldState, instanceGuid)
-
---             -- signal to server to handle server instance
---             Signal.Fire(Id.C2S.PLAYER_COLLIDED_W_OBSTACLE, instanceGuid, triggererId)
---         end
---     end)
--- end
-
 local m = {}
 
 m.onObstacleAdded = function(worldState: state.Replica, instanceGuid: str, localRoot: BasePart)
@@ -251,34 +211,6 @@ m.onObstacleAdded = function(worldState: state.Replica, instanceGuid: str, local
 
     -- subscribeInstance(worldState, instanceGuid, refId, obstInstance)
 end
-
--- m.OnCollisionWithObstacle = function(worldState: state.Replica, instanceGuid: str)
---     SFX.PLAY_SOUND(Id.Sound.THUMP)
---     local instanceRefId = worldState:get(instanceGuid, W.RefId)
---     local currentMesh = worldState:get(instanceGuid, W.ClientInstance)
---     if currentMesh then
---         -- change the model of the obstacle
---         local currentMeshStage = worldState:get(instanceGuid, W.ValueView)
---         if currentMeshStage and currentMeshStage == 3 then
---             cleanupObstacle(worldState, instanceGuid)
---         elseif currentMeshStage and currentMeshStage ~= 0 then
---             local newMeshStage = currentMeshStage + 1
---             local newMeshTemplate
---             if currentMeshStage == 1 then
---                 newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateHalf
---             elseif currentMeshStage == 2 then
---                 newMeshTemplate = S.Obstacle[instanceRefId].meshTemplateLast
---             end
---             local pos = currentMesh.Position
---             local parent = currentMesh.Parent
---             disposer.dispose(currentMesh)
---             if newMeshTemplate then
---                 worldState:set(instanceGuid, W.ValueView, newMeshStage)
---                 changeMesh(worldState, instanceGuid, newMeshTemplate, pos, parent)
---             end
---         end
---     end
--- end
 
 m.OnCollisionWithObstacle = function(worldState: state.Replica, instanceGuid: str)
     SFX.PLAY_SOUND(Id.Sound.THUMP)

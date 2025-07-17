@@ -52,7 +52,7 @@ local Rand = require(shared.rand)
 local TweenService = game:GetService("TweenService")
 
 local ftest = WorldService.ftest
-local fset = WorldService.fset
+local worldfset = WorldService.fset
 
 local m = {} :: {
     get_state: (int) -> PSS.PlayerState?,
@@ -475,6 +475,32 @@ local function getEnemyTargetPos(playerRoot: BasePart, critDist: num, currentPos
     return newPos
 end
 
+local function getTweenForKnockback(root: BasePart, enemyPos: Vector3)
+    local n = 20 -- knockback distance in studs
+    local direction = (root.Position - enemyPos).Unit
+    local rootPos = root.Position
+    -- local offsetPosition = root.Position + direction * n -- Move further in that direction
+    local offsetPosition = Vector3.new(rootPos.X, 20, rootPos.Z) + direction * n -- Move further in that direction
+    local targetCFrame = CFrame.lookAt(offsetPosition, enemyPos)
+
+    local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+
+    local tween = TweenService:Create(root, tweenInfo, { CFrame = targetCFrame })
+    return tween
+end
+
+local function overwriteRotation(thisPlayerState: PSS.PlayerState, root: BasePart, currentPos: Vector3)
+    -- no boss's special attack, lock player's orientation to the boss
+    local posToLookAt = currentPos
+    local playerIntendedPos = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
+
+    -- Direction from character to target (flattened to Y axis)
+    local flatDir = Vector3.new(posToLookAt.X - playerIntendedPos.X, 0, posToLookAt.Z - playerIntendedPos.Z).Unit
+
+    -- Apply only the orientation (not the full CFrame)
+    root.CFrame = CFrame.new(playerIntendedPos) * CFrame.Angles(0, math.atan2(flatDir.X, flatDir.Z), 0) * CFrame.Angles(0, math.pi, 0)
+end
+
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     m.get_state = get_state
     -- init first batch of ground units and fill in the data table
@@ -773,12 +799,12 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                             else
                                 -- other enemies
                                 if currentPos.Z - 5 > playerRoot.Position.Z then -- enemy got behind the player, cancel seeking
-                                    fset(guid, Id.EnemyF.SEEK_ACTIVATED, false)
+                                    worldfset(guid, Id.EnemyF.SEEK_ACTIVATED, false)
                                     -- worldState:set(guid, W.Bitset, Id.flag_set(enemyFlags, Id.EnemyF.SEEK_ACTIVATED, false))
                                     worldState:set(guid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                                 elseif currentPos.Z > playerRoot.Position.Z - critDist then
                                     -- enemy is pretty close to player, cancel seeking
-                                    fset(guid, Id.EnemyF.SEEK_ACTIVATED, false)
+                                    worldfset(guid, Id.EnemyF.SEEK_ACTIVATED, false)
                                     -- worldState:set(guid, W.Bitset, Id.flag_set(enemyFlags, Id.EnemyF.SEEK_ACTIVATED, false))
                                     worldState:set(guid, W.PlayerId, SharedConfig.DEFAULT_PLAYER_ID)
                                 else
@@ -823,40 +849,74 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                 if proximity < specialAttackRange then
                                     local baseTTE = assert(S.Enemy[refId].tte) :: number
                                     if worldState:get(guid, W.TTE) < 0 then
-                                        -- worldState:set(guid, W.Bitset, Id.flag_or(worldState:get(guid, W.Bitset), Id.EnemyF.PERFORM_SPECIAL_ATTACK))
-                                        fset(guid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, true)
+                                        worldfset(guid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, true)
                                         -- reset tte
                                         worldState:set(guid, W.TTE, baseTTE)
                                     end
+
                                     if ftest(guid, Id.EnemyF.PERFORM_SPECIAL_ATTACK) then
                                         -- boss's special attack
-                                        local playerNonPerFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
                                         -- do player knockback if it is not done already and reset the flag
-                                        if not Id.flag_test(playerNonPerFlags, Id.PlayerF.LOGIC_ALREADY_DONE) then
-                                            thisPlayerState.state:set(
+
+                                        if
+                                            not thisPlayerState:test_flag(
                                                 Id.PlayerSpecs.GAME_SESSION_PARAMS,
                                                 C.BitsetNonPers,
-                                                Id.flag_or(playerNonPerFlags, Id.PlayerF.LOGIC_ALREADY_DONE)
+                                                Id.PlayerF.LOGIC_ALREADY_DONE
                                             )
-                                            -- TODO: FIXIT: doesn't do the knockback, though the function is called and velocity is changed
-                                            m.ApplyExplosionKnockback(thisPlayerState, currentPos, 100, 50)
+                                        then
+                                            thisPlayerState:set_flag(
+                                                Id.PlayerSpecs.GAME_SESSION_PARAMS,
+                                                C.BitsetNonPers,
+                                                Id.PlayerF.LOGIC_ALREADY_DONE,
+                                                true
+                                            )
+
+                                            -- m.ApplyExplosionKnockback(thisPlayerState, currentPos, 100, 50)
+
                                             TaskPool.spawn(function()
-                                                task.wait(baseTTE - 0.5)
-                                                fset(guid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, false)
+                                                local tween = getTweenForKnockback(root, currentPos)
+                                                local animDur = assert(S.Enemy[refId].animationDur)
+                                                local leftTime = animDur - .5
+                                                while leftTime > 0 do
+                                                    leftTime = leftTime - dt
+                                                    task.wait(dt)
+                                                end
+                                                -- if player is still alive, apply knockback to his root
+                                                if
+                                                    thisPlayerState:test_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.READY)
+                                                then
+                                                    tween:Play()
+                                                    tween.Completed:Connect(function()
+                                                        if WorldService.world:has(guid) then
+                                                            worldfset(guid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, false)
+                                                        end
+                                                        thisPlayerState:set_flag(
+                                                            Id.PlayerSpecs.GAME_SESSION_PARAMS,
+                                                            C.BitsetNonPers,
+                                                            Id.PlayerF.LOGIC_ALREADY_DONE,
+                                                            false
+                                                        )
+                                                    end)
+                                                end
                                             end)
+                                        else
+                                            -- animation is not yet over, lock player's orientation to the boss as usual
+                                            overwriteRotation(thisPlayerState, root, currentPos)
                                         end
                                     else
-                                        -- no boss's special attack, lock player's orientation to the boss
-                                        local posToLookAt = currentPos
-                                        local playerIntendedPos = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
+                                        overwriteRotation(thisPlayerState, root, currentPos)
+                                        -- -- no boss's special attack, lock player's orientation to the boss
+                                        -- local posToLookAt = currentPos
+                                        -- local playerIntendedPos = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
 
-                                        -- Direction from character to target (flattened to Y axis)
-                                        local flatDir = Vector3.new(posToLookAt.X - playerIntendedPos.X, 0, posToLookAt.Z - playerIntendedPos.Z).Unit
+                                        -- -- Direction from character to target (flattened to Y axis)
+                                        -- local flatDir = Vector3.new(posToLookAt.X - playerIntendedPos.X, 0, posToLookAt.Z - playerIntendedPos.Z).Unit
 
-                                        -- Apply only the orientation (not the full CFrame)
-                                        root.CFrame = CFrame.new(playerIntendedPos)
-                                            * CFrame.Angles(0, math.atan2(flatDir.X, flatDir.Z), 0)
-                                            * CFrame.Angles(0, math.pi, 0)
+                                        -- -- Apply only the orientation (not the full CFrame)
+                                        -- root.CFrame = CFrame.new(playerIntendedPos)
+                                        --     * CFrame.Angles(0, math.atan2(flatDir.X, flatDir.Z), 0)
+                                        --     * CFrame.Angles(0, math.pi, 0)
                                     end
                                 end
                             end
@@ -879,7 +939,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         end
                     elseif DRIVING_BOX_FRONT.Position.Z <= currentPos.Z then
                         -- activate seek mode on collision with the driver box's front
-                        fset(guid, Id.EnemyF.SEEK_ACTIVATED, true)
+                        worldfset(guid, Id.EnemyF.SEEK_ACTIVATED, true)
                     end
                 end
             end

@@ -54,6 +54,7 @@ local roflake = require(shared.roflake)
 local workerMaid = disposer.new()
 local ClonesServer = require(server.ClonesServer)
 local Perks = require(server.DynamicPerks)
+local TweenService = game:GetService("TweenService")
 if game.PhysicsService then
     local phys = game.PhysicsService
     log:debug("PhysicsService:IsCollisionGroupRegistered('Clones')", phys.IsCollisionGroupRegistered, phys, "Clones")
@@ -803,12 +804,25 @@ local function init_player(player_state: PlayerState)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_BULLETS_ON)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_CLONES_ON)
         player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, persFlags)
-        -- TaskPool.defer(function() -- testing knockback
-        --     task.wait(1)
-        --     local currentPos = player_state.root.Position
-        --     local explosionPos = Vector3.new(currentPos.X, 0, currentPos.Z - 20)
-        --     GameModule.ApplyExplosionKnockback(player_state, explosionPos, 100, 50)
-        -- end)
+        TaskPool.defer(function() -- testing knockback
+            task.wait(1)
+            local currentPos = player_state.root.Position
+            -- local explosionPos = Vector3.new(currentPos.X, 0, currentPos.Z - 20)
+            -- GameModule.ApplyExplosionKnockback(player_state, explosionPos, 130, 50)
+
+            -- alternative method to do knockback
+            -- local n = 20 -- knockback distance in studs
+            -- local enemyPos = Vector3.new(currentPos.X, 0, currentPos.Z - 20)
+            -- local direction = (player_state.root.Position - enemyPos).Unit
+            -- local rootPos = player_state.root.Position
+            -- local targetPos = Vector3.new(rootPos.X, 20, rootPos.Z)
+            -- local offsetPosition = targetPos + direction * n
+            -- -- local offsetPosition = player_state.root.Position + direction * n -- Move further in that direction
+            -- local targetCFrame = CFrame.lookAt(offsetPosition, enemyPos)
+            -- local tweenInfo = TweenInfo.new(0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+            -- local tween = TweenService:Create(player_state.root, tweenInfo, { CFrame = targetCFrame })
+            -- tween:Play()
+        end)
         -- NOTE: not needed currently, this is for future purposes
         -- player_state:ResetCountable(Id.Countable.COIN)
     end

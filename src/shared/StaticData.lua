@@ -129,7 +129,8 @@ m.Enemy = {
         speed = 10.0,
         reward = 10,
         xp = 10,
-        tte = 3, -- NOTE: should be larger than jump animation duration (EnemiesClient.animateJump). Currently ~= 2
+        animationDur = 2.1,
+        tte = 3, -- NOTE: should be greater than jump animation duration
         specialAttackRange = 60,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),
     },

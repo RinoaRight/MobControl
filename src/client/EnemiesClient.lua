@@ -119,11 +119,12 @@ end
 function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRootPart: BasePart)
     assert(part and part:IsA("BasePart"), "Invalid part")
     local height = 18
-    local spinNum = 3
-    local spinDuration = 0.6
-    local turnDuration = spinDuration / 3
-    local durationUp = spinDuration * spinNum
+    local animationDur = assert(S.Enemy[Id.Enemy.OCTOBOSS].animationDur)
     local durationDown = 0.3
+    local durationUp = animationDur - durationDown
+    local spinNum = 3
+    local spinDuration = durationUp / spinNum
+    local turnDuration = spinDuration / 3
 
     local originalPosition = part.Position
     local originalCFrame = part.CFrame

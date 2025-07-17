@@ -636,6 +636,8 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     end
     local bulletTTL = roflake.time() + range / speed
 
+    -- TODO: FIXIT: rotation sometimes is not correct in relation to rootpart (when input == side and back)
+
     bullet.CFrame = defineBulletCframe(rootPart, bullet, weapon_id, LOCAL_HUMANOID)
     pos = bullet.Position
 
@@ -645,8 +647,6 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
         ttl = bulletTTL,
         owner = player,
         weapon_id = weapon_id,
-        -- rotation = CFrame.Angles(0, 0, 0),
-        -- rotation = rootPart.CFrame.LookVector,
         range = range,
         size = bulletSize,
     })
