@@ -130,6 +130,7 @@ m.Enemy = {
         reward = 10,
         xp = 10,
         animationDur = 2.1,
+        ttl = 5.0, -- time for which the enemy is locked on 1 player
         tte = 3, -- NOTE: should be greater than jump animation duration
         specialAttackRange = 60,
         meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),

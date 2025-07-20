@@ -233,23 +233,26 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
         root = char:WaitForChild("HumanoidRootPart", TIMEOUT) :: BasePart,
         intended_pos = Vector3.new(0, 0, 0),
         maid = disposer.new(),
-        Remote.Server.US2CC.OnServerEvent:Connect(function(player, event_id, intended_pos, timestamp)
-            if event_id == Id.C2S.PLAYER_INTENDED_POS then
-                    -- if new timestamp is older than the previous, the event is expired, disregard
-                    local previous_timestamp = state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL)
-                    if previous_timestamp > timestamp then
-                        return
-                    end
-                    state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3, intended_pos)
-                    state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL, timestamp)
-            end
-        end),
-
         fire_client = fire_client,
         nullary_local = state:constructor("local", "transient"),
         nullary_transient = state:constructor("transient"),
     }, PlayerState)) :: any
     fill_state(player_state)
+    --- @todo: maybe not the best place for this US2CC subscription
+    player_state.maid:Add(Remote.Server.US2CC.OnServerEvent:Connect(function(player, event_id, intended_pos, timestamp)
+        if player.UserId ~= player_state.player_id then
+            return
+        end
+        if event_id == Id.C2S.PLAYER_INTENDED_POS then
+                -- if new timestamp is older than the previous, the event is expired, disregard
+                local previous_timestamp = state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL)
+                if previous_timestamp > timestamp then
+                    return
+                end
+                state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3, intended_pos)
+                state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL, timestamp)
+        end
+    end))
     log:trace("~~~> server\n", player_state, debug.traceback)
     local snapshot = state:snapshot("discard-log")
     return player_state, snapshot

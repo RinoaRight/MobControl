@@ -804,9 +804,9 @@ local function init_player(player_state: PlayerState)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_BULLETS_ON)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_CLONES_ON)
         player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, persFlags)
-        TaskPool.defer(function() -- testing knockback
-            task.wait(1)
-            local currentPos = player_state.root.Position
+        -- TaskPool.defer(function() -- testing knockback
+        --     task.wait(1)
+        --     local currentPos = player_state.root.Position
             -- local explosionPos = Vector3.new(currentPos.X, 0, currentPos.Z - 20)
             -- GameModule.ApplyExplosionKnockback(player_state, explosionPos, 130, 50)
 
@@ -822,7 +822,7 @@ local function init_player(player_state: PlayerState)
             -- local tweenInfo = TweenInfo.new(0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
             -- local tween = TweenService:Create(player_state.root, tweenInfo, { CFrame = targetCFrame })
             -- tween:Play()
-        end)
+        -- end)
         -- NOTE: not needed currently, this is for future purposes
         -- player_state:ResetCountable(Id.Countable.COIN)
     end
