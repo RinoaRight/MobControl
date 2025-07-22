@@ -45,6 +45,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Rand = require(shared.rand)
 local TweenService = game:GetService("TweenService")
 
+local maid = disposer.new()
+
 local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
 local GROUND_UNIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
@@ -76,6 +78,33 @@ local ENEMIES_DATA_TABLE = {
     { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = 0.3 } },
     { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = 0.3 } },
 }
+
+local function getTweenForKnockback(root: BasePart, enemyPos: Vector3)
+    local n = 20 -- knockback distance in studs
+    local direction = (root.Position - enemyPos).Unit
+    local rootPos = root.Position
+    -- local offsetPosition = root.Position + direction * n -- Move further in that direction
+    local offsetPosition = Vector3.new(rootPos.X, 20, rootPos.Z) + direction * n -- Move further in that direction
+    local targetCFrame = CFrame.lookAt(offsetPosition, enemyPos)
+
+    local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+
+    local tween = TweenService:Create(root, tweenInfo, { CFrame = targetCFrame })
+    return tween
+end
+
+local function overwriteRotation(thisPlayerState: PSS.PlayerState, root: BasePart, currentPos: Vector3)
+    -- no boss's special attack, lock player's orientation to the boss
+    local posToLookAt = currentPos
+    local playerIntendedPos = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
+
+    -- Direction from character to target (flattened to Y axis)
+    local flatDir = Vector3.new(posToLookAt.X - playerIntendedPos.X, 0, posToLookAt.Z - playerIntendedPos.Z).Unit
+
+    -- Apply only the orientation (not the full CFrame)
+    root.CFrame = CFrame.new(playerIntendedPos) * CFrame.Angles(0, math.atan2(flatDir.X, flatDir.Z), 0) * CFrame.Angles(0, math.pi, 0)
+end
+
 local m = {}
 
 -- NOTE: Every odd wave spawns in the current ground unit in front of the boosters,
@@ -142,6 +171,69 @@ function m.AddEnemies(
         table.insert(enemiesGuids, enemyGuid)
     end
     return enemiesGuids
+end
+
+function m.DoBossLogic(
+    worldState,
+    thisPlayerState: PSS.PlayerState,
+    enemyRefId: int,
+    enemyGuid: guid,
+    currentPos: Vector3,
+    playerRoot: BasePart,
+    proximityToEnemy: num,
+    dt: num
+)
+    -- check if it's time for boss to perform special attack
+    local specialAttackRange = assert(S.Enemy[enemyRefId].specialAttackRange)
+    if proximityToEnemy < specialAttackRange then
+        -- if at least this player is in range, check if it's time to perform special attack. If yes, do the special attack
+        local baseTTE = assert(S.Enemy[enemyRefId].tte) :: number
+        if worldState:get(enemyGuid, W.TTE) < 0 then
+            -- set flag to perform special attack
+            WorldService.fset(enemyGuid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, true)
+            -- reset tte
+            worldState:set(enemyGuid, W.TTE, baseTTE)
+        end
+
+        if WorldService.ftest(enemyGuid, Id.EnemyF.PERFORM_SPECIAL_ATTACK) then
+            if enemyRefId == Id.Enemy.OCTOBOSS then
+                -- react to boss's special attack, if it's not done already
+                if not thisPlayerState:test_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.LOGIC_ALREADY_DONE) then
+                    thisPlayerState:set_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.LOGIC_ALREADY_DONE, true)
+                    -- after the time it takes to perform the animation, do player knockback and reset the flag
+                    maid.octoboss = TaskPool.spawn(function()
+                        local tween = getTweenForKnockback(playerRoot, currentPos)
+                        local animDur = assert(S.Enemy[enemyRefId].animationDur)
+                        local leftTime = animDur -- - .5
+                        while leftTime > 0 do
+                            leftTime = leftTime - dt
+                            task.wait()
+                        end
+                        -- if player is still alive, apply knockback to his root
+                        if thisPlayerState:test_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.READY) then
+                            tween:Play()
+                            tween.Completed:Connect(function()
+                                -- TODO: player damage
+                                if WorldService.world:has(enemyGuid) then
+                                    WorldService.fset(enemyGuid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, false)
+                                end
+                                thisPlayerState:set_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.LOGIC_ALREADY_DONE, false)
+                            end)
+                        end
+                    end)
+                else
+                    -- animation is not yet over, lock player's orientation to the boss as usual
+                    overwriteRotation(thisPlayerState, playerRoot, currentPos)
+                end
+            end
+        else
+            -- no boss's special attack, lock player's orientation to the boss
+            overwriteRotation(thisPlayerState, playerRoot, currentPos)
+        end
+    else
+        -- boss is not in special attack range, lock player's orientation to the boss
+        overwriteRotation(thisPlayerState, playerRoot, currentPos)
+    end
 end
 
 return m

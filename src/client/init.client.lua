@@ -1165,7 +1165,7 @@ WORLD:set_on_modify(W.TTE, function(guid: guid, newValue: num, oldValue: num)
     local refId = WORLD:get(guid, W.RefId)
     if Id.kind(refId) == Id.Kind.Enemy then
         if newValue > oldValue and newValue > 0 then -- tte has just been reset
-            EnemiesClient.OnTTEUp(WORLD, guid :: string, refId, LOCAL_HUMANOID_ROOT_PART)
+            EnemiesClient.OnTTEReset(WORLD, guid :: string, refId, LOCAL_HUMANOID_ROOT_PART)
         end
     end
 end)

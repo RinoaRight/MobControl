@@ -190,14 +190,6 @@ function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRoot
         playTween(worldState, enemyGuid, spin9)
     end)
     spin9.Completed:Connect(function()
-        -- local jumpUpFinal = TweenService:Create(part, TweenInfo.new(durationUp, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        --     Position = originalPosition + Vector3.new(0, height, 0),
-        -- })
-
-        -- worldState:set(enemyGuid, W.ClientFlags, true)
-        -- jumpUpFinal:Play()
-        -- jumpUpFinal.Completed:Connect(function()
-
         -- TODO: VFX and SFX
         if worldState:has(enemyGuid) then -- check if the enemy is still in the world
             local newPos = worldState:get(enemyGuid, W.Position) :: Vector3
@@ -245,7 +237,7 @@ m.OnBossDestroyed = function(worldState, enemyGuid: string)
     end
 end
 
-m.OnTTEUp = function(worldState: state.Replica, enemyGuid: string, refId: id, humanoidRootPart: BasePart)
+m.OnTTEReset = function(worldState: state.Replica, enemyGuid: string, refId: id, humanoidRootPart: BasePart)
     if refId == Id.Enemy.OCTOBOSS then
         local enemyInstance = worldState:get(enemyGuid, W.ClientInstance)
         if enemyInstance then

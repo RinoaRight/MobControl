@@ -355,7 +355,13 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
     end)
 end
 
-local function selectPlayerToLockOn(worldState: state.Main, playersInSession: { Player }, enemyPos: Vector3, enemyGuid: uid, enemyRefId: id): (Player?, BasePart?, num?)
+local function selectPlayerToLockOn(
+    worldState: state.Main,
+    playersInSession: { Player },
+    enemyPos: Vector3,
+    enemyGuid: uid,
+    enemyRefId: id
+): (Player?, BasePart?, num?)
     local playerPool = {}
 
     for _, p in ipairs(playersInSession) do
@@ -479,32 +485,6 @@ local function getEnemyTargetPos(playerRoot: BasePart, critDist: num, currentPos
     local newPos
     newPos = currentPos:Lerp(target, dt * speed / dist) -- Move towards the predicted position slightly ahead of the player
     return newPos
-end
-
-local function getTweenForKnockback(root: BasePart, enemyPos: Vector3)
-    local n = 20 -- knockback distance in studs
-    local direction = (root.Position - enemyPos).Unit
-    local rootPos = root.Position
-    -- local offsetPosition = root.Position + direction * n -- Move further in that direction
-    local offsetPosition = Vector3.new(rootPos.X, 20, rootPos.Z) + direction * n -- Move further in that direction
-    local targetCFrame = CFrame.lookAt(offsetPosition, enemyPos)
-
-    local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-
-    local tween = TweenService:Create(root, tweenInfo, { CFrame = targetCFrame })
-    return tween
-end
-
-local function overwriteRotation(thisPlayerState: PSS.PlayerState, root: BasePart, currentPos: Vector3)
-    -- no boss's special attack, lock player's orientation to the boss
-    local posToLookAt = currentPos
-    local playerIntendedPos = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
-
-    -- Direction from character to target (flattened to Y axis)
-    local flatDir = Vector3.new(posToLookAt.X - playerIntendedPos.X, 0, posToLookAt.Z - playerIntendedPos.Z).Unit
-
-    -- Apply only the orientation (not the full CFrame)
-    root.CFrame = CFrame.new(playerIntendedPos) * CFrame.Angles(0, math.atan2(flatDir.X, flatDir.Z), 0) * CFrame.Angles(0, math.pi, 0)
 end
 
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
@@ -788,7 +768,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                             playerId = player.UserId :: int
                             playerState = get_state(playerId)
                             if isBoss then
-                                -- bosses 
+                                -- bosses
                                 newPos = getEnemyTargetPos(playerRoot, critDist, currentPos, speed, dt)
                             else
                                 -- other enemies
@@ -836,75 +816,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                     end
                                 end
                             elseif isBoss then
-                                -- promixity is not critical, check if it's time for boss to perform special attack
-                                local specialAttackRange = assert(S.Enemy[refId].specialAttackRange)
-                                if proximity < specialAttackRange then
-                                    local baseTTE = assert(S.Enemy[refId].tte) :: number
-                                    if worldState:get(enemyGuid, W.TTE) < 0 then
-                                        worldfset(enemyGuid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, true)
-                                        -- reset tte
-                                        worldState:set(enemyGuid, W.TTE, baseTTE)
-                                    end
-
-                                    if ftest(enemyGuid, Id.EnemyF.PERFORM_SPECIAL_ATTACK) then
-                                        -- boss's special attack
-                                        -- do player knockback if it is not done already and reset the flag
-                                        if
-                                            not thisPlayerState:test_flag(
-                                                Id.PlayerSpecs.GAME_SESSION_PARAMS,
-                                                C.BitsetNonPers,
-                                                Id.PlayerF.LOGIC_ALREADY_DONE
-                                            )
-                                        then
-                                            thisPlayerState:set_flag(
-                                                Id.PlayerSpecs.GAME_SESSION_PARAMS,
-                                                C.BitsetNonPers,
-                                                Id.PlayerF.LOGIC_ALREADY_DONE,
-                                                true
-                                            )
-
-                                            -- m.ApplyExplosionKnockback(thisPlayerState, currentPos, 100, 50)
-
-                                            TaskPool.spawn(function()
-                                                local tween = getTweenForKnockback(root, currentPos)
-                                                local animDur = assert(S.Enemy[refId].animationDur)
-                                                local leftTime = animDur - .5
-                                                while leftTime > 0 do
-                                                    leftTime = leftTime - dt
-                                                    task.wait(dt)
-                                                end
-                                                -- if player is still alive, apply knockback to his root
-                                                if
-                                                    thisPlayerState:test_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.READY)
-                                                then
-                                                    -- TODO: synchronization with client animation
-                                                    tween:Play()
-                                                    tween.Completed:Connect(function()
-                                                        -- TODO: player damage
-                                                        if WorldService.world:has(enemyGuid) then
-                                                            worldfset(enemyGuid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, false)
-                                                        end
-                                                        thisPlayerState:set_flag(
-                                                            Id.PlayerSpecs.GAME_SESSION_PARAMS,
-                                                            C.BitsetNonPers,
-                                                            Id.PlayerF.LOGIC_ALREADY_DONE,
-                                                            false
-                                                        )
-                                                    end)
-                                                end
-                                            end)
-                                        else
-                                            -- animation is not yet over, lock player's orientation to the boss as usual
-                                            overwriteRotation(thisPlayerState, root, currentPos)
-                                        end
-                                    else
-                                        -- no boss's special attack, lock player's orientation to the boss
-                                        overwriteRotation(thisPlayerState, root, currentPos)
-                                    end
-                                else
-                                    -- boss is not in special attack range, lock player's orientation to the boss
-                                    overwriteRotation(thisPlayerState, root, currentPos)
-                                end
+                                -- check if it's time for boss to perform special attack
+                                Enemies.DoBossLogic(worldState, thisPlayerState, refId, enemyGuid, currentPos, root, proximity, dt)
                             end
                         end
                     end
@@ -951,12 +864,9 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     local boosterInstance = worldState:get(booster.Name, W.ServerInstance)
                     local boosterSizeZ = boosterInstance.Size.Z
                     local boosterSizeX = boosterInstance.Size.X
-                    -- local distZ = math.abs(clonePos.Z - boosterInstance.Position.Z)
-                    -- local distX = math.abs(clonePos.X - boosterInstance.Position.X)
                     local distZ = math.abs(cloneCFrame.Position.Z - boosterInstance.Position.Z)
                     local distX = math.abs(cloneCFrame.Position.X - boosterInstance.Position.X)
                     if distZ < boosterSizeZ / 2 and distX < boosterSizeX / 2 then
-                        -- Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], cloneCFrame.Position, 0)
                         WorldService.RemoveEntity(cloneGuid)
                         isCollided = true
                         break
@@ -970,15 +880,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 -- with obstacles and bombs
                 for objectGuid, refId, objectPos in worldState:select(W.RefId, W.Position) do
                     if Id.kind(refId) == Id.Kind.Obstacle then
-                        -- local proximityByX = math.abs(clonePos.X - obstaclePos.X)
-                        -- local proximityByZ = math.abs(clonePos.Z - obstaclePos.Z)
-                        -- local obstacleTemplate = assert(S.Obstacle[refId].meshTemplateFull)
-                        -- local obstWidth = obstacleTemplate.Size.X
-                        -- if proximityByX < obstWidth and proximityByZ < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
-                        -- if (cloneCFrame - obstaclePos).Magnitude < 10 then
                         if (cloneCFrame.Position - objectPos).Magnitude < 10 then
-                            -- Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], cloneCFrame.Position, 0)
-                            -- Misc.SoundLocalizedAudio(S.Sound[Id.Sound.THUMP_LOCALIZED], cloneCFrame.Position, 0)
                             WorldService.RemoveEntity(cloneGuid)
                             isCollided = true
                             break
