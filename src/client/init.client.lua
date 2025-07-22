@@ -228,6 +228,7 @@ on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause
     if deducted_hp then
         -- player died because they were damaged, otherwise it's the session finished
         onPlayerDamaged(deducted_hp, cause)
+        -- TODO: some death effect
     end
 
     LOCAL_HUMANOID.JumpPower = 50
@@ -567,8 +568,11 @@ end
 
 local function getBulletDirection(rootPart: BasePart, humanoid: Humanoid): Vector3
     local moveDir = humanoid.MoveDirection
-    -- local flatMove = Vector3.new(moveDir.X, 0, moveDir.Z)
     local z = rootPart.CFrame.LookVector.Z
+    if not WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then
+        -- if boss fight is not on, then shoot straight ahead
+        z = -1
+    end
     local flatMove = Vector3.new(moveDir.X, 0, z)
     local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, z)
 
@@ -635,8 +639,6 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
         range = S.Weapon[weapon_id].range
     end
     local bulletTTL = roflake.time() + range / speed
-
-    -- TODO: FIXIT: rotation sometimes is not correct in relation to rootpart (when input == side and back)
 
     bullet.CFrame = defineBulletCframe(rootPart, bullet, weapon_id, LOCAL_HUMANOID)
     pos = bullet.Position

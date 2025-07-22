@@ -813,6 +813,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                     if not isBoss then
                                         -- TODO: effects
                                         m.DestroyEnemy(enemyGuid)
+                                    else
+                                        -- TODO: some throttle for further dmg for bosses
                                     end
                                 end
                             elseif isBoss then

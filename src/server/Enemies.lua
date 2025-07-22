@@ -198,8 +198,8 @@ function m.DoBossLogic(
         if WorldService.ftest(enemyGuid, Id.EnemyF.PERFORM_SPECIAL_ATTACK) then
             if enemyRefId == Id.Enemy.OCTOBOSS then
                 -- react to boss's special attack, if it's not done already
-                if not thisPlayerState:test_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.LOGIC_ALREADY_DONE) then
-                    thisPlayerState:set_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.LOGIC_ALREADY_DONE, true)
+                if not thisPlayerState:test_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.BOSS_ULT_APPLIED) then
+                    thisPlayerState:set_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.BOSS_ULT_APPLIED, true)
                     -- after the time it takes to perform the animation, do player knockback and reset the flag
                     maid.octoboss = TaskPool.spawn(function()
                         local tween = getTweenForKnockback(playerRoot, currentPos)
@@ -213,11 +213,13 @@ function m.DoBossLogic(
                         if thisPlayerState:test_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.READY) then
                             tween:Play()
                             tween.Completed:Connect(function()
-                                -- TODO: player damage
+                                -- damage player, reset flags
+                                local dmg = assert(S.Enemy[enemyRefId].jumpDamage)
+                                thisPlayerState:DeductHp(dmg)
                                 if WorldService.world:has(enemyGuid) then
                                     WorldService.fset(enemyGuid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, false)
                                 end
-                                thisPlayerState:set_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.LOGIC_ALREADY_DONE, false)
+                                thisPlayerState:set_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.BOSS_ULT_APPLIED, false)
                             end)
                         end
                     end)
