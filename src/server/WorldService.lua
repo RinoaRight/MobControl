@@ -111,13 +111,14 @@ function m.ChangeWeapon(player_state, player_id, weapon_id)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_CHANGED_WEAPON, player_id, weapon_id)
 end
 
-local _playerEntity = m.world:constructor(W.Value, W.HP, W.ServerInstance, W.WeaponId) -- num of clones, player hp, weapon instance, weapon id
+-- num of clones, player hp, weapon instance, weapon id, boss hit throttle duration
+local _playerEntity = m.world:constructor(W.Value, W.HP, W.ServerInstance, W.WeaponId, W.TTE) 
 function m.AddPlayer(state)
     local player_id = state.player_id
     if m.world:has(player_id) then
         log:error("non-unique uid: ", player_id, m.world.format_row, m.world, player_id)
     end
-    return _playerEntity(player_id, 0, SharedConfig.PLAYER_BASE_HP, nil, Id.Weapon._NONE)
+    return _playerEntity(player_id, 0, SharedConfig.PLAYER_BASE_HP, nil, Id.Weapon._NONE, 0)
 end
 
 function m.RemovePlayer(uid: uid)
@@ -179,13 +180,6 @@ function m.SetBossFightOn(enemyGuid: guid)
     end
     local flags = m.world:get(enemyGuid, W.Bitset)
     m.world:set(enemyGuid, W.Bitset, Id.flag_or(flags, Id.EnemyF.IS_BOSS))
-
-    -- if refId == Id.Enemy.OCTOBOSS then
-    --     local tte = assert(S.Enemy[refId].tte) :: number
-    --     m.world:set(enemyGuid, W.TTE, tte)
-    --     local ttl = _roflake.time() + assert(S.Enemy[refId].jumpUpDuration) + assert(S.Enemy[refId].jumpDownDuration)
-    --     m.world:set(enemyGuid, W.TTL, ttl)
-    -- end
 
     local value = m.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
     if value == nil then
@@ -257,7 +251,7 @@ function m.AddClone(id: id, player_id: int)
     return guid
 end
 
-local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.TTL,W.TTE, W.Bitset)
+local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.TTL, W.TTE, W.Bitset)
 function m.AddEnemyToState(id: id, pos)
     local hp = S.Enemy[id].health
     local guid = _roflake.uida()

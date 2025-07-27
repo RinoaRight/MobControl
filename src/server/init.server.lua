@@ -130,6 +130,12 @@ local function resetHp(player_state)
 end
 
 local function cleanUpWorldState(player_state, this_player_id: int)
+    -- reset world player
+    WorldService.world:set(this_player_id, W.Value, 0)
+    WorldService.world:set(this_player_id, W.WeaponId, Id.Weapon._NONE)
+    WorldService.world:set(this_player_id, W.HP, SharedConfig.PLAYER_BASE_HP)
+    WorldService.world:set(this_player_id, W.ServerInstance, nil)
+    WorldService.world:set(this_player_id, W.TTE, 0)
     -- clean up clones
     for uid, ref_id, player_id in WorldService.world:select(W.RefId, W.PlayerId) do
         if Id.kind(ref_id) == Id.Kind.Clone and player_id == this_player_id then
@@ -571,6 +577,7 @@ on[Id.C2S.BUY_PLAYER_UPGRADE_PERS] = function(player_state, upgrade_id: id, ...)
 end
 
 on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { uid }, bulletGuid: uid, ...)
+    -- NOTE: calculating bullet hit on client, verifying on server because it is cheaper (?)
     local playerFlags = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
     local isPlayerInSession = playerFlags and Id.flag_test(playerFlags, Id.PlayerF.READY)
     if not isPlayerInSession then

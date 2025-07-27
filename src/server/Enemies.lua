@@ -173,7 +173,7 @@ function m.AddEnemies(
     return enemiesGuids
 end
 
-function m.DoBossLogic(
+function m.DoBossSpecial(
     worldState,
     thisPlayerState: PSS.PlayerState,
     enemyRefId: int,
@@ -196,6 +196,7 @@ function m.DoBossLogic(
         end
 
         if WorldService.ftest(enemyGuid, Id.EnemyF.PERFORM_SPECIAL_ATTACK) then
+            ---------------------- OCTOBOSS ----------------------
             if enemyRefId == Id.Enemy.OCTOBOSS then
                 -- react to boss's special attack, if it's not done already
                 if not thisPlayerState:test_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.PlayerF.BOSS_ULT_APPLIED) then
@@ -214,7 +215,7 @@ function m.DoBossLogic(
                             tween:Play()
                             tween.Completed:Connect(function()
                                 -- damage player, reset flags
-                                local dmg = assert(S.Enemy[enemyRefId].jumpDamage)
+                                local dmg = assert(S.Enemy[enemyRefId].ultDamage)
                                 thisPlayerState:DeductHp(dmg)
                                 if WorldService.world:has(enemyGuid) then
                                     WorldService.fset(enemyGuid, Id.EnemyF.PERFORM_SPECIAL_ATTACK, false)

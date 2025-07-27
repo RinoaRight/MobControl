@@ -66,6 +66,14 @@ m.BOOSTER_DATA_TABLE = {
         weapon_gacha = { [Id.Weapon.SMG] = 55, [Id.Weapon.SPRAYGUN] = 40, [Id.Weapon.ROCKET] = 5 },
     },
     {
+        boost_gacha = { [Id.Boost.ADD_CLONE] = 65, [Id.Boost.CHANGE_WEAPON] = 35 },
+        weapon_gacha = { [Id.Weapon.SMG] = 55, [Id.Weapon.SPRAYGUN] = 40, [Id.Weapon.ROCKET] = 5 },
+    },
+    {
+        boost_gacha = { [Id.Boost.ADD_CLONE] = 65, [Id.Boost.CHANGE_WEAPON] = 35 },
+        weapon_gacha = { [Id.Weapon.SMG] = 55, [Id.Weapon.SPRAYGUN] = 40, [Id.Weapon.ROCKET] = 5 },
+    },
+    {
         boost_gacha = { [Id.Boost.ADD_CLONE] = 55, [Id.Boost.CHANGE_WEAPON] = 35, [Id.Boost.FIRST_AID_KIT] = 10 },
         weapon_gacha = { [Id.Weapon.SMG] = 55, [Id.Weapon.SPRAYGUN] = 40, [Id.Weapon.ROCKET] = 5 },
     },

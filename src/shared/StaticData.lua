@@ -24,6 +24,7 @@ local SoundService = game:GetService("SoundService")
 local SOUNDS_ROOT = assert(SoundService:WaitForChild("SFX"))
 local LOCALIZED_SOUNDS_ROOT = assert(ReplicatedStorage:WaitForChild("Sounds"))
 local ENEMIES_TEMPLATE_FOLDER = ReplicatedStorage:WaitForChild("Enemies")
+local ZOMBIES_TEMPLATE_FOLDER = assert(ENEMIES_TEMPLATE_FOLDER:WaitForChild("Zombies"))
 local GRAVES_TEMPLATE_FOLDER = ReplicatedStorage:WaitForChild("Graves")
 local WEAPONS_ROOT = ReplicatedStorage:WaitForChild("Weapons")
 local VFX_ROOT = ReplicatedStorage:WaitForChild("VFX")
@@ -113,7 +114,7 @@ m.Enemy = {
         speed = 30.0,
         reward = 1,
         xp = 1,
-        meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_1"),
+        meshTemplate = ZOMBIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_1"),
     }, -- hp, hp, studs/sec, coins, xp, assetId
     [Id.Enemy.CRAZOMBIE] = {
         damage = 15,
@@ -121,7 +122,7 @@ m.Enemy = {
         speed = 40.0,
         reward = 1,
         xp = 1,
-        meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_3"),
+        meshTemplate = ZOMBIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_3"),
     },
     [Id.Enemy.OCTOBOSS] = {
         damage = 30,
@@ -132,9 +133,10 @@ m.Enemy = {
         animationDur = 2.1,
         ttl = 5.0, -- time for which the enemy is locked on 1 player
         tte = 3, -- NOTE: should be greater than jump animation duration
+        hitThrottleDuration = .5,
         specialAttackRange = 60,
-        jumpDamage = 20,
-        meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),
+        ultDamage = 20,
+        meshTemplate = ZOMBIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),
     },
 }
 
@@ -148,7 +150,7 @@ m.EnemyFlying = {
         reward = 3,
         xp = 10,
         -- explosionSize = Vector3.new(20, 20, 20),
-        meshTemplate = ENEMIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_9"),
+        meshTemplate = ZOMBIES_TEMPLATE_FOLDER:WaitForChild("Pet_zombie_9"),
     },
 }
 

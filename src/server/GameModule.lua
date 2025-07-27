@@ -50,6 +50,10 @@ local ClonesServer = require(server.ClonesServer)
 local Remote = require(shared.Remote)
 local Rand = require(shared.rand)
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local RING_OF_FIRE_TEMPLATE = assert(ReplicatedStorage:WaitForChild(SharedConfig.RING_OF_FIRE_NAME))
+local RING_OF_FIRE_INSTANCE
 
 local ftest = WorldService.ftest
 local worldfset = WorldService.fset
@@ -148,20 +152,25 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
 end
 
 local function onBossArrival(get_state: (player_id: int) -> PSS.PlayerState?, enemyGuid: guid)
-    -- local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
-    -- for _, unit in ipairs(unitsFolder) do
-    --     unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
-    -- end
     WorldService.SetBossFightOn(enemyGuid)
     for _, player in game.Players:GetPlayers() do
         local player_state = get_state(player.UserId)
         if not player_state then
             continue
         end
-        -- m.UnconstrainPlayer(player_state)
         player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
         player_state.humanoid.AutoRotate = false
     end
+    -- spawn ring of fire
+    RING_OF_FIRE_INSTANCE = RING_OF_FIRE_TEMPLATE:Clone()
+    RING_OF_FIRE_INSTANCE.Parent = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
+    local unitPos = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit).Position
+    RING_OF_FIRE_INSTANCE.Position = Vector3.new(unitPos.X, -6, unitPos.Z)
+    TaskPool.spawn(function()
+        local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+        local tween = TweenService:Create(RING_OF_FIRE_INSTANCE, tweenInfo, { Position = Vector3.new(unitPos.X, SharedConfig.RING_OF_FIRE_MAX_Y, unitPos.Z) })
+        tween:Play()
+    end)
 end
 
 local function setBooster(worldState: state.Main, instance: BasePart, get_state: (int) -> PSS.PlayerState?)
@@ -257,9 +266,10 @@ local function generateEnemies(worldState: state.Main, get_state: (player_id: in
 
     if #enemyGuids > 0 then
         for _, enemyGuid in ipairs(enemyGuids) do
-            local enemyRefId = worldState:get(enemyGuid, W.RefId)
-            if enemyRefId == Id.Enemy.OCTOBOSS then
+            local isBoss = ftest(enemyGuid, Id.EnemyF.IS_BOSS)
+            if isBoss then
                 onBossArrival(get_state, enemyGuid)
+                break
             end
         end
     end
@@ -617,9 +627,17 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             end
         end
 
-        -- driving box movement
+        -- driving box movement and ring of fire movement
         if not isBossFightOn then
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(driverOldPos.X, driverOldPos.Y, driverOldPos.Z - studPerTick))
+        else
+            if RING_OF_FIRE_INSTANCE then
+                if RING_OF_FIRE_INSTANCE.Position.Y >= SharedConfig.RING_OF_FIRE_MAX_Y then
+                    local speedPerTick = .01
+                    local currentSize = RING_OF_FIRE_INSTANCE.Size
+                    -- TODO: if the max_hight is reached, narrow the ring of fire (until a certain point)
+                end
+            end
         end
         -- TODO: stop it altogether after some time when boss fight is on to prevent new unit generation and lock player on the current unit
         driverOldPos = DRIVING_BOX_BACK_PART.Position
@@ -696,6 +714,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         end
                     end
                 end
+
             -- infantry enemies
             elseif Id.kind(refId) == Id.Kind.Enemy then
                 assert(typeof(enemyGuid) == "string") -- sanity check
@@ -806,20 +825,28 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                 if isShieldDmg then
                                     Signal.Fire(Id.S2S.SHIELD_DAMAGE_SERVER, thisPlayerState.player_id, enemyGuid :: str, shieldDamage)
                                 end
-                                -- if there is still an enemy afterwards, apply damage to the player, then die (boss is an exception)
+                                -- if there is still an enemy afterwards, apply damage to the player, then (if not boss)die
                                 if worldState:has(enemyGuid) then
                                     local enemyDamage = S.Enemy[refId].damage
-                                    thisPlayerState:DeductHp(enemyDamage - shieldDamage)
                                     if not isBoss then
+                                        thisPlayerState:DeductHp(enemyDamage - shieldDamage)
                                         -- TODO: effects
                                         m.DestroyEnemy(enemyGuid)
                                     else
-                                        -- TODO: some throttle for further dmg for bosses
+                                        local tte = worldState:get(thisPlayerState.player_id, W.TTE)
+                                        if tte < 0 then
+                                            thisPlayerState:DeductHp(enemyDamage - shieldDamage)
+                                            local throttleDur = 1
+                                            if S.Enemy[refId].hitThrottleDuration then
+                                                throttleDur = assert(S.Enemy[refId].hitThrottleDuration)
+                                            end
+                                            worldState:set(thisPlayerState.player_id, W.TTE, throttleDur)
+                                        end
                                     end
                                 end
                             elseif isBoss then
                                 -- check if it's time for boss to perform special attack
-                                Enemies.DoBossLogic(worldState, thisPlayerState, refId, enemyGuid, currentPos, root, proximity, dt)
+                                Enemies.DoBossSpecial(worldState, thisPlayerState, refId, enemyGuid, currentPos, root, proximity, dt)
                             end
                         end
                     end
@@ -922,7 +949,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         -- handle tte
-        for guid, refId, tte in worldState:select(W.RefId, W.TTE) do
+        for guid, tte in worldState:select(W.TTE) do
             local newTTE = tte - dt
             worldState:set(guid, W.TTE, newTTE)
         end
