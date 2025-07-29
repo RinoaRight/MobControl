@@ -73,10 +73,14 @@ end
 
 -- TODO: add more waves
 local ENEMIES_DATA_TABLE = {
-    { count = 20, gacha = { [Id.Enemy.BASIC] = 1 } },
-    { count = 20, gacha = { [Id.Enemy.BASIC] = 1 } },
-    { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = 0.3 } },
-    { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = 0.3 } },
+    -- { count = 20, gacha = { [Id.Enemy.BASIC] = 1 } },
+    -- { count = 20, gacha = { [Id.Enemy.BASIC] = 1 } },
+    -- { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = 0.3 } },
+    -- { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.CRAZOMBIE] = 0.3 } },
+    { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.CONEHEAD] = 0.3 } },
+    -- { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.CONEHEAD] = 0.3 } },
+    { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.ZOMBUCKET] = 0.3 } },
+    -- { count = 20, gacha = { [Id.Enemy.BASIC] = 1, [Id.Enemy.ZOMBUCKET] = 0.3 } },
 }
 
 local function getTweenForKnockback(root: BasePart, enemyPos: Vector3)

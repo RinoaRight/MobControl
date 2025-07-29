@@ -52,7 +52,7 @@ local Rand = require(shared.rand)
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local RING_OF_FIRE_TEMPLATE = assert(ReplicatedStorage:WaitForChild(SharedConfig.RING_OF_FIRE_NAME))
+local RING_OF_FIRE = assert(ReplicatedStorage:WaitForChild(SharedConfig.RING_OF_FIRE_NAME))
 local RING_OF_FIRE_INSTANCE
 
 local ftest = WorldService.ftest
@@ -159,18 +159,22 @@ local function onBossArrival(get_state: (player_id: int) -> PSS.PlayerState?, en
             continue
         end
         player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
+        print("LLLLLL", player_state.humanoid.WalkSpeed)
         player_state.humanoid.AutoRotate = false
     end
+    -- TODO: rework this
     -- spawn ring of fire
-    RING_OF_FIRE_INSTANCE = RING_OF_FIRE_TEMPLATE:Clone()
-    RING_OF_FIRE_INSTANCE.Parent = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
-    local unitPos = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit).Position
-    RING_OF_FIRE_INSTANCE.Position = Vector3.new(unitPos.X, -6, unitPos.Z)
-    TaskPool.spawn(function()
-        local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-        local tween = TweenService:Create(RING_OF_FIRE_INSTANCE, tweenInfo, { Position = Vector3.new(unitPos.X, SharedConfig.RING_OF_FIRE_MAX_Y, unitPos.Z) })
-        tween:Play()
-    end)
+    -- RING_OF_FIRE_INSTANCE = RING_OF_FIRE:Clone()
+    -- RING_OF_FIRE_INSTANCE.Parent = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
+    -- local unitPos = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit).Position
+    -- local thinRing = RING_OF_FIRE_INSTANCE:WaitForChild("Cylinder")
+    -- RING_OF_FIRE_INSTANCE.Position = Vector3.new(unitPos.X, SharedConfig.RING_OF_FIRE_MAX_Y, unitPos.Z - 30)
+    -- thinRing.Position = Vector3.new(unitPos.X, -6, unitPos.Z - 30)
+    -- TaskPool.spawn(function()
+    --     local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    --     local tween = TweenService:Create(thinRing, tweenInfo, { Position = Vector3.new(unitPos.X, SharedConfig.RING_OF_FIRE_MAX_Y, unitPos.Z) })
+    --     tween:Play()
+    -- end)
 end
 
 local function setBooster(worldState: state.Main, instance: BasePart, get_state: (int) -> PSS.PlayerState?)
@@ -266,10 +270,10 @@ local function generateEnemies(worldState: state.Main, get_state: (player_id: in
 
     if #enemyGuids > 0 then
         for _, enemyGuid in ipairs(enemyGuids) do
-            local isBoss = ftest(enemyGuid, Id.EnemyF.IS_BOSS)
-            if isBoss then
+            local refId = worldState:get(enemyGuid, W.RefId)
+            -- NOTE: can't test the 'isBoss' flag, because it is yet to be set
+            if Id.kind(refId) == Id.Kind.Enemy and refId > Id.Enemy._BOSS then
                 onBossArrival(get_state, enemyGuid)
-                break
             end
         end
     end
@@ -632,10 +636,18 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(driverOldPos.X, driverOldPos.Y, driverOldPos.Z - studPerTick))
         else
             if RING_OF_FIRE_INSTANCE then
-                if RING_OF_FIRE_INSTANCE.Position.Y >= SharedConfig.RING_OF_FIRE_MAX_Y then
-                    local speedPerTick = .01
-                    local currentSize = RING_OF_FIRE_INSTANCE.Size
-                    -- TODO: if the max_hight is reached, narrow the ring of fire (until a certain point)
+                local thinRing = RING_OF_FIRE_INSTANCE.Cylinder
+                if thinRing.Position.Y >= SharedConfig.RING_OF_FIRE_MAX_Y then
+                    -- animation of going up is over
+                    local currentSizeOfThick = RING_OF_FIRE_INSTANCE.Size :: Vector3
+                    local speedPerTick
+                    if currentSizeOfThick.Z > 250 then
+                        speedPerTick = .005
+                    else
+                        speedPerTick = 0.01
+                    end
+                    RING_OF_FIRE_INSTANCE.Size = Vector3.new(currentSizeOfThick.X - speedPerTick, currentSizeOfThick.Y, currentSizeOfThick.Z - speedPerTick)
+                    thinRing.Size = Vector3.new(currentSizeOfThick.X - speedPerTick, currentSizeOfThick.Y, currentSizeOfThick.Z - speedPerTick)
                 end
             end
         end

@@ -57,8 +57,10 @@ local DISTANCE_FROM_MID_TO_BOOSTER = SharedConfig.DISTANCE_FROM_MID_TO_BOOSTER
 local Y_OFFSET = 50
 local Z_DISTRIBUTION_RANDOMNESS = Vector2.new(10, 40)
 
--- TODO: add more waves. Only even waves are handled
+-- TODO: add more waves. 
+-- NOTE: Only even waves are handled
 local ENEMIES_DATA_TABLE = {
+    { count = 0, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
     { count = 20, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
 }
 local m = {}

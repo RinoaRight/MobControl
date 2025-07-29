@@ -576,13 +576,14 @@ local function getBulletDirection(rootPart: BasePart, humanoid: Humanoid): Vecto
     local flatMove = Vector3.new(moveDir.X, 0, z)
     local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, z)
 
-    if flatMove.Magnitude > 0.1 then
-        local crossMag = flatMove.Unit:Cross(facing.Unit).Magnitude
-        if crossMag < 0.5 then
-            -- Movement is mostly forward (less side motion)
-            return flatMove.Unit
-        end
-    end
+    -- NOTE: this leads to sideways bullet direction behaviour
+    -- if flatMove.Magnitude > 0.1 then
+    --     local crossMag = flatMove.Unit:Cross(facing.Unit).Magnitude
+    --     if crossMag < 0.5 then
+    --         -- Movement is mostly forward (less side motion)
+    --         return flatMove.Unit
+    --     end
+    -- end
 
     -- Fallback to facing direction
     return facing.Unit
@@ -902,7 +903,6 @@ RunService.Heartbeat:Connect(function(dt)
         local bullet = bulletData.bullet :: Part
         local owner = bulletData.owner
         local ttl = bulletData.ttl
-        -- local rot = bulletData.rotation
         local weapon_id = bulletData.weapon_id
         local speed = bulletData.speed
         local start_pos = bulletData.start_pos
@@ -910,7 +910,6 @@ RunService.Heartbeat:Connect(function(dt)
         -- enlarge Y axis to check for collisions with obstacles  (graves) when they are partly destroyed already
         local raycast_size = Vector3.new(bulletData.size.X, 5, bulletData.size.Z)
         local newBulletCframe = bullet.CFrame + bullet.CFrame.LookVector * (speed * dt)
-        -- local newBulletCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * (speed * dt))) * rot
 
         -- check for collisions
         local raycast_length = raycast_size.Z / 2 + (speed * dt)
@@ -966,6 +965,7 @@ RunService.Heartbeat:Connect(function(dt)
                             end
                         end
                     end
+                    -- TODO: do we register spraygun hits?
                     fire_server(Id.C2S.TARGET_HIT, targetGuids, bullet.Name)
                 end
             end
@@ -1168,6 +1168,15 @@ WORLD:set_on_modify(W.TTE, function(guid: guid, newValue: num, oldValue: num)
     if Id.kind(refId) == Id.Kind.Enemy then
         if newValue > oldValue and newValue > 0 then -- tte has just been reset
             EnemiesClient.OnTTEReset(WORLD, guid :: string, refId, LOCAL_HUMANOID_ROOT_PART)
+        end
+    end
+end)
+
+WORLD:set_on_modify(W.HP, function(guid: guid, newValue: num, oldValue: num)
+    local refId = WORLD:get(guid, W.RefId)
+    if Id.kind(refId) == Id.Kind.Enemy then
+        if newValue < oldValue and newValue > 0 then
+            EnemiesClient.OnEnemyHpChanged(WORLD, guid :: string, refId, newValue, oldValue)
         end
     end
 end)

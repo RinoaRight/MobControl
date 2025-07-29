@@ -39,6 +39,7 @@ local S = require(shared.StaticData)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local TaskPool = require(shared.TaskPool)
+local SFX = require(script.Parent.SFX)
 local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local ENEMIES_FOLDER = assert(workspace:WaitForChild("Enemies"))
@@ -75,17 +76,8 @@ local function flickerEnemy(guid: string, part: BasePart)
     end)
 end
 
-local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: string)
-    local enemyRefId = worldState:get(enemyGuid, W.RefId)
+local function spawnEnemy(worldState, enemyGuid: string, enemyRefId: id, enemyInstance: BasePart)
     local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
-
-    local enemyInstance
-    if S.Enemy[enemyRefId].meshTemplate then
-        enemyInstance = S.Enemy[enemyRefId].meshTemplate:Clone()
-    else
-        enemyInstance = Instance.new("Part")
-        enemyInstance.Size = Vector3.new(2, 6, 2)
-    end
     enemyInstance.CanCollide = false
     enemyInstance.Anchored = true
     enemyInstance.CollisionGroup = "BulletCollidable"
@@ -95,6 +87,19 @@ local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: s
     enemyInstance.Name = enemyGuid
 
     worldState:set(enemyGuid, W.ClientInstance, enemyInstance)
+end
+
+local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: string)
+    local enemyRefId = worldState:get(enemyGuid, W.RefId)
+    local enemyInstance
+    if S.Enemy[enemyRefId].meshTemplate then
+        enemyInstance = S.Enemy[enemyRefId].meshTemplate:Clone()
+    else
+        enemyInstance = Instance.new("Part")
+        enemyInstance.Size = Vector3.new(2, 6, 2)
+    end
+
+    spawnEnemy(worldState, enemyGuid, enemyRefId, enemyInstance)
 
     -- if the enemy is a boss, attach the player's align constraint to the boss
     if enemyRefId == Id.Enemy.OCTOBOSS then
@@ -244,6 +249,58 @@ m.OnTTEReset = function(worldState: state.Replica, enemyGuid: string, refId: id,
             animateJump(worldState, enemyGuid, enemyInstance, humanoidRootPart)
         end
     end
+end
+
+function m.OnEnemyHpChanged(worldState, enemyGuid: string, enemyRefId: id, newHp: num, oldHp: num)
+    local totalHp = S.Enemy[enemyRefId].health
+    local hpNoArmor
+    if S.Enemy[enemyRefId].armor then
+        hpNoArmor = totalHp - assert(S.Enemy[enemyRefId].armor)
+    end
+
+    -- if the enemy is not supposed to have armor, do nothing
+    if not hpNoArmor then
+        return
+    end
+
+    -- if the armor has been depleted already, do nothing
+    if oldHp < hpNoArmor then
+        return
+    end
+
+    -- the armor has not yet been depleted, do nothing
+    if newHp > hpNoArmor then
+        return
+    end
+
+    local enemyInstance = worldState:get(enemyGuid, W.ClientInstance) :: MeshPart
+    local newMeshInstance
+    if S.Enemy[enemyRefId].meshTemplateNoArmor then
+        newMeshInstance = S.Enemy[enemyRefId].meshTemplateNoArmor:Clone()
+    end
+    -- no new mesh template id was found in the database
+    if not newMeshInstance then
+        return
+    end
+
+    -- replace the mesh
+    local sound
+    if enemyRefId == Id.Enemy.CONEHEAD then
+        sound = S.Sound[Id.Sound.POP]
+    elseif enemyRefId == Id.Enemy.ZOMBUCKET then
+        sound = S.Sound[Id.Sound.METAL_BUCKET]
+    end
+    if sound then
+        print("LLLLLL playing sound")
+        SFX.PLAY_SOUND(sound)
+    end
+
+    -- TODO: function is called, but spawns nothing. Also sound is not played
+    print("LLLLLL spawning enemy")
+    spawnEnemy(worldState, enemyGuid, enemyRefId, enemyInstance)
+    -- TODO: function is called, but spawns nothing (spawning may be meaningless, cuz the armorless doesn't live long enough).
+    -- TODO: perhaps change just to sound only and play with speed
+    -- TODO: Also sound is not played
 end
 
 workerMaid.subToAdd = Signal.Connect(Id.C2C.NEW_ENEMY_ADDED, onEnemyAdded)
