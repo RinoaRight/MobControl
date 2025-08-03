@@ -76,7 +76,7 @@ local function flickerEnemy(guid: string, part: BasePart)
     end)
 end
 
-local function spawnEnemy(worldState, enemyGuid: string, enemyRefId: id, enemyInstance: BasePart)
+local function spawnEnemy(worldState: state.Replica, enemyGuid: string, enemyRefId: id, enemyInstance: BasePart)
     local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
     enemyInstance.CanCollide = false
     enemyInstance.Anchored = true
@@ -87,32 +87,6 @@ local function spawnEnemy(worldState, enemyGuid: string, enemyRefId: id, enemyIn
     enemyInstance.Name = enemyGuid
 
     worldState:set(enemyGuid, W.ClientInstance, enemyInstance)
-end
-
-local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: string)
-    local enemyRefId = worldState:get(enemyGuid, W.RefId)
-    local enemyInstance
-    if S.Enemy[enemyRefId].meshTemplate then
-        enemyInstance = S.Enemy[enemyRefId].meshTemplate:Clone()
-    else
-        enemyInstance = Instance.new("Part")
-        enemyInstance.Size = Vector3.new(2, 6, 2)
-    end
-
-    spawnEnemy(worldState, enemyGuid, enemyRefId, enemyInstance)
-
-    -- if the enemy is a boss, attach the player's align constraint to the boss
-    if enemyRefId == Id.Enemy.OCTOBOSS then
-        local bossAtt = Instance.new("Attachment") :: Attachment
-        bossAtt.Parent = enemyInstance
-
-        -- set player's align orientation constraint to the boss controller
-        local character = LOCAL_PLAYER.Character
-        local playerAlignOrient = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
-        if playerAlignOrient then
-            playerAlignOrient.Attachment1 = bossAtt
-        end
-    end
 end
 
 local function playTween(worldState, enemyGuid: string, tween: Tween)
@@ -234,6 +208,40 @@ end
 
 local m = {}
 
+m.OnEnemyAdded = function(worldState: state.Replica, playerState: state.Replica, enemyGuid: string, isBoss: bool, drivingBoxBackPart: BasePart)
+    local enemyRefId = worldState:get(enemyGuid, W.RefId)
+    local enemyInstance
+    if S.Enemy[enemyRefId].meshTemplate then
+        enemyInstance = S.Enemy[enemyRefId].meshTemplate:Clone()
+    else
+        enemyInstance = Instance.new("Part")
+        enemyInstance.Size = Vector3.new(2, 6, 2)
+    end
+
+    spawnEnemy(worldState, enemyGuid, enemyRefId, enemyInstance)
+
+    if isBoss then
+        -- if the enemy is a boss, attach the player's align constraint to the boss
+        local bossAtt = Instance.new("Attachment") :: Attachment
+        bossAtt.Parent = enemyInstance
+
+        -- set player's align orientation constraint to the boss controller
+        local character = LOCAL_PLAYER.Character
+        local playerAlignOrient = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
+        if playerAlignOrient then
+            playerAlignOrient.Attachment1 = bossAtt
+        end
+
+        -- spawn poison belt
+        local poisonBelt = assert(ReplicatedStorage.VFX.PoisonBelt:Clone())
+        local beltHeight = poisonBelt.Size.Y
+        local currentGroundUnit = workspace.GroundUnits:FindFirstChild("3")
+        local driverPos = drivingBoxBackPart.Position
+        poisonBelt.Position = Vector3.new(driverPos.X, - beltHeight / 2 + 0.1, driverPos.Z - 50)
+        poisonBelt.Parent = currentGroundUnit
+    end
+end
+
 m.OnBossDestroyed = function(worldState, enemyGuid: string)
     local character = LOCAL_PLAYER.Character
     local playerAlignConst = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
@@ -251,7 +259,7 @@ m.OnTTEReset = function(worldState: state.Replica, enemyGuid: string, refId: id,
     end
 end
 
-function m.OnEnemyHpChanged(worldState, enemyGuid: string, enemyRefId: id, newHp: num, oldHp: num)
+function m.OnEnemyHpDecreased(worldState: state.Replica, enemyGuid: string, enemyRefId: id, newHp: num, oldHp: num)
     local totalHp = S.Enemy[enemyRefId].health
     local hpNoArmor
     if S.Enemy[enemyRefId].armor then
@@ -286,23 +294,18 @@ function m.OnEnemyHpChanged(worldState, enemyGuid: string, enemyRefId: id, newHp
     -- replace the mesh
     local sound
     if enemyRefId == Id.Enemy.CONEHEAD then
-        sound = S.Sound[Id.Sound.POP]
+        sound = S.Sound[Id.Sound.POP_LOW]
     elseif enemyRefId == Id.Enemy.ZOMBUCKET then
         sound = S.Sound[Id.Sound.METAL_BUCKET]
     end
     if sound then
-        print("LLLLLL playing sound")
         SFX.PLAY_SOUND(sound)
     end
 
-    -- TODO: function is called, but spawns nothing. Also sound is not played
-    print("LLLLLL spawning enemy")
     spawnEnemy(worldState, enemyGuid, enemyRefId, enemyInstance)
     -- TODO: function is called, but spawns nothing (spawning may be meaningless, cuz the armorless doesn't live long enough).
     -- TODO: perhaps change just to sound only and play with speed
     -- TODO: Also sound is not played
 end
-
-workerMaid.subToAdd = Signal.Connect(Id.C2C.NEW_ENEMY_ADDED, onEnemyAdded)
 
 return m

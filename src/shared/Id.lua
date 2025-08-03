@@ -681,6 +681,7 @@ Id.Sound = enum.with_id "Id.Sound" {
     IMPACT_LOCALIZED      = iota'',
     METAL_BUCKET          = iota'',
     POP                   = iota'',
+    POP_LOW               = iota'',
     RELOAD_PISTOL         = iota'',
     SCREAM                = iota'',
     SCREAM_HIGH           = iota'',
@@ -800,7 +801,7 @@ export type S2S = typeof(Id.S2S)
 Id.C2C = enum.with_id "Id.C2C" {
     _NONE               = iota(Id.Kind.C2C, 0),
     NEW_BOOSTER_ADDED   = iota'', -- world_state, player_state, booster_guid
-    NEW_ENEMY_ADDED     = iota'', -- world_state, player_state, enemy_guid
+    -- NEW_ENEMY_ADDED     = iota'', -- world_state, player_state, enemy_guid, is_boss
     SHOW_CLONES_TOGGLED = iota'', -- bool
     SHOW_POPUP_CLIENT   = iota'', -- {params}
 }

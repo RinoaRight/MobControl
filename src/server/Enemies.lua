@@ -209,7 +209,7 @@ function m.DoBossSpecial(
                     maid.octoboss = TaskPool.spawn(function()
                         local tween = getTweenForKnockback(playerRoot, currentPos)
                         local animDur = assert(S.Enemy[enemyRefId].animationDur)
-                        local leftTime = animDur -- - .5
+                        local leftTime = animDur
                         while leftTime > 0 do
                             leftTime = leftTime - dt
                             task.wait()

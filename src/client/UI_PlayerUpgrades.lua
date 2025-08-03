@@ -582,7 +582,7 @@ function m.OnPlayerRankUpdate(state: state.Replica)
         tweenDown:Play()
         task.wait(tweenTimeDown)
         -- close the panel after some time
-        task.wait(4)
+        task.wait(5)
         if PERK_SELECTION_GUI.Enabled then
             hidePerkPanel()
         end

@@ -52,9 +52,6 @@ local Rand = require(shared.rand)
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local RING_OF_FIRE = assert(ReplicatedStorage:WaitForChild(SharedConfig.RING_OF_FIRE_NAME))
-local RING_OF_FIRE_INSTANCE
-
 local ftest = WorldService.ftest
 local worldfset = WorldService.fset
 
@@ -75,7 +72,6 @@ local m = {} :: {
 }
 
 local workerMaid = disposer.new()
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GROUND_UNIT_FOLDER = game.Workspace.GroundUnits
 local GROUND_UNIT_TEMPLATE = assert(ReplicatedStorage.GroundUnit)
@@ -89,6 +85,9 @@ local BOOSTER_OFFSET_Z = -50
 local BOOSTER_GAP = 40
 local GAP_WIDTH = BOOSTER_GAP - BOOSTER_WIDTH
 local BOOSTER_CONTENTS_BILLBOARD_TEMPLATE = assert(ReplicatedStorage.BoosterContentsBillboard)
+
+local POISON_BELT_TEMPLATE = assert(ReplicatedStorage.VFX:WaitForChild(SharedConfig.POISON_BELT_NAME))
+local POISON_BELT_INSTANCE
 
 local FIELD_NAMES = En.with_id("*")({
     FIRST = 1,
@@ -159,21 +158,31 @@ local function onBossArrival(get_state: (player_id: int) -> PSS.PlayerState?, en
             continue
         end
         player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
-        print("LLLLLL", player_state.humanoid.WalkSpeed)
         player_state.humanoid.AutoRotate = false
     end
-    -- TODO: rework this
-    -- spawn ring of fire
-    -- RING_OF_FIRE_INSTANCE = RING_OF_FIRE:Clone()
-    -- RING_OF_FIRE_INSTANCE.Parent = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
+    -- spawn poison belt
+    -- POISON_BELT_INSTANCE = POISON_BELT_TEMPLATE:Clone()
     -- local unitPos = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit).Position
-    -- local thinRing = RING_OF_FIRE_INSTANCE:WaitForChild("Cylinder")
-    -- RING_OF_FIRE_INSTANCE.Position = Vector3.new(unitPos.X, SharedConfig.RING_OF_FIRE_MAX_Y, unitPos.Z - 30)
-    -- thinRing.Position = Vector3.new(unitPos.X, -6, unitPos.Z - 30)
+    -- POISON_BELT_INSTANCE.Position = Vector3.new(unitPos.X, -SharedConfig.POISON_BELT_MAX_Y, unitPos.Z + 100)
+    -- POISON_BELT_INSTANCE.Parent = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
+    -- POISON_BELT_INSTANCE.Size = Vector3.new(POISON_BELT_INSTANCE.Size.X, SharedConfig.POISON_BELT_MAX_Y * 2, POISON_BELT_INSTANCE.Size.Z)
+    -- local y = SharedConfig.POISON_BELT_MAX_Y
+    -- local tweenInfoUp = TweenInfo.new(5, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    -- local tweenUp = TweenService:Create(POISON_BELT_INSTANCE, tweenInfoUp, { Position = Vector3.new(unitPos.X, y, unitPos.Z) })
+    -- local size1 = Vector3.new(250, POISON_BELT_INSTANCE.Size.Y, 250)
+    -- local tweenInfoShrink1 = TweenInfo.new(90, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    -- local tweenShrink1 = TweenService:Create(POISON_BELT_INSTANCE, tweenInfoShrink1, { Size = size1 })
+    -- local size2 = Vector3.new(30, POISON_BELT_INSTANCE.Size.Y, 30)
+    -- local tweenInfoShrink2 = TweenInfo.new(60, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    -- local tweenShrink2 = TweenService:Create(POISON_BELT_INSTANCE, tweenInfoShrink2, { Size = size2 })
     -- TaskPool.spawn(function()
-    --     local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-    --     local tween = TweenService:Create(thinRing, tweenInfo, { Position = Vector3.new(unitPos.X, SharedConfig.RING_OF_FIRE_MAX_Y, unitPos.Z) })
-    --     tween:Play()
+    --     tweenUp:Play()
+    --     tweenUp.Completed:Connect(function()
+    --         tweenShrink1:Play()
+    --         tweenShrink1.Completed:Connect(function()
+    --             tweenShrink2:Play()
+    --         end)
+    --     end)
     -- end)
 end
 
@@ -339,6 +348,12 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
             local middle = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
             local refPos = middle.Position
             spawnGroundUnit(worldState, GROUND_UNIT_TEMPLATE:Clone(), FIELD_NAMES.FIFTH, refPos)
+            -- rename all units accordingly
+            assert(GROUND_UNITS[FIELD_NAMES.FIRST].unit).Name = "1"
+            assert(GROUND_UNITS[FIELD_NAMES.SECOND].unit).Name = "2"
+            assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit).Name = "3"
+            assert(GROUND_UNITS[FIELD_NAMES.FOURTH].unit).Name = "4"
+            assert(GROUND_UNITS[FIELD_NAMES.FIFTH].unit).Name = "5"
 
             if worldState:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value) then
                 -- if not isPvPTime(get_state) then
@@ -635,23 +650,21 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         if not isBossFightOn then
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(driverOldPos.X, driverOldPos.Y, driverOldPos.Z - studPerTick))
         else
-            if RING_OF_FIRE_INSTANCE then
-                local thinRing = RING_OF_FIRE_INSTANCE.Cylinder
-                if thinRing.Position.Y >= SharedConfig.RING_OF_FIRE_MAX_Y then
-                    -- animation of going up is over
-                    local currentSizeOfThick = RING_OF_FIRE_INSTANCE.Size :: Vector3
-                    local speedPerTick
-                    if currentSizeOfThick.Z > 250 then
-                        speedPerTick = .005
-                    else
-                        speedPerTick = 0.01
-                    end
-                    RING_OF_FIRE_INSTANCE.Size = Vector3.new(currentSizeOfThick.X - speedPerTick, currentSizeOfThick.Y, currentSizeOfThick.Z - speedPerTick)
-                    thinRing.Size = Vector3.new(currentSizeOfThick.X - speedPerTick, currentSizeOfThick.Y, currentSizeOfThick.Z - speedPerTick)
-                end
-            end
+            -- TODO: damage player in the poison belt.
+            -- if POISON_BELT_INSTANCE then
+            --     if POISON_BELT_INSTANCE.Position.Y >= SharedConfig.POISON_BELT_MAX_Y then
+            --         -- animation of going up is over
+            --         local currentSizeOfThick = POISON_BELT_INSTANCE.Size :: Vector3
+            --         local speedPerTick
+            --         if currentSizeOfThick.Z > 250 then
+            --             speedPerTick = .01
+            --         else
+            --             speedPerTick = .02
+            --         end
+            --         POISON_BELT_INSTANCE.Size = Vector3.new(currentSizeOfThick.X - speedPerTick, currentSizeOfThick.Y, currentSizeOfThick.Z - speedPerTick)
+            --     end
+            -- end
         end
-        -- TODO: stop it altogether after some time when boss fight is on to prevent new unit generation and lock player on the current unit
         driverOldPos = DRIVING_BOX_BACK_PART.Position
 
         -- handle enemies and bombs
@@ -1037,8 +1050,6 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
 end
 
 function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
-    -- TODO: refactor into being able to spawn only between sessions
-
     -- NOTE: players_already_in_session includes this player_state.player
 
     -- define spawning position
@@ -1075,6 +1086,11 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
         index = starting_point + (players_in_session + 1) / 2
     end
     x_pos = boosters[index].Position.X
+    local halfGround = last_spawned_ground_unit.Size.X / 2
+    if math.abs(x_pos - last_spawned_ground_unit.Position.X) >= halfGround then -- sanity check
+        x_pos = last_spawned_ground_unit.Position.X
+        log:error("player spawned outside the field")
+    end
     local y_pos = playerRootPart.Position.Y
     local z_pos = driver_pos.Z - SharedConfig.PLAYER_OFFSET_FROM_DRIVER
     if players_in_session > 1 then

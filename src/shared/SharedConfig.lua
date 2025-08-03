@@ -47,7 +47,8 @@ m.BULLET_BASE_DISTANCE = 240 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP = 100
 m.CONTROL_DISTANCE_TO_TARGET = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT = 2
-m.FINAL_BOSS_WAVE_NUMBER = 15
+-- TODO: revert to 15
+m.FINAL_BOSS_WAVE_NUMBER = 2--15
 m.MOVEMENT_LINEAR_VELOCITY_REG = 0--30
 m.MOVEMENT_LINEAR_VELOCITY_BOSS = 0--20
 m.BOOSTERS_IN_UNIT = 12
@@ -72,8 +73,8 @@ m.GROUND_UNIT_NAME = "GroundUnit"
 m.INVINCIBILITY_AURA_NAME = "InvincibilityAura"
 m.SHIELD_AURA_NAME = "ShieldAura"
 m.ARMOR_AURA_NAME = "ArmorAura"
-m.RING_OF_FIRE_NAME = "RingOfFire"
-m.RING_OF_FIRE_MAX_Y = 10
+m.POISON_BELT_NAME = "PoisonBelt"
+m.POISON_BELT_MAX_Y = 10
 m.DEFAULT_WEAPON_ID = Id.Weapon.BASIC
 m.DISTANCE_FROM_MID_TO_BOOSTER = 50
 m.DEFAULT_PLAYER_ID = -100
@@ -113,6 +114,7 @@ m.World = World
 -- WorldCid
 -----------------------------
 -- stylua: ignore
+-- NOTE: world is not written down into save file, so it's not persistent
 World.CId = En.with_id("World.CId") {
     RefId          = iota(1),  -- id (of self)
     Value          = iota'',   -- number

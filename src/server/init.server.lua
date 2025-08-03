@@ -198,19 +198,15 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
 
     GameModule.UnconstrainPlayer(player_state)
 
-    -- workerMaid.playerLoop = nil -- stop updating weapon ttl
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, 0)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, 0)
     -- reset player flags
-    -- local playerNonPerFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
     for _, player_flag_id in Id.PlayerF:ids() do
         if player_flag_id > Id.PlayerF._NON_PERSISTENT then
             player_state:set_flag(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, player_flag_id, false)
         end
     end
-
-    -- player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.flag_set(nonPersFlags, Id.PlayerF.READY, false))
 
     onPlayerSessionFinishedWorld(player_state, player_state.player_id)
 end

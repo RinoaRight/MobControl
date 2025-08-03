@@ -188,6 +188,7 @@ local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
             -- TODO: change mesh of the obstacle
             local obstacleGuid = assert(cause :: uid)
             Obstacles.OnCollisionWithObstacle(WORLD, obstacleGuid)
+            -- TODO: if cause is poison cloud, sound a 'hiss' SFX
         end
     end
 end
@@ -477,6 +478,8 @@ local function subscribeStartCollider()
                     fire_server(Id.C2S.PLAYER_READY_TO_START)
                     maid.StartBtn = nil
                 end)
+            else
+                -- TODO: show a message that the boss fight is on
             end
             maid.StartCollider = SESSION_STARTER_COLLIDER.TouchEnded:Connect(function(other)
                 if other == LOCAL_HUMANOID_ROOT_PART then
@@ -568,15 +571,16 @@ end
 
 local function getBulletDirection(rootPart: BasePart, humanoid: Humanoid): Vector3
     local moveDir = humanoid.MoveDirection
-    local z = rootPart.CFrame.LookVector.Z
+    -- local z = rootPart.CFrame.LookVector.Z
+    local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z)
     if not WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then
         -- if boss fight is not on, then shoot straight ahead
-        z = -1
+        -- z = -1
+        facing = Vector3.new(0, 0, -1)
     end
-    local flatMove = Vector3.new(moveDir.X, 0, z)
-    local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, z)
+    -- local flatMove = Vector3.new(moveDir.X, 0, z)
+    -- local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, z)
 
-    -- NOTE: this leads to sideways bullet direction behaviour
     -- if flatMove.Magnitude > 0.1 then
     --     local crossMag = flatMove.Unit:Cross(facing.Unit).Magnitude
     --     if crossMag < 0.5 then
@@ -602,7 +606,7 @@ local function defineBulletCframe(rootPart: BasePart, bulletInstance: BasePart, 
     return newCFrame
 end
 
-local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
+local function spawnBullet(player, rootPart: BasePart, weapon_id: id, rotation: CFrame?)
     local bullet
     local pos
     if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
@@ -642,6 +646,10 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     local bulletTTL = roflake.time() + range / speed
 
     bullet.CFrame = defineBulletCframe(rootPart, bullet, weapon_id, LOCAL_HUMANOID)
+    if rotation then
+        -- spraygun bullets
+        bullet.CFrame = bullet.CFrame * rotation
+    end
     pos = bullet.Position
 
     table.insert(activeBulletsDataTable, {
@@ -664,8 +672,6 @@ local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
     local pos
     local guids = {}
     for i = 1, 5 do
-        local bullet, bulletPos, indexInTable, guid = spawnBullet(player, playerRootPart, weapon_id)
-        table.insert(guids, guid)
         local yRot = 0
         if i == 2 then
             yRot = 2
@@ -676,16 +682,8 @@ local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
         elseif i == 5 then
             yRot = -4
         end
-        -- pos = bulletPos -- they are overwriting each other, but it doesnt' matter cuz they are the same
-        -- TODO: change rotation according to LookVector
-        -- local rot = CFrame.Angles(0, math.rad(yRot), 0)
-        -- local rot = (playerRootPart.CFrame * CFrame.Angles(0, math.rad(yRot), 0)).LookVector
-        -- activeBulletsDataTable[indexInTable].rotation = rot
-        -- local barrelLength = S.Weapon[weapon_id].barrelLength or 2
-        -- local displacement: Vector3 = barrelLength * playerRootPart.CFrame.LookVector
-        -- bullet.CFrame = (playerRootPart.CFrame + displacement) * CFrame.Angles(0, math.rad(yRot), 0)
-
-        bullet.CFrame = defineBulletCframe(playerRootPart, bullet, weapon_id, LOCAL_HUMANOID) * CFrame.Angles(0, math.rad(yRot), 0)
+        local bullet, _bulletPos, _indexInTable, guid = spawnBullet(player, playerRootPart, weapon_id, CFrame.Angles(0, math.rad(yRot), 0))
+        table.insert(guids, guid)
     end
     return pos, guids
 end
@@ -839,7 +837,6 @@ RunService.Heartbeat:Connect(function(dt)
             local alreadyInCol = (i - 1) % SharedConfig.CLONES_IN_A_ROW
             local row = math.floor((i - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
             local cloneCFrame = Misc.GetCloneCFrame(playerRootPart.CFrame, alreadyInCol, row)
-            -- local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
             local cloneTarget = CFrame.lookAlong(cloneCFrame.Position, playerRootPart.CFrame.LookVector, Vector3.yAxis)
             table.insert(clonesRootParts, cloneRootPart)
             table.insert(clonesTargets, cloneTarget)
@@ -1048,30 +1045,6 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 
--- local ACTIVE_RUN_ANIM_TRACK
--- local infrequentLoop = supervisor.create(1, "client-infrequent")
--- infrequentLoop:start(function(dt)
---     -- player character animation check
---     local isRunAnimActive
---     local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
---     if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
---         for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
---             if v.Name == SharedConfig.RUN_ANIMATION_NAME then
---                 isRunAnimActive = true
---                 break
---             end
---         end
---         if not isRunAnimActive then
---             if not ACTIVE_RUN_ANIM_TRACK then
---                 -- animation track not loaded yet
---                 ACTIVE_RUN_ANIM_TRACK = startRunAnim(LOCAL_CHARACTER)
---             else
---                 playRunAnimTrack(ACTIVE_RUN_ANIM_TRACK)
---             end
---         end
---     end
--- end, 1, "test")
-
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     -- log:trace("~~~>", guid, newValue)
     if not Id.is(newValue) then
@@ -1084,11 +1057,14 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         WORLD:set(guid, W.ClientInstance, nil)
         local obstacleGuid = guid :: string
         Obstacles.onObstacleAdded(WORLD, obstacleGuid, LOCAL_HUMANOID_ROOT_PART)
-    elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
-        Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
-        if WORLD:get(guid, W.RefId) == Id.Enemy.OCTOBOSS then
+    elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) then
+        local flags = WORLD:get(guid, W.Bitset)
+        local isBoss = Id.flag_test(flags, Id.EnemyF.IS_BOSS)
+        EnemiesClient.OnEnemyAdded(WORLD, PLAYER_STATE, guid :: string, isBoss, DRIVING_BOX_BACK_PART)
+        if isBoss then
             local font = Enum.Font.Creepster
             Misc.ShowAnnouncement("BOSS INCOMING", ANNOUNCEMENT_GUI, font)
+            -- TODO: "poison gas" announcement + spawn model and animate it. destroy it on boss destroyed
         end
     elseif Id.kind(newValue) == Id.Kind.EnemyFlying and WORLD:get(guid, W.PlayerId) then
         EnemiesFlying.OnFlyerAdded(WORLD, PLAYER_STATE, guid :: string, LOCAL_HUMANOID_ROOT_PART)
@@ -1128,16 +1104,12 @@ end)
 
 WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
     if Id.kind(oldValue) == Id.Kind.Clone then
-        -- remove clone instance
-        -- local cloneInstance = workspace:FindFirstChild(guid, true)
-        -- if cloneInstance then
-        --     local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-        --     if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
-        --         Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], cloneInstance.Position, 0)
-        --     end
-        --     cloneInstance:Destroy()
-        -- end
-        SFX.PLAY_SOUND(Id.Sound.SCREAM_HIGH)
+        -- if the player is in the game session, play a scream sound
+        local nonPersF = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+        local isReady = Id.flag_test(nonPersF, Id.PlayerF.READY)
+        if isReady then
+            SFX.PLAY_SOUND(Id.Sound.SCREAM_HIGH)
+        end
     elseif Id.kind(oldValue) == Id.Kind.Obstacle then
         local instanceGuid = guid :: string
         Obstacles.CleanupClientObstacle(WORLD, instanceGuid)
@@ -1176,7 +1148,7 @@ WORLD:set_on_modify(W.HP, function(guid: guid, newValue: num, oldValue: num)
     local refId = WORLD:get(guid, W.RefId)
     if Id.kind(refId) == Id.Kind.Enemy then
         if newValue < oldValue and newValue > 0 then
-            EnemiesClient.OnEnemyHpChanged(WORLD, guid :: string, refId, newValue, oldValue)
+            EnemiesClient.OnEnemyHpDecreased(WORLD, guid :: string, refId, newValue, oldValue)
         end
     end
 end)
