@@ -206,6 +206,74 @@ function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRoot
     -- end)
 end
 
+function animatePoisonBelt(worldState, poisonBelt: BasePart)
+    local beltOrigin = poisonBelt.Position
+    local normalizedOrigin = Vector3.new(beltOrigin.X, 0, beltOrigin.Z)
+    local partFront = assert(poisonBelt:FindFirstChild("PartFront")) :: BasePart
+    local partBack = assert(poisonBelt:FindFirstChild("PartBack")) :: BasePart
+    local partLeft = assert(poisonBelt:FindFirstChild("PartLeft")) :: BasePart
+    local partRight = assert(poisonBelt:FindFirstChild("PartRight")) :: BasePart
+    -- TODO: subscribe parts to Touch, and if touched, play a looped hissing sound, stop sound on TouchEnded
+    local offset = 230
+    local y = 9
+    partFront.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z - offset)
+    partBack.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z + offset)
+    partLeft.Position = Vector3.new(normalizedOrigin.X - offset, y, normalizedOrigin.Z)
+    partRight.Position = Vector3.new(normalizedOrigin.X + offset, y, normalizedOrigin.Z)
+    local partHalfWidth = partFront.Size.Z / 2
+    local originalSizeFront = partFront.Size
+    local targetSize1 = 250
+    local time1 = 90
+    local size1 = Vector3.new(targetSize1, poisonBelt.Size.Y, targetSize1)
+    local tweenInfoShrink1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenShrink1 = TweenService:Create(poisonBelt, tweenInfoShrink1, { Size = size1 })
+    local targetSize2 = 30
+    local size2 = Vector3.new(targetSize2, poisonBelt.Size.Y, targetSize2)
+    local time2 = 60
+    local tweenInfoShrink2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenShrink2 = TweenService:Create(poisonBelt, tweenInfoShrink2, { Size = size2 })
+    local destinationFront1 = normalizedOrigin + Vector3.new(0, 0, -targetSize1 / 2 + partHalfWidth)
+    local destinationBack1 = normalizedOrigin + Vector3.new(0, 0, targetSize1 / 2 - partHalfWidth)
+    local destinationLeft1 = normalizedOrigin + Vector3.new(-targetSize1 / 2 + partHalfWidth, 0, 0)
+    local destinationRight1 = normalizedOrigin + Vector3.new(targetSize1 / 2 - partHalfWidth, 0, 0)
+    local destinationFront2 = normalizedOrigin + Vector3.new(0, 0, -targetSize2 / 2 + partHalfWidth)
+    local destinationBack2 = normalizedOrigin + Vector3.new(0, 0, targetSize2 / 2 - partHalfWidth)
+    local destinationLeft2 = normalizedOrigin + Vector3.new(-targetSize2 / 2 + partHalfWidth, 0, 0)
+    local destinationRight2 = normalizedOrigin + Vector3.new(targetSize2 / 2 - partHalfWidth, 0, 0)
+    local sizePart1 = Vector3.new(targetSize1, originalSizeFront.Y, originalSizeFront.Z)
+    local sizePart2 = Vector3.new(targetSize2, originalSizeFront.Y, originalSizeFront.Z)
+    local tweenInfoMoveFront1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveFront1 = TweenService:Create(partFront, tweenInfoMoveFront1, { Position = destinationFront1, Size = sizePart1 })
+    local tweenInfoMoveBack1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveBack1 = TweenService:Create(partBack, tweenInfoMoveBack1, { Position = destinationBack1, Size = sizePart1 })
+    local tweenInfoMoveLeft1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveLeft1 = TweenService:Create(partLeft, tweenInfoMoveLeft1, { Position = destinationLeft1, Size = sizePart1 })
+    local tweenInfoMoveRight1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveRight1 = TweenService:Create(partRight, tweenInfoMoveRight1, { Position = destinationRight1, Size = sizePart1 })
+    local tweenInfoMoveFront2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveFront2 = TweenService:Create(partFront, tweenInfoMoveFront2, { Position = destinationFront2, Size = sizePart2 })
+    local tweenInfoMoveBack2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveBack2 = TweenService:Create(partBack, tweenInfoMoveBack2, { Position = destinationBack2, Size = sizePart2 })
+    local tweenInfoMoveLeft2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveLeft2 = TweenService:Create(partLeft, tweenInfoMoveLeft2, { Position = destinationLeft2, Size = sizePart2 })
+    local tweenInfoMoveRight2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveRight2 = TweenService:Create(partRight, tweenInfoMoveRight2, { Position = destinationRight2, Size = sizePart2 })
+    TaskPool.spawn(function()
+        tweenShrink1:Play()
+        tweenMoveFront1:Play()
+        tweenMoveBack1:Play()
+        tweenMoveLeft1:Play()
+        tweenMoveRight1:Play()
+        tweenShrink1.Completed:Connect(function()
+            tweenShrink2:Play()
+            tweenMoveFront2:Play()
+            tweenMoveBack2:Play()
+            tweenMoveLeft2:Play()
+            tweenMoveRight2:Play()
+        end)
+    end)
+end
+
 local m = {}
 
 m.OnEnemyAdded = function(worldState: state.Replica, playerState: state.Replica, enemyGuid: string, isBoss: bool, drivingBoxBackPart: BasePart)
@@ -237,8 +305,11 @@ m.OnEnemyAdded = function(worldState: state.Replica, playerState: state.Replica,
         local beltHeight = poisonBelt.Size.Y
         local currentGroundUnit = workspace.GroundUnits:FindFirstChild("3")
         local driverPos = drivingBoxBackPart.Position
-        poisonBelt.Position = Vector3.new(driverPos.X, - beltHeight / 2 + 0.1, driverPos.Z - 50)
+        poisonBelt.Position = Vector3.new(driverPos.X, -beltHeight / 2 + 0.1, driverPos.Z - 50)
         poisonBelt.Parent = currentGroundUnit
+        poisonBelt.Name = SharedConfig.POISON_BELT_NAME
+
+        animatePoisonBelt(worldState, poisonBelt)
     end
 end
 
@@ -247,6 +318,10 @@ m.OnBossDestroyed = function(worldState, enemyGuid: string)
     local playerAlignConst = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
     if playerAlignConst then
         playerAlignConst.Attachment1 = nil
+    end
+    local poisonBelt = workspace.GroundUnits:FindFirstChild(SharedConfig.POISON_BELT_NAME, true)
+    if poisonBelt then
+        poisonBelt:Destroy()
     end
 end
 

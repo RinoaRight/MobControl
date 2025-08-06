@@ -1064,7 +1064,7 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         if isBoss then
             local font = Enum.Font.Creepster
             Misc.ShowAnnouncement("BOSS INCOMING", ANNOUNCEMENT_GUI, font)
-            -- TODO: "poison gas" announcement + spawn model and animate it. destroy it on boss destroyed
+            -- TODO: "poison gas released" announcement 
         end
     elseif Id.kind(newValue) == Id.Kind.EnemyFlying and WORLD:get(guid, W.PlayerId) then
         EnemiesFlying.OnFlyerAdded(WORLD, PLAYER_STATE, guid :: string, LOCAL_HUMANOID_ROOT_PART)
@@ -1119,6 +1119,7 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
             clientInstance:Destroy()
         end
         if oldValue == Id.Enemy.OCTOBOSS then
+            -- TODO: others bosses (we cannot check IS_BOSS flag, 'cuz the entity is already deleted)
             EnemiesClient.OnBossDestroyed(WORLD, guid :: string)
         end
     elseif Id.kind(oldValue) == Id.Kind.EnemyFlying then
