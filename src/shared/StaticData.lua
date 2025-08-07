@@ -401,6 +401,7 @@ m.Sound = {
     [Id.Sound.ERROR] = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
     [Id.Sound.EXPLOSION_SHORT] = assert(SOUNDS_ROOT:WaitForChild("ExplosionShort")),
     [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
+    [Id.Sound.HISS] = assert(SOUNDS_ROOT:WaitForChild("Hiss")),
     [Id.Sound.HURT] = assert(SOUNDS_ROOT:WaitForChild("Hurt")),
     [Id.Sound.IMPACT] = assert(SOUNDS_ROOT:WaitForChild("Impact")),
     [Id.Sound.METAL_BUCKET] = assert(SOUNDS_ROOT:WaitForChild("MetalBucket")),

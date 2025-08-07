@@ -61,9 +61,12 @@ local ContentProvider = game:GetService("ContentProvider")
 local UserInputService = game:GetService("UserInputService")
 
 local m = {}
-m.PLAY_SOUND = function(sound_id: id)
+m.PLAY_SOUND = function(sound_id: id, isLooped: bool?)
     local audio = S.Sound[sound_id]
     if audio then
+        if isLooped then
+            audio.Looped = true
+        end
         audio:Play()
     end
 end

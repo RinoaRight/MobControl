@@ -95,7 +95,7 @@ local function playTween(worldState, enemyGuid: string, tween: Tween)
     end
 end
 
-function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRootPart: BasePart)
+local function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRootPart: BasePart)
     assert(part and part:IsA("BasePart"), "Invalid part")
     local height = 18
     local animationDur = assert(S.Enemy[Id.Enemy.OCTOBOSS].animationDur)
@@ -206,14 +206,56 @@ function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRoot
     -- end)
 end
 
-function animatePoisonBelt(worldState, poisonBelt: BasePart)
+-- local unsubscribePart
+local function subscribePart(part: BasePart, playerRootPart: BasePart)
+    local partName = part.Name
+    _maid[partName] = part.Touched:Connect(function(triggerer)
+        if triggerer ~= playerRootPart then
+            return
+        end
+        local sound = S.Sound[Id.Sound.HISS]
+        if sound.Playing then
+            return
+        end
+        SFX.PLAY_SOUND(sound, true)
+        TaskPool.spawn(function()
+            task.wait(1)
+            sound:Stop()
+        end)
+        -- unsubscribePart(part, playerRootPart)
+    end)
+end
+
+-- unsubscribePart = function(part: BasePart, playerRootPart: BasePart)
+--     local partName = part.Name
+--     _maid[partName] = part.TouchEnded:Connect(function(triggerer)
+--         if triggerer ~= playerRootPart then
+--             return
+--         end
+--         local sound = S.Sound[Id.Sound.HISS]
+--         sound:Stop()
+--         subscribePart(part, playerRootPart)
+--     end)
+-- end
+
+local function animatePoisonBelt(worldState, poisonBelt: BasePart, playerRootPart: BasePart)
     local beltOrigin = poisonBelt.Position
     local normalizedOrigin = Vector3.new(beltOrigin.X, 0, beltOrigin.Z)
     local partFront = assert(poisonBelt:FindFirstChild("PartFront")) :: BasePart
     local partBack = assert(poisonBelt:FindFirstChild("PartBack")) :: BasePart
     local partLeft = assert(poisonBelt:FindFirstChild("PartLeft")) :: BasePart
     local partRight = assert(poisonBelt:FindFirstChild("PartRight")) :: BasePart
-    -- TODO: subscribe parts to Touch, and if touched, play a looped hissing sound, stop sound on TouchEnded
+    -- -- subscribe parts to Touch to play a looped SFX, stop sound on TouchEnded and Destroying
+    -- -- NOTE: since the poison belt is moving, we can't check for Touch and TouchEnded
+    -- for _, part in { partFront, partBack, partLeft, partRight } do
+    --     subscribePart(part, playerRootPart)
+    --     part.Destroying:Connect(function()
+    --         local sound = S.Sound[Id.Sound.HISS]
+    --         sound:Stop()
+    --         local partName = part.Name
+    --         _maid[partName] = nil
+    --     end)
+    -- end
     local offset = 230
     local y = 9
     partFront.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z - offset)
@@ -276,7 +318,7 @@ end
 
 local m = {}
 
-m.OnEnemyAdded = function(worldState: state.Replica, playerState: state.Replica, enemyGuid: string, isBoss: bool, drivingBoxBackPart: BasePart)
+m.OnEnemyAdded = function(worldState: state.Replica, playerState: state.Replica, enemyGuid: string, isBoss: bool, drivingBoxBackPart: BasePart, playerRootPart: BasePart)
     local enemyRefId = worldState:get(enemyGuid, W.RefId)
     local enemyInstance
     if S.Enemy[enemyRefId].meshTemplate then
@@ -309,7 +351,7 @@ m.OnEnemyAdded = function(worldState: state.Replica, playerState: state.Replica,
         poisonBelt.Parent = currentGroundUnit
         poisonBelt.Name = SharedConfig.POISON_BELT_NAME
 
-        animatePoisonBelt(worldState, poisonBelt)
+        animatePoisonBelt(worldState, poisonBelt, playerRootPart)
     end
 end
 

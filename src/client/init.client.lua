@@ -757,9 +757,6 @@ end
 
 local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_size)
     local bulletCFrame = bullet.CFrame
-    -- local bulletPos = bullet.Position
-    -- local targetPos = Vector3.new(bulletPos.X, bulletPos.Y, bulletPos.Z - bullet_size.Z)
-    -- local targetCFrame = CFrame.new(targetPos)
     local target, _dist = Misc.IsBulletCollidableToHit(bulletCFrame, raycast_length, bullet_size)
     local targetThickness
     local targetRefId
@@ -794,6 +791,27 @@ RunService.Heartbeat:Connect(function(dt)
 
     local intendedPos = PlayerUtils.GetPredictedPositionWithVelocity(dt)
     us2cc:FireServer(Id.C2S.PLAYER_INTENDED_POS, intendedPos, roflake.time())
+
+    -- during boss fight, check for the player colliding with poison belt and sound an SFX
+    if WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then
+        local parts = workspace:GetPartBoundsInBox(LOCAL_HUMANOID_ROOT_PART.CFrame, LOCAL_HUMANOID_ROOT_PART.Size)
+        local isOverlapping = false
+        local sound = S.Sound[Id.Sound.HISS]
+        for _, part in ipairs(parts) do
+            if part.Parent.Name == SharedConfig.POISON_BELT_NAME then
+                -- sound is already playing, do nothing
+                if sound.Playing then
+                    return
+                end
+                SFX.PLAY_SOUND(Id.Sound.HISS, true)
+                isOverlapping = true
+                break
+            end
+        end
+        if not isOverlapping then
+            sound:Stop()
+        end
+    end
 
     -- move clones
     local clonesRootParts = {}
@@ -1060,7 +1078,7 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) then
         local flags = WORLD:get(guid, W.Bitset)
         local isBoss = Id.flag_test(flags, Id.EnemyF.IS_BOSS)
-        EnemiesClient.OnEnemyAdded(WORLD, PLAYER_STATE, guid :: string, isBoss, DRIVING_BOX_BACK_PART)
+        EnemiesClient.OnEnemyAdded(WORLD, PLAYER_STATE, guid :: string, isBoss, DRIVING_BOX_BACK_PART, LOCAL_HUMANOID_ROOT_PART)
         if isBoss then
             local font = Enum.Font.Creepster
             Misc.ShowAnnouncement("BOSS INCOMING", ANNOUNCEMENT_GUI, font)

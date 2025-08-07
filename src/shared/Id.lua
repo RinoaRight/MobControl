@@ -676,6 +676,7 @@ Id.Sound = enum.with_id "Id.Sound" {
     EXPLOSION_SHORT       = iota'',
     FIRE_PISTOL           = iota'',
     FIRE_PISTOL_LOCALIZED = iota'',
+    HISS                  = iota'',
     HURT                  = iota'',
     IMPACT                = iota'',
     IMPACT_LOCALIZED      = iota'',
