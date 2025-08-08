@@ -171,7 +171,7 @@ function m.ResetBoosterWaveCount()
     end
 end
 
-local _boss_fight_on = m.world:constructor(W.Value)
+local _boss_fight = m.world:constructor(W.Value)
 function m.SetBossFightOn(enemyGuid: guid)
     local refId = m.world:get(enemyGuid, W.RefId)
     if Id.kind(refId) ~= Id.Kind.Enemy then
@@ -183,7 +183,7 @@ function m.SetBossFightOn(enemyGuid: guid)
 
     local value = m.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
     if value == nil then
-        _boss_fight_on(Id.WorldSpecs.BOSS_FIGHT_ON, true)
+        _boss_fight(Id.WorldSpecs.BOSS_FIGHT_ON, true)
     else
         m.world:set(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value, true)
     end
@@ -191,7 +191,7 @@ end
 function m.SetBossFightOff()
     local value = m.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
     if value == nil then
-        _boss_fight_on(Id.WorldSpecs.BOSS_FIGHT_ON, false)
+        _boss_fight(Id.WorldSpecs.BOSS_FIGHT_ON, false)
     else
         m.world:set(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value, false)
     end

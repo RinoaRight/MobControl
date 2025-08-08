@@ -49,6 +49,7 @@ local Obstacles = require(server.Obstacles)
 local ClonesServer = require(server.ClonesServer)
 local Remote = require(shared.Remote)
 local Rand = require(shared.rand)
+local supervisor = require(shared.supervisor)
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -61,6 +62,7 @@ local m = {} :: {
     Init: (state: state.Main, (int) -> PSS.PlayerState?) -> (),
     CreatePlayerHpGui: (PSS.PlayerState) -> (),
     DestroyEnemy: (enemy_guid: str, player_id: num?) -> (),
+    StartDamageThrottleSupervisor: (get_state: (player_id: int) -> PSS.PlayerState?) -> (supervisor.supervisor),
     Cleanup: () -> (),
     HandleBoosterDeath: (PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id) -> (),
     StartMainLoopWorld: (world_state: state.Main, (int) -> PSS.PlayerState?) -> (num) -> (),
@@ -85,9 +87,6 @@ local BOOSTER_OFFSET_Z = -50
 local BOOSTER_GAP = 40
 local GAP_WIDTH = BOOSTER_GAP - BOOSTER_WIDTH
 local BOOSTER_CONTENTS_BILLBOARD_TEMPLATE = assert(ReplicatedStorage.BoosterContentsBillboard)
-
-local POISON_BELT_TEMPLATE = assert(ReplicatedStorage.VFX:WaitForChild(SharedConfig.POISON_BELT_NAME))
-local POISON_BELT_INSTANCE
 
 local FIELD_NAMES = En.with_id("*")({
     FIRST = 1,
@@ -152,6 +151,16 @@ end
 
 local function onBossArrival(get_state: (player_id: int) -> PSS.PlayerState?, enemyGuid: guid)
     WorldService.SetBossFightOn(enemyGuid)
+    -- spawn poison belt
+    local poisonBeltInstance = assert(ReplicatedStorage.VFX:WaitForChild("PoisonBeltServer")):Clone()
+    poisonBeltInstance.Parent = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
+    poisonBeltInstance.Anchored = true
+    poisonBeltInstance.Transparency = 1
+    local driverPos = DRIVING_BOX_BACK_PART.Position
+    poisonBeltInstance.Position = Misc.GetPoisonBeltStartingPosition(driverPos)
+    poisonBeltInstance.Name = SharedConfig.POISON_BELT_NAME_SERVER
+    Misc.AnimatePoisonBelt(poisonBeltInstance, poisonBeltInstance)
+
     for _, player in game.Players:GetPlayers() do
         local player_state = get_state(player.UserId)
         if not player_state then
@@ -160,30 +169,6 @@ local function onBossArrival(get_state: (player_id: int) -> PSS.PlayerState?, en
         player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
         player_state.humanoid.AutoRotate = false
     end
-    -- spawn poison belt
-    -- POISON_BELT_INSTANCE = POISON_BELT_TEMPLATE:Clone()
-    -- local unitPos = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit).Position
-    -- POISON_BELT_INSTANCE.Position = Vector3.new(unitPos.X, -SharedConfig.POISON_BELT_MAX_Y, unitPos.Z + 100)
-    -- POISON_BELT_INSTANCE.Parent = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit
-    -- POISON_BELT_INSTANCE.Size = Vector3.new(POISON_BELT_INSTANCE.Size.X, SharedConfig.POISON_BELT_MAX_Y * 2, POISON_BELT_INSTANCE.Size.Z)
-    -- local y = SharedConfig.POISON_BELT_MAX_Y
-    -- local tweenInfoUp = TweenInfo.new(5, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-    -- local tweenUp = TweenService:Create(POISON_BELT_INSTANCE, tweenInfoUp, { Position = Vector3.new(unitPos.X, y, unitPos.Z) })
-    -- local size1 = Vector3.new(250, POISON_BELT_INSTANCE.Size.Y, 250)
-    -- local tweenInfoShrink1 = TweenInfo.new(90, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-    -- local tweenShrink1 = TweenService:Create(POISON_BELT_INSTANCE, tweenInfoShrink1, { Size = size1 })
-    -- local size2 = Vector3.new(30, POISON_BELT_INSTANCE.Size.Y, 30)
-    -- local tweenInfoShrink2 = TweenInfo.new(60, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-    -- local tweenShrink2 = TweenService:Create(POISON_BELT_INSTANCE, tweenInfoShrink2, { Size = size2 })
-    -- TaskPool.spawn(function()
-    --     tweenUp:Play()
-    --     tweenUp.Completed:Connect(function()
-    --         tweenShrink1:Play()
-    --         tweenShrink1.Completed:Connect(function()
-    --             tweenShrink2:Play()
-    --         end)
-    --     end)
-    -- end)
 end
 
 local function setBooster(worldState: state.Main, instance: BasePart, get_state: (int) -> PSS.PlayerState?)
@@ -546,15 +531,11 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
-        -- local isPvPTime = isPvPTime(get_state)
         local studPerSec = SharedConfig.MOVEMENT_SPEED
         local studPerTick = SharedConfig.MOVEMENT_SPEED * dt
         if isBossFightOn then
             studPerSec = SharedConfig.MOVEMENT_SPEED_BOSS
             studPerTick = SharedConfig.MOVEMENT_SPEED_BOSS * dt
-            -- elseif isPvPTime then
-            --     studPerSec = 0
-            --     studPerTick = 0
         end
 
         for _, player in game.Players:GetPlayers() do
@@ -649,21 +630,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         -- driving box movement and ring of fire movement
         if not isBossFightOn then
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(driverOldPos.X, driverOldPos.Y, driverOldPos.Z - studPerTick))
-        else
-            -- TODO: damage player in the poison belt.
-            -- if POISON_BELT_INSTANCE then
-            --     if POISON_BELT_INSTANCE.Position.Y >= SharedConfig.POISON_BELT_MAX_Y then
-            --         -- animation of going up is over
-            --         local currentSizeOfThick = POISON_BELT_INSTANCE.Size :: Vector3
-            --         local speedPerTick
-            --         if currentSizeOfThick.Z > 250 then
-            --             speedPerTick = .01
-            --         else
-            --             speedPerTick = .02
-            --         end
-            --         POISON_BELT_INSTANCE.Size = Vector3.new(currentSizeOfThick.X - speedPerTick, currentSizeOfThick.Y, currentSizeOfThick.Z - speedPerTick)
-            --     end
-            -- end
         end
         driverOldPos = DRIVING_BOX_BACK_PART.Position
 
@@ -964,29 +930,66 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         -- handle ttl
-        for guid, ttl in worldState:select(W.TTL) do
+        for uid, ttl in worldState:select(W.TTL) do
             if roflake.time() > ttl then
-                if worldState:get(guid, W.WeaponId) and worldState:get(guid, W.PlayerId) then
+                if worldState:get(uid, W.WeaponId) and worldState:get(uid, W.PlayerId) then
                     -- delete bullet entity
-                    WorldService.RemoveEntity(guid)
+                    WorldService.RemoveEntity(uid)
                 end
             end
         end
 
         -- handle tte
-        for guid, tte in worldState:select(W.TTE) do
+        for uid, tte in worldState:select(W.TTE) do
             local newTTE = tte - dt
-            worldState:set(guid, W.TTE, newTTE)
+            worldState:set(uid, W.TTE, newTTE)
         end
     end
 end
 
 m.DestroyEnemy = function(guid, playerId: num?)
+    local isBoss = ftest(guid, Id.EnemyF.IS_BOSS)
     if WorldService.world:has(guid) then
         WorldService.RemoveEntity(guid)
     end
     assert(typeof(guid) == "string") -- sanity check
+    -- if is boss, delete poison belt
+    if isBoss then
+        local poisonBeltInstance = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit):FindFirstChild(SharedConfig.POISON_BELT_NAME_SERVER) :: BasePart
+        if poisonBeltInstance then
+            poisonBeltInstance:Destroy()
+        end
+    end
     workerMaid[guid] = nil
+end
+
+m.StartDamageThrottleSupervisor = function(get_state: (player_id: int) -> PSS.PlayerState?): supervisor.supervisor
+    local throttleSupervisor = supervisor.create()
+    throttleSupervisor:start(function()
+        -- if boss fight is on, check for poison belt overlap
+        if not WorldService.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then
+            return
+        end
+        for _, player in game.Players:GetPlayers() do
+            local player_state = get_state(player.UserId)
+            if not player_state then
+                continue
+            end
+            local playerRootPart = player_state.root
+            local parts = workspace:GetPartBoundsInBox(playerRootPart.CFrame, playerRootPart.Size)
+            local isOverlapping = false
+            for _, part in ipairs(parts) do
+                if part.Parent.Name == SharedConfig.POISON_BELT_NAME_SERVER then
+                    isOverlapping = true
+                    break
+                end
+            end
+            if isOverlapping then
+                player_state:DeductHp(SharedConfig.POISON_BELT_DAMAGE)
+            end
+        end
+    end, 0.5) -- 10 times per second
+    return throttleSupervisor
 end
 
 m.UnconstrainPlayer = function(player_state: PSS.PlayerState)

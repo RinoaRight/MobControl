@@ -144,10 +144,10 @@ local function update_ids(main: state.Main)
     end)
 
     -- weapon_id, intended_pos_time_stamp, weapon_tte, hp, pers_flags, non_pers_flags, intended_pos
-    local _game_session_params = main:constructor(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.BitsetNonPers, C.V3)
-    merge(Id.PlayerSpecs, function()
-        _game_session_params(
-            Id.PlayerSpecs.GAME_SESSION_PARAMS,
+    local player_specs = main:constructor(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.BitsetNonPers, C.V3)
+    merge(Id.PlayerSpecs, function(id)
+        player_specs(
+            id,
             Id.Weapon._NONE,
             0,
             0,

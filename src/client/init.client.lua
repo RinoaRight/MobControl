@@ -782,6 +782,8 @@ local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_si
     return target, isTargetKillable, targetThickness, targetRefId
 end
 
+-- DEBUG: remove
+local time_accu = table.create(50)
 -- MAIN LOOP
 RunService.Heartbeat:Connect(function(dt)
     local players = game:GetService("Players"):GetPlayers()
@@ -792,26 +794,29 @@ RunService.Heartbeat:Connect(function(dt)
     local intendedPos = PlayerUtils.GetPredictedPositionWithVelocity(dt)
     us2cc:FireServer(Id.C2S.PLAYER_INTENDED_POS, intendedPos, roflake.time())
 
-    -- during boss fight, check for the player colliding with poison belt and sound an SFX
-    if WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then
-        local parts = workspace:GetPartBoundsInBox(LOCAL_HUMANOID_ROOT_PART.CFrame, LOCAL_HUMANOID_ROOT_PART.Size)
-        local isOverlapping = false
-        local sound = S.Sound[Id.Sound.HISS]
-        for _, part in ipairs(parts) do
-            if part.Parent.Name == SharedConfig.POISON_BELT_NAME then
-                -- sound is already playing, do nothing
-                if sound.Playing then
-                    return
-                end
-                SFX.PLAY_SOUND(Id.Sound.HISS, true)
-                isOverlapping = true
-                break
-            end
-        end
-        if not isOverlapping then
-            sound:Stop()
-        end
-    end
+    -- TODO: wrap this into superviser (like on server)
+    -- during boss fight, check for the player colliding with poison belt to sound an SFX
+    -- if WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then
+    --     local parts = workspace:GetPartBoundsInBox(LOCAL_HUMANOID_ROOT_PART.CFrame, LOCAL_HUMANOID_ROOT_PART.Size)
+    --     local isOverlapping = false
+    --     local sound = S.Sound[Id.Sound.HISS]
+    --     for _, part in ipairs(parts) do
+    --         if part.Parent.Name == SharedConfig.POISON_BELT_NAME_CLIENT then
+    --             -- sound is already playing, do nothing
+    --             if sound.Playing then
+    --                 break
+    --             end
+    --             SFX.PLAY_SOUND(Id.Sound.HISS, true)
+    --             isOverlapping = true
+    --             break
+    --         end
+    --     end
+    --     if not isOverlapping then
+    --         sound:Stop()
+    --     end
+    -- else
+    --     S.Sound[Id.Sound.HISS]:Stop()
+    -- end
 
     -- move clones
     local clonesRootParts = {}

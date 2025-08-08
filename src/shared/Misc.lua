@@ -30,6 +30,7 @@ local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local W = SharedConfig.World.CId
 local C = SharedConfig.PlayerState.CId
+local TaskPool = require(shared.TaskPool)
 
 local m = {}
 m.__index = m
@@ -60,7 +61,7 @@ m.ShowAnnouncement = function(text, announcementGui, fontFace: Enum.Font?)
     textBox.Text = text
     announcementGui.Enabled = true
     Taskpool.defer(function()
-        local t = .5
+        local t = 0.5
         local tweenInfo = TweenInfo.new(t)
         local origSize = UDim2.fromScale(1, 1)
         local targetSize = UDim2.fromScale(1, 1.3)
@@ -219,6 +220,86 @@ m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bul
     return target, distance
 end
 
+m.GetPoisonBeltStartingPosition = function(driverPos: Vector3)
+    local beltHeight = SharedConfig.POISON_BELT_MAX_Y
+    local beltPos = Vector3.new(driverPos.X, -beltHeight / 2 + 0.1, driverPos.Z - 50)
+    return beltPos
+end
+
+m.AnimatePoisonBelt = function(poisonBeltInstance: BasePart, poisonBelt: BasePart)
+    local beltOrigin = poisonBelt.Position
+    local normalizedOrigin = Vector3.new(beltOrigin.X, 0, beltOrigin.Z)
+    local partFront = assert(poisonBelt:FindFirstChild("PartFront")) :: BasePart
+    local partBack = assert(poisonBelt:FindFirstChild("PartBack")) :: BasePart
+    local partLeft = assert(poisonBelt:FindFirstChild("PartLeft")) :: BasePart
+    local partRight = assert(poisonBelt:FindFirstChild("PartRight")) :: BasePart
+    for _, part in { partFront, partBack, partLeft, partRight } do
+        part.Transparency = 1
+    end
+    local offset = 230
+    local y = 9
+    partFront.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z - offset)
+    partBack.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z + offset)
+    partLeft.Position = Vector3.new(normalizedOrigin.X - offset, y, normalizedOrigin.Z)
+    partRight.Position = Vector3.new(normalizedOrigin.X + offset, y, normalizedOrigin.Z)
+    local beltWidth = SharedConfig.POISON_BELT_WIDTH
+    for _, part in { partFront, partBack, partLeft, partRight } do
+        part.Size = Vector3.new(part.Size.X, part.Size.Y, beltWidth)
+    end
+    local partHalfWidth = partFront.Size.Z / 2
+    local originalSizeFront = partFront.Size
+    local targetSize1 = SharedConfig.POISON_BELT_SIZE_1
+    local time1 = SharedConfig.POISON_BELT_TIME_1
+    local size1 = Vector3.new(targetSize1, poisonBelt.Size.Y, targetSize1)
+    local tweenInfoShrink1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenShrink1 = TweenService:Create(poisonBelt, tweenInfoShrink1, { Size = size1 })
+    local targetSize2 = SharedConfig.POISON_BELT_SIZE_2
+    local size2 = Vector3.new(targetSize2, poisonBelt.Size.Y, targetSize2)
+    local time2 = SharedConfig.POISON_BELT_TIME_2
+    local tweenInfoShrink2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenShrink2 = TweenService:Create(poisonBelt, tweenInfoShrink2, { Size = size2 })
+    local destinationFront1 = normalizedOrigin + Vector3.new(0, 0, -targetSize1 / 2 + partHalfWidth)
+    local destinationBack1 = normalizedOrigin + Vector3.new(0, 0, targetSize1 / 2 - partHalfWidth)
+    local destinationLeft1 = normalizedOrigin + Vector3.new(-targetSize1 / 2 + partHalfWidth, 0, 0)
+    local destinationRight1 = normalizedOrigin + Vector3.new(targetSize1 / 2 - partHalfWidth, 0, 0)
+    local destinationFront2 = normalizedOrigin + Vector3.new(0, 0, -targetSize2 / 2 + partHalfWidth)
+    local destinationBack2 = normalizedOrigin + Vector3.new(0, 0, targetSize2 / 2 - partHalfWidth)
+    local destinationLeft2 = normalizedOrigin + Vector3.new(-targetSize2 / 2 + partHalfWidth, 0, 0)
+    local destinationRight2 = normalizedOrigin + Vector3.new(targetSize2 / 2 - partHalfWidth, 0, 0)
+    local sizePart1 = Vector3.new(targetSize1, originalSizeFront.Y, originalSizeFront.Z)
+    local sizePart2 = Vector3.new(targetSize2, originalSizeFront.Y, originalSizeFront.Z)
+    local tweenInfoMoveFront1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveFront1 = TweenService:Create(partFront, tweenInfoMoveFront1, { Position = destinationFront1, Size = sizePart1 })
+    local tweenInfoMoveBack1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveBack1 = TweenService:Create(partBack, tweenInfoMoveBack1, { Position = destinationBack1, Size = sizePart1 })
+    local tweenInfoMoveLeft1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveLeft1 = TweenService:Create(partLeft, tweenInfoMoveLeft1, { Position = destinationLeft1, Size = sizePart1 })
+    local tweenInfoMoveRight1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveRight1 = TweenService:Create(partRight, tweenInfoMoveRight1, { Position = destinationRight1, Size = sizePart1 })
+    local tweenInfoMoveFront2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveFront2 = TweenService:Create(partFront, tweenInfoMoveFront2, { Position = destinationFront2, Size = sizePart2 })
+    local tweenInfoMoveBack2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveBack2 = TweenService:Create(partBack, tweenInfoMoveBack2, { Position = destinationBack2, Size = sizePart2 })
+    local tweenInfoMoveLeft2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveLeft2 = TweenService:Create(partLeft, tweenInfoMoveLeft2, { Position = destinationLeft2, Size = sizePart2 })
+    local tweenInfoMoveRight2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveRight2 = TweenService:Create(partRight, tweenInfoMoveRight2, { Position = destinationRight2, Size = sizePart2 })
+    TaskPool.spawn(function()
+        tweenShrink1:Play()
+        tweenMoveFront1:Play()
+        tweenMoveBack1:Play()
+        tweenMoveLeft1:Play()
+        tweenMoveRight1:Play()
+        tweenShrink1.Completed:Connect(function()
+            tweenShrink2:Play()
+            tweenMoveFront2:Play()
+            tweenMoveBack2:Play()
+            tweenMoveLeft2:Play()
+            tweenMoveRight2:Play()
+        end)
+    end)
+end
+
 local partsInRadiusParams = OverlapParams.new()
 partsInRadiusParams.FilterDescendantsInstances = blacklist
 m.GetBulletCollidablesInRadius = function(cFrame, size)
@@ -360,7 +441,7 @@ m.EquipWeaponModel = function(char, weapon_id: int)
     local newCF
     if weapon_id == Id.Weapon.BASIC or weapon_id == Id.Weapon.SPRAYGUN then
         newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), math.rad(180), 0)
-    -- elseif weapon_id == Id.Weapon.ROCKET then
+        -- elseif weapon_id == Id.Weapon.ROCKET then
         -- newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(0, math.rad(180), 0)
     else
         newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), 0, 0)

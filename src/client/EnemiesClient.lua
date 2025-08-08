@@ -206,38 +206,6 @@ local function animateJump(worldState, enemyGuid: string, part: BasePart, humano
     -- end)
 end
 
--- local unsubscribePart
-local function subscribePart(part: BasePart, playerRootPart: BasePart)
-    local partName = part.Name
-    _maid[partName] = part.Touched:Connect(function(triggerer)
-        if triggerer ~= playerRootPart then
-            return
-        end
-        local sound = S.Sound[Id.Sound.HISS]
-        if sound.Playing then
-            return
-        end
-        SFX.PLAY_SOUND(sound, true)
-        TaskPool.spawn(function()
-            task.wait(1)
-            sound:Stop()
-        end)
-        -- unsubscribePart(part, playerRootPart)
-    end)
-end
-
--- unsubscribePart = function(part: BasePart, playerRootPart: BasePart)
---     local partName = part.Name
---     _maid[partName] = part.TouchEnded:Connect(function(triggerer)
---         if triggerer ~= playerRootPart then
---             return
---         end
---         local sound = S.Sound[Id.Sound.HISS]
---         sound:Stop()
---         subscribePart(part, playerRootPart)
---     end)
--- end
-
 local function animatePoisonBelt(worldState, poisonBelt: BasePart, playerRootPart: BasePart)
     local beltOrigin = poisonBelt.Position
     local normalizedOrigin = Vector3.new(beltOrigin.X, 0, beltOrigin.Z)
@@ -245,33 +213,26 @@ local function animatePoisonBelt(worldState, poisonBelt: BasePart, playerRootPar
     local partBack = assert(poisonBelt:FindFirstChild("PartBack")) :: BasePart
     local partLeft = assert(poisonBelt:FindFirstChild("PartLeft")) :: BasePart
     local partRight = assert(poisonBelt:FindFirstChild("PartRight")) :: BasePart
-    -- -- subscribe parts to Touch to play a looped SFX, stop sound on TouchEnded and Destroying
-    -- -- NOTE: since the poison belt is moving, we can't check for Touch and TouchEnded
-    -- for _, part in { partFront, partBack, partLeft, partRight } do
-    --     subscribePart(part, playerRootPart)
-    --     part.Destroying:Connect(function()
-    --         local sound = S.Sound[Id.Sound.HISS]
-    --         sound:Stop()
-    --         local partName = part.Name
-    --         _maid[partName] = nil
-    --     end)
-    -- end
     local offset = 230
     local y = 9
     partFront.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z - offset)
     partBack.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z + offset)
     partLeft.Position = Vector3.new(normalizedOrigin.X - offset, y, normalizedOrigin.Z)
     partRight.Position = Vector3.new(normalizedOrigin.X + offset, y, normalizedOrigin.Z)
+    local beltWidth = SharedConfig.POISON_BELT_WIDTH
+    for _, part in { partFront, partBack, partLeft, partRight } do
+        part.Size = Vector3.new(part.Size.X, part.Size.Y, beltWidth)
+    end
     local partHalfWidth = partFront.Size.Z / 2
     local originalSizeFront = partFront.Size
-    local targetSize1 = 250
-    local time1 = 90
+    local targetSize1 = SharedConfig.POISON_BELT_SIZE_1
+    local time1 = SharedConfig.POISON_BELT_TIME_1
     local size1 = Vector3.new(targetSize1, poisonBelt.Size.Y, targetSize1)
     local tweenInfoShrink1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
     local tweenShrink1 = TweenService:Create(poisonBelt, tweenInfoShrink1, { Size = size1 })
-    local targetSize2 = 30
+    local targetSize2 = SharedConfig.POISON_BELT_SIZE_2
     local size2 = Vector3.new(targetSize2, poisonBelt.Size.Y, targetSize2)
-    local time2 = 60
+    local time2 = SharedConfig.POISON_BELT_TIME_2
     local tweenInfoShrink2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
     local tweenShrink2 = TweenService:Create(poisonBelt, tweenInfoShrink2, { Size = size2 })
     local destinationFront1 = normalizedOrigin + Vector3.new(0, 0, -targetSize1 / 2 + partHalfWidth)
@@ -344,12 +305,11 @@ m.OnEnemyAdded = function(worldState: state.Replica, playerState: state.Replica,
 
         -- spawn poison belt
         local poisonBelt = assert(ReplicatedStorage.VFX.PoisonBelt:Clone())
-        local beltHeight = poisonBelt.Size.Y
         local currentGroundUnit = workspace.GroundUnits:FindFirstChild("3")
         local driverPos = drivingBoxBackPart.Position
-        poisonBelt.Position = Vector3.new(driverPos.X, -beltHeight / 2 + 0.1, driverPos.Z - 50)
+        poisonBelt.Position = Misc.GetPoisonBeltStartingPosition(driverPos)
         poisonBelt.Parent = currentGroundUnit
-        poisonBelt.Name = SharedConfig.POISON_BELT_NAME
+        poisonBelt.Name = SharedConfig.POISON_BELT_NAME_CLIENT
 
         animatePoisonBelt(worldState, poisonBelt, playerRootPart)
     end
@@ -361,7 +321,7 @@ m.OnBossDestroyed = function(worldState, enemyGuid: string)
     if playerAlignConst then
         playerAlignConst.Attachment1 = nil
     end
-    local poisonBelt = workspace.GroundUnits:FindFirstChild(SharedConfig.POISON_BELT_NAME, true)
+    local poisonBelt = workspace.GroundUnits:FindFirstChild(SharedConfig.POISON_BELT_NAME_CLIENT, true)
     if poisonBelt then
         poisonBelt:Destroy()
     end

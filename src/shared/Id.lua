@@ -718,6 +718,7 @@ Id.PlayerSpecs = enum.with_id "Id.PlayerSpecs" {
     XP_PROGRESS          = iota'',
     SESSION_DAMAGE       = iota'',
     SESSION_ENEMY_KILLS  = iota'',
+    DAMAGE_THROTTLE      = iota'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerSpecs] = Id.PlayerSpecs
 export type PlayerStats = typeof(Id.PlayerSpecs)

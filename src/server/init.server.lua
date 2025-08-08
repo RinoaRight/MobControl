@@ -107,6 +107,7 @@ local _loop_update_states = ServerSupervisor:start(function(_dt)
         end
     end
 end)
+GameModule.StartDamageThrottleSupervisor(get_state)
 -----------------------------
 
 local function changeWeapon(player_state, weapon_id: id)
@@ -751,16 +752,10 @@ on[Id.C2S.PERK_SELECTED] = function(player_state, whichPerk, ...)
     end
 end
 
--- on[Id.C2S.PLAYER_INTENDED_POS] = function(player_state, intended_pos, ...)
---     GameModule.UpdatePlayerIntendedPos(player_state, intended_pos)
--- end
-
 on[Id.C2S.TOGGLE_PLAYER_FLAG] = function(player_state, isToSwitchOn, flag_id, ...)
     local flags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, Id.flag_set(flags, flag_id, isToSwitchOn))
 end
-
--- TODO: subscribe to the player's intended pos
 
 -------------------
 -- S2S
@@ -803,29 +798,12 @@ local function init_player(player_state: PlayerState)
         _session_enemy_kills(Id.PlayerSpecs.SESSION_ENEMY_KILLS, 0)
         local _session_damage_stats = player_state.state:constructor(C.ValueNonPers)
         _session_damage_stats(Id.PlayerSpecs.SESSION_DAMAGE, 0)
+        local _damage_throttle = player_state.state:constructor(C.TTE)
+        _damage_throttle(Id.PlayerSpecs.DAMAGE_THROTTLE, 0)
         local persFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_BULLETS_ON)
         persFlags = Id.flag_or(persFlags, Id.PlayerF.OTHER_CLONES_ON)
         player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset, persFlags)
-        -- TaskPool.defer(function() -- testing knockback
-        --     task.wait(1)
-        --     local currentPos = player_state.root.Position
-            -- local explosionPos = Vector3.new(currentPos.X, 0, currentPos.Z - 20)
-            -- GameModule.ApplyExplosionKnockback(player_state, explosionPos, 130, 50)
-
-            -- alternative method to do knockback
-            -- local n = 20 -- knockback distance in studs
-            -- local enemyPos = Vector3.new(currentPos.X, 0, currentPos.Z - 20)
-            -- local direction = (player_state.root.Position - enemyPos).Unit
-            -- local rootPos = player_state.root.Position
-            -- local targetPos = Vector3.new(rootPos.X, 20, rootPos.Z)
-            -- local offsetPosition = targetPos + direction * n
-            -- -- local offsetPosition = player_state.root.Position + direction * n -- Move further in that direction
-            -- local targetCFrame = CFrame.lookAt(offsetPosition, enemyPos)
-            -- local tweenInfo = TweenInfo.new(0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-            -- local tween = TweenService:Create(player_state.root, tweenInfo, { CFrame = targetCFrame })
-            -- tween:Play()
-        -- end)
         -- NOTE: not needed currently, this is for future purposes
         -- player_state:ResetCountable(Id.Countable.COIN)
     end
