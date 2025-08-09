@@ -185,10 +185,12 @@ local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
             causeRefId = cause
         end
         if Id.kind(causeRefId) == Id.Kind.Obstacle then
-            -- TODO: change mesh of the obstacle
             local obstacleGuid = assert(cause :: uid)
             Obstacles.OnCollisionWithObstacle(WORLD, obstacleGuid)
-            -- TODO: if cause is poison cloud, sound a 'hiss' SFX
+        elseif causeRefId == Id.WorldSpecs.BOSS_FIGHT_ON then
+            if not S.Sound[Id.Sound.HISS].Playing then
+                SFX.PLAY_SOUND(Id.Sound.HISS)
+            end
         end
     end
 end
@@ -437,6 +439,32 @@ local load = function(fire: FireServer, snapshot)
 end
 
 local fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
+
+-----------------------------
+-- Supervisor
+-----------------------------
+-- local throttleSupervisor = supervisor.create()
+-- throttleSupervisor:start(function()
+--     -- if boss fight is on, check for poison belt overlap
+--     if not WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then
+--         return
+--     end
+--     local parts = workspace:GetPartBoundsInBox(LOCAL_HUMANOID_ROOT_PART.CFrame, LOCAL_HUMANOID_ROOT_PART.Size)
+--     local isOverlapping = false
+--     for _, part in ipairs(parts) do
+--         if part.Parent.Name == SharedConfig.POISON_BELT_NAME_SERVER then
+--             isOverlapping = true
+--             break
+--         end
+--     end
+--     if isOverlapping then
+--         if not S.Sound[Id.Sound.HISS].Playing then
+--             SFX.PLAY_SOUND(Id.Sound.HISS, true)
+--         end
+--     else
+--         S.Sound[Id.Sound.HISS]:Stop()
+--     end
+-- end, 0.5)
 
 local DRIVING_BOX_INSTANCE = workspace:WaitForChild("DrivingBoxModel")
 repeat
@@ -794,30 +822,6 @@ RunService.Heartbeat:Connect(function(dt)
     local intendedPos = PlayerUtils.GetPredictedPositionWithVelocity(dt)
     us2cc:FireServer(Id.C2S.PLAYER_INTENDED_POS, intendedPos, roflake.time())
 
-    -- TODO: wrap this into superviser (like on server)
-    -- during boss fight, check for the player colliding with poison belt to sound an SFX
-    -- if WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then
-    --     local parts = workspace:GetPartBoundsInBox(LOCAL_HUMANOID_ROOT_PART.CFrame, LOCAL_HUMANOID_ROOT_PART.Size)
-    --     local isOverlapping = false
-    --     local sound = S.Sound[Id.Sound.HISS]
-    --     for _, part in ipairs(parts) do
-    --         if part.Parent.Name == SharedConfig.POISON_BELT_NAME_CLIENT then
-    --             -- sound is already playing, do nothing
-    --             if sound.Playing then
-    --                 break
-    --             end
-    --             SFX.PLAY_SOUND(Id.Sound.HISS, true)
-    --             isOverlapping = true
-    --             break
-    --         end
-    --     end
-    --     if not isOverlapping then
-    --         sound:Stop()
-    --     end
-    -- else
-    --     S.Sound[Id.Sound.HISS]:Stop()
-    -- end
-
     -- move clones
     local clonesRootParts = {}
     local clonesTargets = {}
@@ -1086,8 +1090,7 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         EnemiesClient.OnEnemyAdded(WORLD, PLAYER_STATE, guid :: string, isBoss, DRIVING_BOX_BACK_PART, LOCAL_HUMANOID_ROOT_PART)
         if isBoss then
             local font = Enum.Font.Creepster
-            Misc.ShowAnnouncement("BOSS INCOMING", ANNOUNCEMENT_GUI, font)
-            -- TODO: "poison gas released" announcement 
+            Misc.ShowAnnouncement("BOSS INCOMING! POISON GAS RELEASED", ANNOUNCEMENT_GUI, font)
         end
     elseif Id.kind(newValue) == Id.Kind.EnemyFlying and WORLD:get(guid, W.PlayerId) then
         EnemiesFlying.OnFlyerAdded(WORLD, PLAYER_STATE, guid :: string, LOCAL_HUMANOID_ROOT_PART)

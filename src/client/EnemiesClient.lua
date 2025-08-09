@@ -325,6 +325,7 @@ m.OnBossDestroyed = function(worldState, enemyGuid: string)
     if poisonBelt then
         poisonBelt:Destroy()
     end
+    S.Sound[Id.Sound.HISS]:Stop()
 end
 
 m.OnTTEReset = function(worldState: state.Replica, enemyGuid: string, refId: id, humanoidRootPart: BasePart)

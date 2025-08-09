@@ -985,7 +985,7 @@ m.StartDamageThrottleSupervisor = function(get_state: (player_id: int) -> PSS.Pl
                 end
             end
             if isOverlapping then
-                player_state:DeductHp(SharedConfig.POISON_BELT_DAMAGE)
+                player_state:DeductHp(SharedConfig.POISON_BELT_DAMAGE, Id.WorldSpecs.BOSS_FIGHT_ON)
             end
         end
     end, 0.5) -- 10 times per second

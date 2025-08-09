@@ -64,9 +64,7 @@ local m = {}
 m.PLAY_SOUND = function(sound_id: id, isLooped: bool?)
     local audio = S.Sound[sound_id]
     if audio then
-        if isLooped then
-            audio.Looped = true
-        end
+        audio.Looped = isLooped or false
         audio:Play()
     end
 end
