@@ -35,11 +35,9 @@ local GROUND_UNITS_FOLDER = assert(workspace.GroundUnits)
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local Misc = require(shared.Misc)
-local Sounds = require(script.Parent.SFX)
 local S = require(shared.StaticData)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Util = require(shared.util)
-local SFX = require(script.Parent.SFX)
 local TweenService = game:GetService("TweenService")
 local TaskPool = require(shared.TaskPool)
 local UserInputService = game:GetService("UserInputService")
@@ -102,10 +100,10 @@ m.OnStateUpdate = function(playerState: state.Replica)
             continue
         elseif value > valueView then
             if refId == Id.CountablePersistent.COIN then
-                Sounds.PLAY_SOUND(Id.Sound.COIN_DROP)
+                Misc.PlaySound(Id.Sound.COIN_DROP)
             end
         elseif value < valueView then
-            Sounds.PLAY_SOUND(Id.Sound.BELL)
+            Misc.PlaySound(Id.Sound.BELL)
         end
 
         -- flicker textbox's scale

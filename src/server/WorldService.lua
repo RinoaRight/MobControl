@@ -344,6 +344,24 @@ function m.ResetEnemyWaveCount()
     m.world:set(Id.WorldSpecs.ENEMY_WAVE_COUNT, W.Value, 0)
 end
 
+local _handicap = m.world:constructor(W.Value) -- current session handicap id
+function m.SetHandicap(newHandicapId: id)
+    local currentHandicapId = m.world:get(Id.WorldSpecs.HANDICAP, W.Value)
+    if currentHandicapId == nil then
+        _handicap(Id.WorldSpecs.HANDICAP, newHandicapId)
+    else
+        m.world:set(Id.WorldSpecs.HANDICAP, W.Value, newHandicapId)
+    end
+end
+function m.ResetHandicap()
+    local currentHandicapId = m.world:get(Id.WorldSpecs.HANDICAP, W.Value)
+    if currentHandicapId == nil then
+        _handicap(Id.WorldSpecs.HANDICAP, Id.Handicap._NONE)
+    else
+        m.world:set(Id.WorldSpecs.HANDICAP, W.Value, Id.Handicap._NONE)
+    end
+end
+
 -- function m.ResetTTL(guid: uid)
 --     m.world:set(guid, W.TTL, 0xffff_ffff)
 -- end

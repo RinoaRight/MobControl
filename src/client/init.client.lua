@@ -70,7 +70,6 @@ local UIPlayerUpgrades = require(script.UI_PlayerUpgrades)
 local NumFormat = require(shared.num_format)
 local Popup = require(script.UI_Popup)
 local TaskPool = require(shared.TaskPool)
-local SFX = require(script.SFX)
 local Settings = require(script.Settings)
 local EnemiesFlying = require(script.EnemiesFlyingClient)
 local PlayerUtils = require(script.PlayerUtils)
@@ -168,7 +167,7 @@ end
 
 local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
     Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, deducted_hp)
-    SFX.PLAY_SOUND(Id.Sound.SCREAM)
+    Misc.PlaySound(Id.Sound.SCREAM)
     if cause then
         local causeRefId
         if type(cause) == "string" then
@@ -189,7 +188,7 @@ local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
             Obstacles.OnCollisionWithObstacle(WORLD, obstacleGuid)
         elseif causeRefId == Id.WorldSpecs.BOSS_FIGHT_ON then
             if not S.Sound[Id.Sound.HISS].Playing then
-                SFX.PLAY_SOUND(Id.Sound.HISS)
+                Misc.PlaySound(Id.Sound.HISS)
             end
         end
     end
@@ -273,7 +272,7 @@ on[Id.S2C.SHIELD_DAMAGE] = function(state: state.Replica, damage: int)
 end
 
 on[Id.S2C.BOMB_HIT] = function(state: state.Replica, bomb_guid: id, pos: Vector3)
-    SFX.PLAY_SOUND(Id.Sound.EXPLOSION_SHORT)
+    Misc.PlaySound(Id.Sound.EXPLOSION_SHORT)
 end
 
 -- Server Broadcasts
@@ -810,8 +809,6 @@ local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_si
     return target, isTargetKillable, targetThickness, targetRefId
 end
 
--- DEBUG: remove
-local time_accu = table.create(50)
 -- MAIN LOOP
 RunService.Heartbeat:Connect(function(dt)
     local players = game:GetService("Players"):GetPlayers()
@@ -822,6 +819,7 @@ RunService.Heartbeat:Connect(function(dt)
     local intendedPos = PlayerUtils.GetPredictedPositionWithVelocity(dt)
     us2cc:FireServer(Id.C2S.PLAYER_INTENDED_POS, intendedPos, roflake.time())
 
+    -- TODO: is it ok to define arrays this way?
     -- move clones
     local clonesRootParts = {}
     local clonesTargets = {}
@@ -880,7 +878,7 @@ RunService.Heartbeat:Connect(function(dt)
             if not enemyInstance then
                 continue
             end
-            -- check if jumping animation is not in process
+            -- check if animation is not in progress already, if not, move the enemy
             if WORLD:get(guid, W.ClientFlags) then
                 continue
             end
@@ -962,6 +960,8 @@ RunService.Heartbeat:Connect(function(dt)
                 if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy or Id.kind(targetRefId) == Id.Kind.Obstacle then
                     if Id.kind(targetRefId) == Id.Kind.Obstacle then
                         Obstacles.OnCollisionWithObstacle(WORLD, target.Name)
+                    elseif Id.kind(targetRefId) == Id.Kind.Enemy then
+                        EnemiesClient.OnEnemyHit(WORLD, target.Name, targetRefId, 0, 0)
                     end
                     local targetGuids = { target.Name }
                     if weapon_id == Id.Weapon.ROCKET then
@@ -1134,7 +1134,7 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
         local nonPersF = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
         local isReady = Id.flag_test(nonPersF, Id.PlayerF.READY)
         if isReady then
-            SFX.PLAY_SOUND(Id.Sound.SCREAM_HIGH)
+            Misc.PlaySound(Id.Sound.SCREAM_HIGH)
         end
     elseif Id.kind(oldValue) == Id.Kind.Obstacle then
         local instanceGuid = guid :: string

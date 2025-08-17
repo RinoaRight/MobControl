@@ -39,7 +39,6 @@ local S = require(shared.StaticData)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local TaskPool = require(shared.TaskPool)
-local SFX = require(script.Parent.SFX)
 local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local ENEMIES_FOLDER = assert(workspace:WaitForChild("Enemies"))
@@ -76,8 +75,7 @@ local function flickerEnemy(guid: string, part: BasePart)
     end)
 end
 
-local function spawnEnemy(worldState: state.Replica, enemyGuid: string, enemyRefId: id, enemyInstance: BasePart)
-    local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
+local function spawnEnemy(worldState: state.Replica, enemyGuid: string, enemyRefId: id, enemyInstance: BasePart, enemyPos: Vector3)
     enemyInstance.CanCollide = false
     enemyInstance.Anchored = true
     enemyInstance.CollisionGroup = "BulletCollidable"
@@ -85,7 +83,6 @@ local function spawnEnemy(worldState: state.Replica, enemyGuid: string, enemyRef
     enemyInstance.Parent = ENEMIES_FOLDER
     enemyInstance.CFrame = CFrame.new(enemyPos)
     enemyInstance.Name = enemyGuid
-
     worldState:set(enemyGuid, W.ClientInstance, enemyInstance)
 end
 
@@ -95,7 +92,7 @@ local function playTween(worldState, enemyGuid: string, tween: Tween)
     end
 end
 
-local function animateJump(worldState, enemyGuid: string, part: BasePart, humanoidRootPart: BasePart)
+local function animateOctobossJump(worldState, enemyGuid: string, part: BasePart, humanoidRootPart: BasePart)
     assert(part and part:IsA("BasePart"), "Invalid part")
     local height = 18
     local animationDur = assert(S.Enemy[Id.Enemy.OCTOBOSS].animationDur)
@@ -206,6 +203,30 @@ local function animateJump(worldState, enemyGuid: string, part: BasePart, humano
     -- end)
 end
 
+-- local function animateNonFlyerMeshChange(
+--     worldState: state.Replica,
+--     enemyGuid: string,
+--     enemyRefId: id,
+--     oldMeshInstance: BasePart,
+--     newMeshInstance: BasePart
+-- )
+--     -- TODO: animation of the mesh change
+--     TaskPool.spawn(function()
+--         worldState:set(enemyGuid, W.ClientFlags, true)
+--         local t = 0.3
+--         local newCFrame = newMeshInstance.CFrame * CFrame.Angles(math.rad(-10), 0, 0)
+--         local tween = TweenService:Create(oldMeshInstance, TweenInfo.new(t, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+--             CFrame = newCFrame,
+--         })
+--         tween:Play()
+--         tween.Completed:Connect(function()
+--             local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
+--             spawnEnemy(worldState, enemyGuid, enemyRefId, newMeshInstance, enemyPos)
+--             worldState:set(enemyGuid, W.ClientFlags, false)
+--         end)
+--     end)
+-- end
+
 local function animatePoisonBelt(worldState, poisonBelt: BasePart, playerRootPart: BasePart)
     local beltOrigin = poisonBelt.Position
     local normalizedOrigin = Vector3.new(beltOrigin.X, 0, beltOrigin.Z)
@@ -279,7 +300,14 @@ end
 
 local m = {}
 
-m.OnEnemyAdded = function(worldState: state.Replica, playerState: state.Replica, enemyGuid: string, isBoss: bool, drivingBoxBackPart: BasePart, playerRootPart: BasePart)
+m.OnEnemyAdded = function(
+    worldState: state.Replica,
+    playerState: state.Replica,
+    enemyGuid: string,
+    isBoss: bool,
+    drivingBoxBackPart: BasePart,
+    playerRootPart: BasePart
+)
     local enemyRefId = worldState:get(enemyGuid, W.RefId)
     local enemyInstance
     if S.Enemy[enemyRefId].meshTemplate then
@@ -289,7 +317,8 @@ m.OnEnemyAdded = function(worldState: state.Replica, playerState: state.Replica,
         enemyInstance.Size = Vector3.new(2, 6, 2)
     end
 
-    spawnEnemy(worldState, enemyGuid, enemyRefId, enemyInstance)
+    local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
+    spawnEnemy(worldState, enemyGuid, enemyRefId, enemyInstance, enemyPos)
 
     if isBoss then
         -- if the enemy is a boss, attach the player's align constraint to the boss
@@ -332,7 +361,39 @@ m.OnTTEReset = function(worldState: state.Replica, enemyGuid: string, refId: id,
     if refId == Id.Enemy.OCTOBOSS then
         local enemyInstance = worldState:get(enemyGuid, W.ClientInstance)
         if enemyInstance then
-            animateJump(worldState, enemyGuid, enemyInstance, humanoidRootPart)
+            animateOctobossJump(worldState, enemyGuid, enemyInstance, humanoidRootPart)
+        end
+    end
+end
+
+m.OnEnemyHit = function(worldState: state.Replica, enemyGuid: string, enemyRefId: id, newHp: num, oldHp: num)
+    local totalHp = S.Enemy[enemyRefId].health
+    local hpNoArmor
+    if S.Enemy[enemyRefId].armor then
+        hpNoArmor = totalHp - assert(S.Enemy[enemyRefId].armor)
+    end
+
+    -- if the enemy is not supposed to have armor, do nothing
+    if not hpNoArmor then
+        return
+    end
+
+    -- if the armor has been depleted already, do nothing
+    if oldHp < hpNoArmor then
+        return
+    end
+
+    local soundId
+    if enemyRefId == Id.Enemy.CONEHEAD then
+        soundId = Id.Sound.POP_LOW
+    elseif enemyRefId == Id.Enemy.ZOMBUCKET then
+        soundId = Id.Sound.METAL_BUCKET
+    end
+
+    -- if the enemy has been hit and the armor has not yet been depleted, play the sound
+    if newHp > hpNoArmor then
+        if soundId then
+            Misc.PlaySound(soundId)
         end
     end
 end
@@ -359,7 +420,6 @@ function m.OnEnemyHpDecreased(worldState: state.Replica, enemyGuid: string, enem
         return
     end
 
-    local enemyInstance = worldState:get(enemyGuid, W.ClientInstance) :: MeshPart
     local newMeshInstance
     if S.Enemy[enemyRefId].meshTemplateNoArmor then
         newMeshInstance = S.Enemy[enemyRefId].meshTemplateNoArmor:Clone()
@@ -369,21 +429,17 @@ function m.OnEnemyHpDecreased(worldState: state.Replica, enemyGuid: string, enem
         return
     end
 
-    -- replace the mesh
-    local sound
-    if enemyRefId == Id.Enemy.CONEHEAD then
-        sound = S.Sound[Id.Sound.POP_LOW]
-    elseif enemyRefId == Id.Enemy.ZOMBUCKET then
-        sound = S.Sound[Id.Sound.METAL_BUCKET]
-    end
-    if sound then
-        SFX.PLAY_SOUND(sound)
-    end
+    local enemyInstance = worldState:get(enemyGuid, W.ClientInstance) :: MeshPart
+    disposer.dispose(enemyInstance)
+    local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
+    spawnEnemy(worldState, enemyGuid, enemyRefId, newMeshInstance, enemyPos)
 
-    spawnEnemy(worldState, enemyGuid, enemyRefId, enemyInstance)
-    -- TODO: function is called, but spawns nothing (spawning may be meaningless, cuz the armorless doesn't live long enough).
-    -- TODO: perhaps change just to sound only and play with speed
-    -- TODO: Also sound is not played
+    -- if soundId then
+    --     Misc.SoundLocalizedAudio(S.Sound[soundId], enemyInstance.Position, 0)
+    -- end
+
+    -- replace the mesh
+    -- animateNonFlyerMeshChange(worldState, enemyGuid, enemyRefId, enemyInstance, newMeshInstance)
 end
 
 return m

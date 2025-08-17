@@ -406,6 +406,19 @@ m.AttachHitboxToPlayer = function(player_state)
     hitbox.Size = Vector3.new(width, 6, 4)
 end
 
+m.PlaySound = function(sound_id: int, isLooped: bool?, volume: num?)
+    local oldVolume = S.Sound[sound_id].Volume
+    local audio = S.Sound[sound_id]
+    if audio then
+        audio.Looped = isLooped or false
+        audio.Volume = volume or oldVolume
+        audio:Play()
+        audio.Ended:Connect(function()
+            audio.Volume = oldVolume
+        end)
+    end
+end
+
 m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num)
     Taskpool.defer(function()
         local audioEmitter = audioEmitterTemplate:Clone()

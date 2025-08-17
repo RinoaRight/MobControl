@@ -219,6 +219,7 @@ local function doCleanup(exception_player_id: num?)
     -- WorldService.ResetBoosterWaveCount()
     WorldService.ResetEnemyWaveCount()
     WorldService.ResetObstacleWaveCount()
+    WorldService.ResetHandicap()
 
     -- kill remaining enemies and obstacles
     for guid, refId, _pos in WorldService.world:select(W.RefId, W.Position) do
@@ -251,7 +252,13 @@ end
 
 local function startGameSession()
     TaskPool.spawn(function()
+        WorldService.SetGameSessionOn()
         Leaderboards.ResetLeaderboards()
+
+        local handicapIds = Id.Handicap:ids()
+        local handicapId = Random.new():NextInteger(handicapIds[1], handicapIds[#handicapIds])
+        WorldService.SetHandicap(handicapId)
+        -- TODO: implement handicaps
 
         GameModule.Init(WorldService.world, get_state)
 
@@ -701,7 +708,6 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
     -- initialize main game loop if it is not initialized yet
     local isGameSessionInProgress = WorldService.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
     if not isGameSessionInProgress then
-        WorldService.SetGameSessionOn()
         startGameSession()
     end
 

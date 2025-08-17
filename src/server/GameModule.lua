@@ -62,7 +62,7 @@ local m = {} :: {
     Init: (state: state.Main, (int) -> PSS.PlayerState?) -> (),
     CreatePlayerHpGui: (PSS.PlayerState) -> (),
     DestroyEnemy: (enemy_guid: str, player_id: num?) -> (),
-    StartDamageThrottleSupervisor: (get_state: (player_id: int) -> PSS.PlayerState?) -> (supervisor.supervisor),
+    StartDamageThrottleSupervisor: (get_state: (player_id: int) -> PSS.PlayerState?) -> supervisor.supervisor,
     Cleanup: () -> (),
     HandleBoosterDeath: (PSS.PlayerState, booster_guid: str, boost_ref_id: id, value: num, boost_content_id: id) -> (),
     StartMainLoopWorld: (world_state: state.Main, (int) -> PSS.PlayerState?) -> (num) -> (),
@@ -627,7 +627,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             end
         end
 
-        -- driving box movement and ring of fire movement
+        -- driving box movement
         if not isBossFightOn then
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(driverOldPos.X, driverOldPos.Y, driverOldPos.Z - studPerTick))
         end
@@ -984,6 +984,16 @@ m.StartDamageThrottleSupervisor = function(get_state: (player_id: int) -> PSS.Pl
                     break
                 end
             end
+            local poisonBelt = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit):FindFirstChild(SharedConfig.POISON_BELT_NAME_SERVER) :: BasePart
+            local poisonBeltPos = poisonBelt.Position
+            local playerPos = playerRootPart.Position
+            local tolerance = 5
+            if
+                math.abs(playerPos.Z - poisonBeltPos.Z) > SharedConfig.POISON_BELT_SIZE_1 / 2 + tolerance
+                or math.abs(playerPos.X - poisonBeltPos.X) > SharedConfig.POISON_BELT_SIZE_1 / 2 + tolerance
+            then
+                isOverlapping = true
+            end
             if isOverlapping then
                 player_state:DeductHp(SharedConfig.POISON_BELT_DAMAGE, Id.WorldSpecs.BOSS_FIGHT_ON)
             end
@@ -1146,8 +1156,6 @@ function m.ApplyExplosionKnockback(player_state: PSS.PlayerState, explosionPos: 
     local playerPos = playerRoot.Position
     local toPlayer = playerPos - explosionPos
     local distance = toPlayer.Magnitude
-
-    -- TODO: FIXIT. nothing happens
 
     -- Calculate knockback direction (only X and Z, no vertical launch)
     local direction = Vector3.new(toPlayer.X, 0, toPlayer.Z).Unit

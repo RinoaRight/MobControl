@@ -22,7 +22,6 @@ local Signal = require(shared.signal)
 local Id = require(shared.Id)
 type flag = Id.flag
 local S = require(shared.StaticData)
-local SFX = require(script.Parent.SFX)
 local SharedConfig = require(shared.SharedConfig)
 local C = SharedConfig.PlayerState.CId
 local SharedUtils = require(shared.util)
@@ -60,7 +59,7 @@ local closeShopGui -- forward declaration
 
 local function openShopGui(playerState, worldState, gui, localRoot)
     _shopMaid.xTab = X_BTN.Activated:Connect(function()
-        SFX.PLAY_SOUND(Id.Sound.CLICK)
+        Misc.PlaySound(Id.Sound.CLICK)
         closeShopGui(playerState, worldState, gui, localRoot)
     end)
 end
@@ -88,7 +87,7 @@ closeShopGui = function(playerState, worldState, gui, localRoot)
 end
 
 local function onPurchaseBtnPressed(playerState, upgradeId)
-    SFX.PLAY_SOUND(Id.Sound.CLICK)
+    Misc.PlaySound(Id.Sound.CLICK)
     local itemPrice = assert(S.PlayerUpgradePersistent[upgradeId].price)
     local currencyId = assert(S.PlayerUpgradePersistent[upgradeId].currency)
 
@@ -96,7 +95,7 @@ local function onPurchaseBtnPressed(playerState, upgradeId)
     local flags = playerState:get(upgradeId, C.Bitset)
     local isBoughtAlready = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
     if isBoughtAlready then
-        SFX.PLAY_SOUND(Id.Sound.ERROR)
+        Misc.PlaySound(Id.Sound.ERROR)
         local msg = "You already bought this upgrade!\n\n"
         Signal.Fire(Id.C2C.SHOW_POPUP_CLIENT, {
             text = msg,
@@ -116,7 +115,7 @@ local function onPurchaseBtnPressed(playerState, upgradeId)
             upgradesData[nextTierId].slot.Visible = true
         end
     else
-        SFX.PLAY_SOUND(Id.Sound.ERROR)
+        Misc.PlaySound(Id.Sound.ERROR)
         local currencyName = assert(S.Countable[currencyId].name)
         local msg = string.format("Not enough %ss :(\n\n\n", string.lower(currencyName))
         Signal.Fire(Id.C2C.SHOW_POPUP_CLIENT, {
@@ -149,7 +148,7 @@ local function destroyAuraFast(playerState: state.Replica, localCharacter: Model
     if aura and not isAuraBeingDestroyedAlready then
         _maid.flickerShield = nil
 
-        SFX.PLAY_SOUND(Id.Sound.POP)
+        Misc.PlaySound(Id.Sound.POP)
         playerState:set(perk_id, C.ClientFlags, false)
         aura:Destroy()
     end
@@ -173,7 +172,7 @@ local function createAura(playerState: state.Replica, localCharacter: Model, per
         name = SharedConfig.INVINCIBILITY_AURA_NAME
     elseif perk_id == Id.PlayerUpgradeNonPersistent.SHIELD then
         name = SharedConfig.SHIELD_AURA_NAME
-        SFX.PLAY_SOUND(Id.Sound.ENERGY_SWEEP)
+        Misc.PlaySound(Id.Sound.ENERGY_SWEEP)
     elseif perk_id == Id.PlayerUpgradeNonPersistent.ARMOR then
         name = SharedConfig.ARMOR_AURA_NAME
         aura.Transparency = 0.85
@@ -225,7 +224,7 @@ local function destroyAuraSlow(playerState: state.Replica, localCharacter: Model
                 task.wait(dur2)
             end
             playerState:set(perk_id, C.ClientFlags, false)
-            SFX.PLAY_SOUND(Id.Sound.POP)
+            Misc.PlaySound(Id.Sound.POP)
             aura:Destroy()
         end)
     end
@@ -246,7 +245,7 @@ end
 
 local function onPerkBtnPressed(state: state.Replica, whichBtn: TextButton)
     _maid.waitingToClosePerkPanel = nil
-    SFX.PLAY_SOUND(Id.Sound.CLICK)
+    Misc.PlaySound(Id.Sound.CLICK)
     -- TODO: flicker scale of the selected perk
     local whichPerk = 0
     if whichBtn == PERK_1_SLOT_BTN then
@@ -493,7 +492,7 @@ end
 function m.OnModifyHP(playerState: state.Replica, localCharacter, guid: guid, newValue: number, oldValue: number)
     if guid == Id.PlayerUpgradeNonPersistent.SHIELD then
         if newValue < oldValue and newValue ~= 0 then
-            SFX.PLAY_SOUND(Id.Sound.ENERGY_SHIELD_HIT)
+            Misc.PlaySound(Id.Sound.ENERGY_SHIELD_HIT)
         end
     end
 end
@@ -545,7 +544,7 @@ function m.OnStateUpdate(playerState: state.Replica, localCharacter)
     elseif isArmor then
         -- SFX for ARMOR
         if playerHPValueView > playerHP and isPlayerInSession then
-            SFX.PLAY_SOUND(Id.Sound.ARMOR_HIT)
+            Misc.PlaySound(Id.Sound.ARMOR_HIT)
         end
     end
 

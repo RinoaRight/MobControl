@@ -37,18 +37,11 @@ local PlayerService = game:GetService("Players")
 local Misc = require(shared.Misc)
 local S = require(shared.StaticData)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
--- local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
--- local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
--- local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
--- local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
-local SFX = require(script.Parent.SFX)
 local TaskPool = require(shared.TaskPool)
 local TweenService = game:GetService("TweenService")
 local _roflake = require(shared.roflake)
--- local WARNING_SPOT_TEMPLATE = assert(ReplicatedStorage:WaitForChild("WarningSpot"))
 local COLOR_1 = Color3.fromHex("246b34")
 local COLOR_2 = Color3.fromHex("4fee00")
--- local DEBRIS_TEMPLATE = assert(ReplicatedStorage:WaitForChild("Debris"))
 
 local _doUpAndDown = function(tween: Tween, tween2: Tween, duration: number)
     tween:Play()
@@ -213,7 +206,7 @@ m.onObstacleAdded = function(worldState: state.Replica, instanceGuid: str, local
 end
 
 m.OnCollisionWithObstacle = function(worldState: state.Replica, instanceGuid: str)
-    SFX.PLAY_SOUND(Id.Sound.THUMP)
+    Misc.PlaySound(Id.Sound.THUMP)
     local instanceRefId = worldState:get(instanceGuid, W.RefId)
     local currentMesh = worldState:get(instanceGuid, W.ClientInstance)
     if currentMesh then

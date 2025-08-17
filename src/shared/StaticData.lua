@@ -415,6 +415,8 @@ m.Sound = {
     -- localized sounds
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
     [Id.Sound.IMPACT_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Impact")),
+    [Id.Sound.METAL_BUCKET_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("MetalBucket")),
+    [Id.Sound.POP_LOW_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("PopLow")),
     [Id.Sound.SCREAM_LOCALIZED_HIGH] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ScreamHigh")),
     [Id.Sound.SCREAM_LOCALIZED_REG] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ScreamReg")),
     [Id.Sound.STOMP_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Stomp")),

@@ -73,6 +73,7 @@ local Kind = table.freeze {
     Obstacle                     = enum.iota'',
     PlayerSpecs                  = enum.iota'',
     WorldSpecs                   = enum.iota'',
+    Handicap                     = enum.iota'',
     TimedEvent                   = enum.iota'',
     Sound                        = enum.iota'',
     VFX                          = enum.iota'',
@@ -662,36 +663,38 @@ export type Animation = typeof(Id.Animation)
 -- Sound
 -----------------------------
 Id.Sound = enum.with_id "Id.Sound" {
-    _NONE                 = iota(Id.Kind.Sound, 0),
-    ARMOR_HIT             = iota'',
-    BELL                  = iota'',
-    BELL_SUCCESS          = iota'',
-    CLICK                 = iota'',
-    COIN_DROP             = iota'',
-    CREAK_METAL           = iota'',
-    CRYSTAL_DING          = iota'',
-    ENERGY_SHIELD_HIT     = iota'',
-    ENERGY_SWEEP          = iota'',
-    ERROR                 = iota'',
-    EXPLOSION_SHORT       = iota'',
-    FIRE_PISTOL           = iota'',
-    FIRE_PISTOL_LOCALIZED = iota'',
-    HISS                  = iota'',
-    HURT                  = iota'',
-    IMPACT                = iota'',
-    IMPACT_LOCALIZED      = iota'',
-    METAL_BUCKET          = iota'',
-    POP                   = iota'',
-    POP_LOW               = iota'',
-    RELOAD_PISTOL         = iota'',
-    SCREAM                = iota'',
-    SCREAM_HIGH           = iota'',
-    SCREAM_LOCALIZED_HIGH = iota'',
-    SCREAM_LOCALIZED_REG  = iota'',
-    STOMP_LOCALIZED       = iota'',
-    THUMP                 = iota'',
-    THUMP_LOCALIZED       = iota'',
-    WEAK_BULLET           = iota'',
+    _NONE                  = iota(Id.Kind.Sound, 0),
+    ARMOR_HIT              = iota'',
+    BELL                   = iota'',
+    BELL_SUCCESS           = iota'',
+    CLICK                  = iota'',
+    COIN_DROP              = iota'',
+    CREAK_METAL            = iota'',
+    CRYSTAL_DING           = iota'',
+    ENERGY_SHIELD_HIT      = iota'',
+    ENERGY_SWEEP           = iota'',
+    ERROR                  = iota'',
+    EXPLOSION_SHORT        = iota'',
+    FIRE_PISTOL            = iota'',
+    FIRE_PISTOL_LOCALIZED  = iota'',
+    HISS                   = iota'',
+    HURT                   = iota'',
+    IMPACT                 = iota'',
+    IMPACT_LOCALIZED       = iota'',
+    METAL_BUCKET           = iota'',
+    METAL_BUCKET_LOCALIZED = iota'',
+    POP                    = iota'',
+    POP_LOW                = iota'',
+    POP_LOW_LOCALIZED      = iota'',
+    RELOAD_PISTOL          = iota'',
+    SCREAM                 = iota'',
+    SCREAM_HIGH            = iota'',
+    SCREAM_LOCALIZED_HIGH  = iota'',
+    SCREAM_LOCALIZED_REG   = iota'',
+    STOMP_LOCALIZED        = iota'',
+    THUMP                  = iota'',
+    THUMP_LOCALIZED        = iota'',
+    WEAK_BULLET            = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound
 export type Sound = typeof(Id.Sound)
@@ -735,9 +738,22 @@ Id.WorldSpecs = enum.with_id "Id.WorldSpecs" {
     ENEMY_WAVE_COUNT             = iota'', -- number
     BOSS_FIGHT_ON                = iota'', -- bool
     PVP_TIME                     = iota'', -- bool
+    HANDICAP                     = iota'', -- id
 }
 KIND_TO_ENUM[Id.Kind.WorldSpecs] = Id.WorldSpecs
 export type WorldSpecs = typeof(Id.WorldSpecs)
+
+-- stylua: ignore
+-----------------------------
+-- Handicap
+-----------------------------
+Id.Handicap = enum.with_id "Id.Handicap" {
+    _NONE                        = iota(Id.Kind.Handicap, 0),
+    BOMBS                        = iota'',
+    GRAVES                       = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Handicap] = Id.Handicap
+export type Handicap = typeof(Id.Handicap)
 
 -- stylua: ignore
 -----------------------------
