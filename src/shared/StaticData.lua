@@ -191,6 +191,15 @@ m.Obstacle = {
     },
 }
 
+m.Handicap = {
+    [Id.Handicap.BOMBS] = {
+        name = "Bombs",
+    },
+    [Id.Handicap.GRAVES] = {
+        name = "Graves",
+    },
+}
+
 m.PlayerUpgradePersistent = {
     [Id.PlayerUpgradePersistent.FIREPOWER_1] = {
         value = 1.1, -- %

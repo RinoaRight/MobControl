@@ -73,6 +73,7 @@ local TaskPool = require(shared.TaskPool)
 local Settings = require(script.Settings)
 local EnemiesFlying = require(script.EnemiesFlyingClient)
 local PlayerUtils = require(script.PlayerUtils)
+local Handicaps = require(script.Handicaps)
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
@@ -124,6 +125,7 @@ local TOKEN_SHOP_GUI = assert(PLAYER_GUI:WaitForChild("TokenShopGUI"))
 local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
 local SETTINGS_BTN_PANEL = assert(MAIN_GUI.GearPanel)
 local TOP_RIGHT_PANEL = assert(MAIN_GUI:WaitForChild("TopRightPanel"))
+local HANDICAP_TEXT_BOX = assert(TOP_RIGHT_PANEL:WaitForChild("HandicapFrame"):WaitForChild("TextLabel"))
 
 local ANNOUNCEMENT_GUI = assert(PLAYER_GUI:WaitForChild("AnnouncementGUI"))
 
@@ -131,6 +133,7 @@ local COLLIDABLES_HP_GUI_NAME = "CollidableHpGui"
 local COLLIDABLES_HP_GUI_TEMPLATE = assert(PLAYER_GUI:WaitForChild(COLLIDABLES_HP_GUI_NAME)) :: BillboardGui
 
 local PERK_SELECTION_GUI = assert(PLAYER_GUI:WaitForChild("PerkSelectionGUI"))
+local HANDICAP_GUI = assert(PLAYER_GUI:WaitForChild("HandicapGUI"))
 
 -- forward declarations
 local playRunAnimTrack
@@ -278,6 +281,11 @@ end
 -- Server Broadcasts
 local on_cc = {} :: { [id]: (...any) -> () }
 
+on_cc[Id.S2CC.SESSION_HANDICAP_MODIFIED] = function(currentHandicap: id)
+    -- show current session handicap
+    Handicaps.OnHandicapModified(HANDICAP_GUI, HANDICAP_TEXT_BOX, currentHandicap)
+end
+
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
     local weapon_id = SharedConfig.DEFAULT_WEAPON_ID
     local player = game.Players:GetPlayerByUserId(player_id)
@@ -299,7 +307,6 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
         startRunAnim(LOCAL_CHARACTER)
 
         Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, player_hp)
-        return
     else
         local player = Players:GetPlayerByUserId(player_id)
         local character = player.Character or player:WaitForChild("Character", 10)
@@ -593,6 +600,12 @@ do
         -- initialize player's hp GUI
         PLAYER_HP_GUI.Adornee = LOCAL_HUMANOID_HEAD
         PLAYER_HP_TEXT_BOX.Text = SharedConfig.DEFAULT_HP_GUI_TEXT
+        
+        -- show current session handicap
+        local currentHandicap = WORLD:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+        if currentHandicap and currentHandicap ~= Id.Handicap._NONE then
+            Handicaps.OnPlayerConnected(HANDICAP_TEXT_BOX, currentHandicap)
+        end
     end)
 end
 

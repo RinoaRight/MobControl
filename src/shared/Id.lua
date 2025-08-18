@@ -806,7 +806,6 @@ Id.S2S = enum.with_id "Id.S2S" {
     PURCHASE_FINISHED         = iota'',
     CHANGE_WEAPON             = iota'', -- player_id,weapon_id
     PLAYER_DIED               = iota'', -- player_id, int (player damage)?, cause_id\uid?
-    -- RANK_UP                   = iota'', -- player_state, next_rank, next_xp
     SHIELD_DAMAGE_SERVER      = iota'', -- player_id, target_guid, damage
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
@@ -869,11 +868,11 @@ export type S2C = typeof(Id.S2C)
 -- S2CC
 -----------------------------
 Id.S2CC = enum.with_id "Id.S2CC" {
-    _NONE                   = iota(Id.Kind.S2CC, 0),
+    _NONE                      = iota(Id.Kind.S2CC, 0),
     PLAYER_STARTED_SESSION     = iota'', -- player_id, player_hp
     PLAYER_STOPPED_SESSION     = iota'', -- player_id
     PLAYER_CHANGED_WEAPON      = iota'', -- player_id, weapon_id
-    -- SPAWN_BOMB                 = iota'', -- enemy_guid
+    SESSION_HANDICAP_MODIFIED  = iota'', -- handicap_id
 }
 KIND_TO_ENUM[Id.Kind.S2CC] = Id.S2CC
 export type S2CC = typeof(Id.S2CC)

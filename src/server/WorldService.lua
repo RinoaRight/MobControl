@@ -32,7 +32,6 @@ local SharedConfig = require(shared.SharedConfig)
 local W = SharedConfig.World.CId
 local state = require(shared.state)
 local _disposer = require(shared.disposer)
-local _Remote = require(shared.Remote)
 local _signal = require(shared.signal)
 local _roflake = require(shared.roflake)
 local S = require(shared.StaticData)
@@ -346,6 +345,7 @@ end
 
 local _handicap = m.world:constructor(W.Value) -- current session handicap id
 function m.SetHandicap(newHandicapId: id)
+    Remote.Server.Broadcast(Id.S2CC.SESSION_HANDICAP_MODIFIED, newHandicapId)
     local currentHandicapId = m.world:get(Id.WorldSpecs.HANDICAP, W.Value)
     if currentHandicapId == nil then
         _handicap(Id.WorldSpecs.HANDICAP, newHandicapId)
@@ -354,6 +354,7 @@ function m.SetHandicap(newHandicapId: id)
     end
 end
 function m.ResetHandicap()
+    Remote.Server.Broadcast(Id.S2CC.SESSION_HANDICAP_MODIFIED, Id.Handicap._NONE)
     local currentHandicapId = m.world:get(Id.WorldSpecs.HANDICAP, W.Value)
     if currentHandicapId == nil then
         _handicap(Id.WorldSpecs.HANDICAP, Id.Handicap._NONE)

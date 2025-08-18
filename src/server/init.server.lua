@@ -258,7 +258,6 @@ local function startGameSession()
         local handicapIds = Id.Handicap:ids()
         local handicapId = Random.new():NextInteger(handicapIds[1], handicapIds[#handicapIds])
         WorldService.SetHandicap(handicapId)
-        -- TODO: implement handicaps
 
         GameModule.Init(WorldService.world, get_state)
 
@@ -690,6 +689,7 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
             if thisPlayerState then
                 local nonPersF = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
                 local isReady = Id.flag_test(nonPersF, Id.PlayerF.READY)
+                -- NOTE: player's own READY flag is set below, in GameModule.SpawnPlayer
                 if isReady then
                     players_already_in_session += 1
                 end
