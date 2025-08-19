@@ -774,7 +774,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         end
 
                         if player and playerRoot and distToTarget then
-                            local critDist = 10 --1.5
+                            local critDist = 1
                             playerId = player.UserId :: int
                             playerState = get_state(playerId)
                             if isBoss then
@@ -806,7 +806,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         local thisPlayerState = get_state(player.UserId)
                         if thisPlayerState then
                             local root = thisPlayerState.root :: BasePart
-                            local proximity = (currentPos - root.Position).Magnitude
+                            local proximity = currentPos - root.Position
+                            proximity = Vector3.new(proximity.X, 0, proximity.Z).Magnitude -- ignore Y axis
                             local thickness = enemyTemplate.Size.Z / 2
 
                             -- TODO: change speed for some enemies when a certain proximity is reached. Including bosses.
@@ -816,7 +817,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                 if isShieldDmg then
                                     Signal.Fire(Id.S2S.SHIELD_DAMAGE_SERVER, thisPlayerState.player_id, enemyGuid :: str, shieldDamage)
                                 end
-                                -- if there is still an enemy afterwards, apply damage to the player, then (if not boss)die
+                                -- if there is still an enemy afterwards, apply damage to the player, then (if not boss) die
                                 if worldState:has(enemyGuid) then
                                     local enemyDamage = S.Enemy[refId].damage
                                     if not isBoss then
@@ -906,7 +907,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                             break
                         end
                     elseif Id.kind(refId) == Id.Kind.Bomb then
-                        -- if (cloneCFrame - obstaclePos).Magnitude < 20 then
                         local ownerGuid = worldState:get(objectGuid, W.OwnerGuid)
                         if not ownerGuid then
                             log:error("no ownerGuid found for bomb: '%*'", objectGuid)
@@ -914,7 +914,6 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         end
                         local explosionSize = assert(S.Bomb[refId].explosionSize)
                         if (cloneCFrame.Position - objectPos).Magnitude < explosionSize.X then
-                            -- Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], cloneCFrame.Position, 0)
                             playerState:NotifyClient(Id.S2C.BOMB_HIT, objectGuid, objectPos)
                             WorldService.RemoveEntity(cloneGuid)
                             isCollided = true

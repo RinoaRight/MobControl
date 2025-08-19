@@ -138,10 +138,8 @@ m.SubscribeBooster = function(worldState: state.Main, get_state: (int) -> PSS.Pl
             end
             for _, cloneId in ipairs(cloneGuidsToKill) do
                 WorldService.RemoveEntity(cloneId)
-                -- Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], triggerer.Position, 0)
             end
         else
-            -- TODO: FIXIT: on collision with booster player srtumbles
             -- player collided with the booster for the first time, set the flag for the check above and do the logic
             playerState.state:set(boosterGuid, C.BitsetNonPers, Id.flag_or(flags, Id.PlayerF.BOOSTER_TOUCHED))
             local isShieldDmg, shieldDamage = getShieldDamage(playerState)

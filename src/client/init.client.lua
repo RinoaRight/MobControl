@@ -133,7 +133,7 @@ local COLLIDABLES_HP_GUI_NAME = "CollidableHpGui"
 local COLLIDABLES_HP_GUI_TEMPLATE = assert(PLAYER_GUI:WaitForChild(COLLIDABLES_HP_GUI_NAME)) :: BillboardGui
 
 local PERK_SELECTION_GUI = assert(PLAYER_GUI:WaitForChild("PerkSelectionGUI"))
-local HANDICAP_GUI = assert(PLAYER_GUI:WaitForChild("HandicapGUI"))
+local HANDICAP_ANIM_GUI = assert(PLAYER_GUI:WaitForChild("HandicapGUI"))
 
 -- forward declarations
 local playRunAnimTrack
@@ -283,7 +283,7 @@ local on_cc = {} :: { [id]: (...any) -> () }
 
 on_cc[Id.S2CC.SESSION_HANDICAP_MODIFIED] = function(currentHandicap: id)
     -- show current session handicap
-    Handicaps.OnHandicapModified(HANDICAP_GUI, HANDICAP_TEXT_BOX, currentHandicap)
+    Handicaps.OnHandicapModified(HANDICAP_ANIM_GUI, HANDICAP_TEXT_BOX, currentHandicap)
 end
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)

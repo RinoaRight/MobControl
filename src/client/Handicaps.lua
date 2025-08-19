@@ -40,55 +40,109 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local TaskPool = require(shared.TaskPool)
 
+local GUI_START_POS
+local GUI_TARGET_POS = UDim2.new(0.99, 0, 0.03, 0)
+local GUI_START_SCALE = UDim2.new(0.64, 0, 0.64, 0)
+local GUI_TARGET_SCALE = UDim2.new(0.45, 0, 0.45, 0)
+local ROTATING_SLOT_START_POS = UDim2.fromScale(0.5, -0.5)
+
 local m = {}
 
 m.OnPlayerConnected = function(handicapTextBox, activeHandicap: id)
     handicapTextBox.Text = string.upper(S.Handicap[activeHandicap].name)
 end
 
-m.OnHandicapModified = function(handicapGui: ScreenGui, handicapTextBox, activeHandicap: id)
+m.OnHandicapModified = function(handicapAnimGui: ScreenGui, handicapPermTextBox, activeHandicap: id)
     -- if handicap is set to none, clear the text box
     if not activeHandicap or activeHandicap == Id.Handicap._NONE then
-        handicapTextBox.Text = " "
+        handicapPermTextBox.Text = " "
         return
     end
 
--- TODO: animate bigger
-
     -- if the handicap was just set, play animation
-    local parentPanel = handicapGui:WaitForChild("TopRightPanel"):WaitForChild("HandicapFrame")
-    local textBoxTemplate = parentPanel:WaitForChild("TextLabel") :: TextLabel
+    local animGuiParentPanel = handicapAnimGui:WaitForChild("TopRightPanel") :: Frame
+    local anumGuiMainFrame = animGuiParentPanel:WaitForChild("HandicapFrame")
+    local animGuiTextFrame = anumGuiMainFrame:WaitForChild("TextFrame") :: Frame
+    local animGuiBorder = anumGuiMainFrame:WaitForChild("Border") :: Frame
+
+    animGuiParentPanel.Size = GUI_START_SCALE
+    local objAbsSize = animGuiParentPanel.AbsoluteSize
+    -- since the anchor point is (1,0) we need to recenter the panel 
+    GUI_START_POS = UDim2.new(0.5, objAbsSize.X / 2, 0.1, 0)
+    local textBoxTemplate = animGuiTextFrame:WaitForChild("TextLabel") :: TextLabel
+    animGuiParentPanel.Position = GUI_START_POS
     local allEntriesTable = S.Handicap
     local orderedArrayOfTextBoxes = {}
-    local orderedArrayOfTweens = {}
     for id, data in allEntriesTable do
         local textBox = textBoxTemplate:Clone()
         textBox.Name = data.name
         textBox.Text = string.upper(data.name)
-        textBox.Parent = parentPanel
-        textBox.Position = UDim2.fromScale(0, -0.5)
-        local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-        local tween
+        textBox.Parent = animGuiTextFrame
+        textBox.Position = ROTATING_SLOT_START_POS
         if id == activeHandicap then
-            tween = TweenService:Create(textBox, tweenInfo, { Position = UDim2.fromScale(0, 0.5) })
             table.insert(orderedArrayOfTextBoxes, 1, textBox)
-            table.insert(orderedArrayOfTweens, 1, tween)
         else
-            tween = TweenService:Create(textBox, tweenInfo, { Position = UDim2.fromScale(0, 1.5) })
             table.insert(orderedArrayOfTextBoxes, textBox)
-            table.insert(orderedArrayOfTweens, tween)
         end
     end
     TaskPool.spawn(function()
-        for i = #orderedArrayOfTweens, 1, -1 do
-            local t = orderedArrayOfTweens[i]
-            t:Play()
-            t.Completed:Wait()
-            if i == 1 then
-                -- show text of the active handicap in the permanent text box, destroy the animated text boxes
-                handicapTextBox.Text = string.upper(S.Handicap[activeHandicap].name)
+        -- local howMany = 3
+        local durFast = 0.3
+        local durSlow = 0.4
+        local sound = S.Sound[Id.Sound.WHEEL_SPIN]
+        local soundDur = math.floor(sound.TimeLength * 10) / 10 -- currently == 5.2
+        local howMany = math.floor((soundDur - durSlow * #orderedArrayOfTextBoxes) / durFast / #orderedArrayOfTextBoxes)
+        if howMany < 1 then
+            howMany = 1
+        end
+
+        Misc.PlaySound(Id.Sound.WHEEL_SPIN)
+
+        animGuiBorder.Visible = true
+
+        for rollCount = 1, howMany do
+            for slotIndex = #orderedArrayOfTextBoxes, 1, -1 do
+                local currentDur = 0
+                if rollCount < howMany then
+                    currentDur = durFast
+                else
+                    currentDur = durSlow
+                end
+
+                local tweenInfo = TweenInfo.new(currentDur, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+
+                -- define tween for non-final position
+                local tween = TweenService:Create(orderedArrayOfTextBoxes[slotIndex], tweenInfo, { Position = UDim2.fromScale(0.5, 1.5) })
+                if slotIndex == 1 and rollCount == howMany then
+                    -- define tween for final position
+                    tween = TweenService:Create(orderedArrayOfTextBoxes[slotIndex], tweenInfo, { Position = UDim2.fromScale(0.5, 0.5) })
+                end
+
+                tween:Play()
+                tween.Completed:Wait()
+
+                if rollCount < howMany then
+                    -- the roll is yet to be repeated, move slot back to starting pos
+                    orderedArrayOfTextBoxes[slotIndex].Position = ROTATING_SLOT_START_POS
+                else
+                    -- the roll is over, finalize animation
+                    if slotIndex == 1 then
+                        animGuiBorder.Visible = false
+                        local finalTweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+                        local finalTween =
+                            TweenService:Create(animGuiParentPanel, finalTweenInfo, { Position = GUI_TARGET_POS, Size = GUI_TARGET_SCALE })
+                        finalTween:Play()
+                        finalTween.Completed:Wait()
+                        -- show text of the active handicap in the permanent text box
+                        handicapPermTextBox.Text = string.upper(S.Handicap[activeHandicap].name)
+                        -- reset the panel
+                        animGuiParentPanel.Position = GUI_START_POS
+                        animGuiParentPanel.Size = GUI_START_SCALE
+                    end
+                    -- destroy the slot that has been already shown
+                    orderedArrayOfTextBoxes[slotIndex]:Destroy()
+                end
             end
-            orderedArrayOfTextBoxes[i]:Destroy()
         end
     end)
 end
