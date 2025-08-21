@@ -95,10 +95,9 @@ m.Bomb = {
 -- stylua: ignore
 m.Boost = {
     -- TODO: real values
-    [Id.Boost.ADD_CLONE]         = {valueRange = {2, 2}, baseReward = 1, xp = 1, hpRange = {50, 100}},
-    [Id.Boost.CHANGE_WEAPON]     = {valueRange = {0, 0}, baseReward = 1, xp = 1, hpRange = {50, 100}, contentsRange = {Id.Weapon.SMG, Id.Weapon.ROCKET}},
-    [Id.Boost.FIRST_AID_KIT]     = {valueRange = {20, 50}, baseReward = 1, xp = 1, hpRange = {50, 100}},
-    -- [Id.Boost.BULLET_SPEED_MULT] = {valueRange = {50, 100}, hpRange = {50, 100}},
+    [Id.Boost.ADD_CLONE]         = {valueRange = Vector2.new(1, 2), baseReward = 1, xp = 1, hpRange = Vector2.new(50, 100)},
+    [Id.Boost.CHANGE_WEAPON]     = {valueRange = Vector2.new(0, 0), baseReward = 1, xp = 1, hpRange = Vector2.new(50, 100), contentsRange = {Id.Weapon.SMG, Id.Weapon.ROCKET}},
+    [Id.Boost.FIRST_AID_KIT]     = {valueRange = Vector2.new(20, 50), baseReward = 1, xp = 1, hpRange = Vector2.new(50, 100)},
 }
 
 m.Countable = {

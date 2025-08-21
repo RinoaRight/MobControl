@@ -174,10 +174,18 @@ end
 local function setBooster(worldState: state.Main, instance: BasePart, get_state: (int) -> PSS.PlayerState?)
     local refID, boostContentId = BoosterServer.SetBoosterValue(worldState)
     local valueRange = S.Boost[refID].valueRange
-    local value = math.random(valueRange[1], valueRange[#valueRange])
     local hpRange = S.Boost[refID].hpRange
     local hp_mult = BoosterServer.GetCurrentBoosterHpMult(worldState)
-    local hp = math.floor(math.random(hpRange[1], hpRange[#hpRange]) * hp_mult)
+    local hp_average = (hpRange.X + hpRange.Y) / 2
+    local hp_no_mult = math.random(hpRange.X, hpRange.Y)
+    local hp_w_mult = math.floor(hp_no_mult * hp_mult)
+    local value_average = math.floor((valueRange.X + valueRange.Y) / 2)
+    local value
+    if hp_no_mult < hp_average then
+        value = math.random(valueRange.X, value_average)
+    else
+        value = math.random(value_average, valueRange.Y)
+    end
 
     local contentsBillboardInstance = BOOSTER_CONTENTS_BILLBOARD_TEMPLATE:Clone()
     local boosterPos = instance.Position
@@ -188,8 +196,13 @@ local function setBooster(worldState: state.Main, instance: BasePart, get_state:
     local txt = ""
     local col = instance.Color
     if refID == Id.Boost.ADD_CLONE then
-        txt = string.format("+%d clones", value)
+        local s = ""
         col = Color3.fromRGB(0, 255, 0)
+        if value > 1 then
+            s = "s"
+            col = Color3.fromRGB(1, 255, 166)
+        end
+        txt = string.format("+%d clone%s", value, s)
     elseif refID == Id.Boost.CHANGE_WEAPON then
         txt = string.format("%s", S.Weapon[boostContentId :: id].name)
         col = Color3.fromRGB(169, 132, 255)
@@ -210,13 +223,13 @@ local function setBooster(worldState: state.Main, instance: BasePart, get_state:
     local boosterGui = BOOSTER_GUI_TEMPLATE:Clone()
     boosterGui.Parent = instance
     boosterGui.Adornee = instance
-    boosterGui.TextLabel.Text = NumFormat.format_damage(hp)
+    boosterGui.TextLabel.Text = NumFormat.format_damage(hp_w_mult)
     boosterGui.TextLabel.TextColor3 = col
 
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
     instance.CollisionGroup = "BulletCollidable"
     -- add booster to world state
-    local boosterGuid = WorldService.AddBooster(instance, refID, value, hp, boostContentId)
+    local boosterGuid = WorldService.AddBooster(instance, refID, value, hp_w_mult, boostContentId)
     -- add booster to player states
     local players = game.Players:GetPlayers()
     for _, player in ipairs(players) do

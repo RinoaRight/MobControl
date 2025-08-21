@@ -59,7 +59,6 @@ end
 
 local m = {}
 
--- TODO: others
 m.BOOSTER_DATA_TABLE = {
     {
         boost_gacha = { [Id.Boost.ADD_CLONE] = 65, [Id.Boost.CHANGE_WEAPON] = 35 },
@@ -208,4 +207,3 @@ function m.DeleteBooster(worldState: state.Main, instanceGuid: string, get_state
 end
 
 return m
--- TODO: clone booster hp should be dependent on the number of clones
