@@ -117,6 +117,10 @@ end
 
 local function resetHp(player_state)
     local hp = SharedConfig.PLAYER_BASE_HP
+    local currentHandicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+    if currentHandicap == Id.Handicap.DOUBLE_HP then
+        hp *= SharedConfig.HP_HANDICAP_MULT
+    end
 
     -- check for hp upgrades
     local hpUpgrade = Misc.IsHpUpgrade(player_state) :: num
@@ -125,7 +129,7 @@ local function resetHp(player_state)
     end
 
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, hp)
-    WorldService.world:set(player_state.player_id, W.HP, SharedConfig.PLAYER_BASE_HP)
+    WorldService.world:set(player_state.player_id, W.HP, hp)
 
     return hp
 end
@@ -257,6 +261,7 @@ local function startGameSession()
 
         local handicapIds = Id.Handicap:ids()
         local handicapId = Random.new():NextInteger(handicapIds[1], handicapIds[#handicapIds])
+        -- local handicapId = Id.Handicap.DOUBLE_HP
         WorldService.SetHandicap(handicapId)
 
         GameModule.Init(WorldService.world, get_state)
@@ -702,22 +707,20 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
         return
     end
 
-    local playerHp = resetHp(player_state)
-    changeWeapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
-
     -- initialize main game loop if it is not initialized yet
     local isGameSessionInProgress = WorldService.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
     if not isGameSessionInProgress then
         startGameSession()
     end
 
+    local playerHp = resetHp(player_state)
+    changeWeapon(player_state, SharedConfig.DEFAULT_WEAPON_ID)
+
     GameModule.SpawnPlayer(player_state, players_already_in_session)
     Remote.Server.Broadcast(Id.S2CC.PLAYER_STARTED_SESSION, player_state.player_id, playerHp)
 
     -- give invincibility upgrade
     acquirePlayerUpgradeNonPers(player_state, Id.PlayerUpgradeNonPersistent.INVINCIBILITY)
-
-    -- ClonesServer.AttachCloneDummies(player_state)
 
     -- initialize player clones if any
     local cloneUpgradeId = Misc.IsCloneUpgrade(player_state)

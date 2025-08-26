@@ -104,7 +104,7 @@ local GROUND_UNITS = {
     {                                             zOffset = -GROUND_INIT_LENGTH },
     {                                             zOffset = GROUND_INIT_LENGTH * -2 },
 }::{{unit: Part?, zOffset: num}}
-local startingPos = Vector3.new(0, -10, 0)
+local STARTING_POS = Vector3.new(0, -10, 0)
 
 local DRIVING_BOX_TEMPLATE = assert(ReplicatedStorage.DrivingBoxModel)
 local DRIVING_BOX_INSTANCE = DRIVING_BOX_TEMPLATE:Clone()
@@ -178,6 +178,11 @@ local function setBooster(worldState: state.Main, instance: BasePart, get_state:
     local hp_mult = BoosterServer.GetCurrentBoosterHpMult(worldState)
     local hp_average = (hpRange.X + hpRange.Y) / 2
     local hp_no_mult = math.random(hpRange.X, hpRange.Y)
+    -- double hp if there is an according handicap. NOTE: this is currently disabled
+    -- local current_handicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+    -- if current_handicap == Id.Handicap.DOUBLE_HP then
+    --     hp_no_mult *= SharedConfig.HP_HANDICAP_MULT
+    -- end
     local hp_w_mult = math.floor(hp_no_mult * hp_mult)
     local value_average = math.floor((valueRange.X + valueRange.Y) / 2)
     local value
@@ -266,11 +271,12 @@ local function generateEnemies(worldState: state.Main, get_state: (player_id: in
     local newWaveNumber = WorldService.UpdateEnemyWaveCount()
     local unit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
     local enemyWalkingGuids = Enemies.AddEnemies(worldState, get_state, unit, true, newWaveNumber) :: {}
-    local enemiesFlyingGuids = EnemiesFlying.AddEnemiesFlying(worldState, unit, true, newWaveNumber) :: {}
     local enemyGuids = {} :: { guid }
     for _, enemyGuid in ipairs(enemyWalkingGuids) do
         table.insert(enemyGuids, enemyGuid)
     end
+
+    local enemiesFlyingGuids = EnemiesFlying.AddEnemiesFlying(worldState, unit, true, newWaveNumber) :: {}
     for _, enemyGuid in ipairs(enemiesFlyingGuids) do
         table.insert(enemyGuids, enemyGuid)
     end
@@ -331,8 +337,11 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
     workerMaid.trigger = trigger.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
             local fourth = GROUND_UNITS[FIELD_NAMES.FOURTH].unit :: Part
-            -- create obstacles on the next ground unit
-            Obstacles.AddObstacles(worldState, fourth, true)
+            -- if "obstacles" is the active handicap, create obstacles on the next ground unit
+            if worldState:get(Id.WorldSpecs.HANDICAP, W.Value) == Id.Handicap.GRAVES then
+                WorldService.UpdateObstacleWaveCount()
+                Obstacles.AddObstacles(worldState, fourth, true)
+            end
 
             subscribeTrigger(worldState, get_state, FIELD_NAMES.FOURTH, fourth)
             trigger:Destroy()
@@ -522,15 +531,15 @@ function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.Playe
     local middleUnit = GROUND_UNIT_TEMPLATE:Clone()
     local fourthUnit = GROUND_UNIT_TEMPLATE:Clone()
     local fifthUnit = GROUND_UNIT_TEMPLATE:Clone()
-    spawnGroundUnit(worldState, firstUnit, FIELD_NAMES.FIRST, startingPos)
-    spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, startingPos)
-    spawnGroundUnit(worldState, middleUnit, FIELD_NAMES.MIDDLE, startingPos)
+    spawnGroundUnit(worldState, firstUnit, FIELD_NAMES.FIRST, STARTING_POS)
+    spawnGroundUnit(worldState, secondUnit, FIELD_NAMES.SECOND, STARTING_POS)
+    spawnGroundUnit(worldState, middleUnit, FIELD_NAMES.MIDDLE, STARTING_POS)
 
     local middle = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part)
     subscribeTrigger(worldState, get_state, FIELD_NAMES.MIDDLE, middle)
 
-    spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, startingPos)
-    spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, startingPos)
+    spawnGroundUnit(worldState, fourthUnit, FIELD_NAMES.FOURTH, STARTING_POS)
+    spawnGroundUnit(worldState, fifthUnit, FIELD_NAMES.FIFTH, STARTING_POS)
     -- unanchor the driving box so that it can register collisions
     DRIVING_BOX_BACK_PART.Anchored = false
     DRIVING_BOX_FRONT.Anchored = false
@@ -552,31 +561,36 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         for _, player in game.Players:GetPlayers() do
-            local player_state = get_state(player.UserId)
-            if not player_state then
+            local playerState = get_state(player.UserId)
+            if not playerState then
                 continue
             end
 
             -- handle perks
-            updatePlayerUpgrades(player_state, dt)
+            updatePlayerUpgrades(playerState, dt)
 
-            local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+            local nonPersFlags = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
             if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
                 -- weapon cooldown
-                local shot_tte = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
+                local shot_tte = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
                 shot_tte -= dt
-                player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
+                playerState.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, math.max(shot_tte, 0))
 
-                local humanoid = player_state.humanoid
-                local character = player_state.character
-                local playerRootPart = player_state.root
+                local humanoid = playerState.humanoid
+                local character = playerState.character
+                local playerRootPart = playerState.root
                 local playerRootPartPos = playerRootPart.Position
+
+                -- just-in-case measure: kill off the players that fall beneath the ground
+                if playerRootPartPos.Y < 0 then
+                    playerState:DeductHp(1000)
+                end
 
                 local input = humanoid.MoveDirection -- client's current input
 
                 -- player movement (boss fight is handled separately below)
                 if not isBossFightOn then
-                    player_state.humanoid.WalkSpeed = studPerSec
+                    playerState.humanoid.WalkSpeed = studPerSec
 
                     -- limit player's movement to the driving box's limits
                     local currentX = playerRootPartPos.X
@@ -611,18 +625,18 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                             local obstacleTemplate = assert(S.Obstacle[refId].meshTemplateFull)
                             local obstWidth = obstacleTemplate.Size.X
                             if proximityByX < obstWidth and proximityByZ < SharedConfig.COLLISION_PROXIMITY_TO_OBSTACLE then
-                                if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, player_state.player_id) then
+                                if not Obstacles.IsPlayerAlreadyCollided(guid :: guid, playerState.player_id) then
                                     -- apply shield damage, if there is still an obstacle afterwards, apply damage to the player
-                                    Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, player_state.player_id)
+                                    Obstacles.UpdateObstacleFlags(WorldService.world, guid :: guid, playerState.player_id)
                                     local dmg = assert(S.Obstacle[refId].damage)
-                                    local isShieldDmg, shieldDamage = getShieldDamage(player_state)
+                                    local isShieldDmg, shieldDamage = getShieldDamage(playerState)
                                     if isShieldDmg then
-                                        Signal.Fire(Id.S2S.SHIELD_DAMAGE_SERVER, player_state.player_id, guid :: str, shieldDamage)
+                                        Signal.Fire(Id.S2S.SHIELD_DAMAGE_SERVER, playerState.player_id, guid :: str, shieldDamage)
                                     end
                                     if worldState:has(guid) then
                                         local obstacleHp = WorldService.world:get(guid, W.HP)
                                         if obstacleHp > 0 then
-                                            player_state:DeductHp(dmg - shieldDamage)
+                                            playerState:DeductHp(dmg - shieldDamage)
                                         end
                                     end
                                 end
@@ -688,6 +702,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     local groundUnitPos = groundUnit.Position
                     local distY = math.abs(bombPos.Y - groundUnitPos.Y)
                     if distY < 2 then
+                        Misc.SoundLocalizedAudio(S.Sound[Id.Sound.EXPLOSION_SHORT_LOCALIZED], bombPos, 0)
                         WorldService.RemoveEntity(enemyGuid)
                     end
 
@@ -814,6 +829,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 end
 
                 -- check proximity to players and do the logic
+                -- TODO: collisions with clones
                 if #playersInSession > 0 then
                     for _, player in ipairs(playersInSession) do
                         local thisPlayerState = get_state(player.UserId)
@@ -1068,7 +1084,8 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
         Signal.Fire(Id.S2S.CHANGE_WEAPON, playerState.player_id, boost_content_id)
     elseif boost_ref_id == Id.Boost.FIRST_AID_KIT then
-        local old_hp, new_hp = playerState:AddHp(value)
+        local currentHandicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+        local old_hp, new_hp = playerState:AddHp(value, currentHandicap)
         local hp_added = new_hp - old_hp
         playerState:NotifyClient(Id.S2C.BOOSTER_DESTROYED, boost_ref_id, hp_added, boost_content_id)
     end

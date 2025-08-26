@@ -253,6 +253,9 @@ end
 local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.TTL, W.TTE, W.Bitset)
 function m.AddEnemyToState(id: id, pos)
     local hp = S.Enemy[id].health
+    if m.world:get(Id.WorldSpecs.HANDICAP, W.Value) == Id.Handicap.DOUBLE_HP then
+        hp *= SharedConfig.HP_HANDICAP_MULT
+    end
     local guid = _roflake.uida()
     local tte = 0
     if S.Enemy[id].tte then

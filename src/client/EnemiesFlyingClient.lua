@@ -207,7 +207,7 @@ m.OnFlyerAdded = function(worldState: state.Replica, playerState: state.Replica,
 end
 
 m.OnBombActivated = function(worldState: state.Replica, bombGuid: str)
-    -- TODO: misslie SFX
+    -- TODO: missile SFX
     local bomb = Instance.new("Part")
     bomb.Shape = Enum.PartType.Ball
     bomb.Name = bombGuid

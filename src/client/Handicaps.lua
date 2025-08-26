@@ -45,48 +45,83 @@ local GUI_TARGET_POS = UDim2.new(0.99, 0, 0.03, 0)
 local GUI_START_SCALE = UDim2.new(0.64, 0, 0.64, 0)
 local GUI_TARGET_SCALE = UDim2.new(0.45, 0, 0.45, 0)
 local ROTATING_SLOT_START_POS = UDim2.fromScale(0.5, -0.5)
+local ROTATING_SLOT_CENTER_POS = UDim2.fromScale(0.5, 0.5)
+local ROTATING_SLOT_BOTTOM_POS = UDim2.fromScale(0.5, 1.5)
+local HANDICAP_GUI_PARENT_PANEL
+local HANDICAP_GUI_MAIN_FRAME
+local HANDICAP_GUI_TEXT_FRAME
+local HANDICAP_INCRIPTION_TEXT_LABEL
 
 local m = {}
 
-m.OnPlayerConnected = function(handicapTextBox, activeHandicap: id)
-    handicapTextBox.Text = string.upper(S.Handicap[activeHandicap].name)
+m.Init = function(worldState: state.Replica, playerState: state.Replica, mainGui: ScreenGui)
+    local activeHandicap = worldState:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+    -- initialize slots
+    HANDICAP_GUI_PARENT_PANEL = mainGui:WaitForChild("TopRightPanel") :: Frame
+    HANDICAP_GUI_MAIN_FRAME = HANDICAP_GUI_PARENT_PANEL:WaitForChild("HandicapFrame")
+    HANDICAP_GUI_TEXT_FRAME = HANDICAP_GUI_MAIN_FRAME:WaitForChild("TextFrame") :: Frame
+    HANDICAP_INCRIPTION_TEXT_LABEL = HANDICAP_GUI_TEXT_FRAME:WaitForChild("Handicap") :: Frame
+    -- local animGuiBorder = anumGuiMainFrame:WaitForChild("Border") :: Frame
+    local allEntriesTable = S.Handicap
+    local textBoxTemplate = assert(HANDICAP_GUI_TEXT_FRAME:WaitForChild("TextLabel")) :: TextLabel
+    for handicapId, data in allEntriesTable do
+        local textBox = textBoxTemplate:Clone()
+        textBox.Name = data.name
+        if data.color then
+            textBox.TextColor3 = data.color
+        end
+        textBox.Text = string.upper(data.name)
+        textBox.Parent = HANDICAP_GUI_TEXT_FRAME
+        local pos = ROTATING_SLOT_START_POS
+        if activeHandicap and activeHandicap ~= Id.Handicap._NONE then
+            pos = ROTATING_SLOT_CENTER_POS
+        end
+        textBox.Position = pos
+        local _handicap = playerState:constructor(C.Instance)
+        _handicap(handicapId, textBox)
+        playerState:set(handicapId, C.Instance, textBox)
+    end
 end
 
-m.OnHandicapModified = function(handicapAnimGui: ScreenGui, handicapPermTextBox, activeHandicap: id)
-    -- if handicap is set to none, clear the text box
-    if not activeHandicap or activeHandicap == Id.Handicap._NONE then
-        handicapPermTextBox.Text = " "
+m.OnHandicapModified = function(playerState: state.Replica, mainGui: ScreenGui, activeHandicapId: id)
+    -- handicap is set to none, reset the slot's position
+    if not activeHandicapId or activeHandicapId == Id.Handicap._NONE then
+        local allSlots = HANDICAP_GUI_TEXT_FRAME:GetChildren()
+        for _, slot in ipairs(allSlots) do
+            if slot:IsA("TextLabel") then
+                slot.Position = ROTATING_SLOT_START_POS
+            end
+        end
+        HANDICAP_INCRIPTION_TEXT_LABEL.Visible = true
         return
     end
 
     -- if the handicap was just set, play animation
-    local animGuiParentPanel = handicapAnimGui:WaitForChild("TopRightPanel") :: Frame
-    local anumGuiMainFrame = animGuiParentPanel:WaitForChild("HandicapFrame")
-    local animGuiTextFrame = anumGuiMainFrame:WaitForChild("TextFrame") :: Frame
-    local animGuiBorder = anumGuiMainFrame:WaitForChild("Border") :: Frame
+    -- local animGuiParentPanel = mainGui:WaitForChild("TopRightPanel") :: Frame
+    -- local anumGuiMainFrame = animGuiParentPanel:WaitForChild("HandicapFrame")
+    -- local animGuiTextFrame = anumGuiMainFrame:WaitForChild("TextFrame") :: Frame
+    -- local animGuiBorder = anumGuiMainFrame:WaitForChild("Border") :: Frame
 
-    animGuiParentPanel.Size = GUI_START_SCALE
-    local objAbsSize = animGuiParentPanel.AbsoluteSize
-    -- since the anchor point is (1,0) we need to recenter the panel 
-    GUI_START_POS = UDim2.new(0.5, objAbsSize.X / 2, 0.1, 0)
-    local textBoxTemplate = animGuiTextFrame:WaitForChild("TextLabel") :: TextLabel
-    animGuiParentPanel.Position = GUI_START_POS
+    -- animGuiParentPanel.Size = GUI_START_SCALE
+    -- local objAbsSize = animGuiParentPanel.AbsoluteSize
+    -- -- since the anchor point is (1,0) we need to recenter the panel
+    -- GUI_START_POS = UDim2.new(0.5, objAbsSize.X / 2, 0.8, 0)
+    -- local textBoxTemplate = animGuiTextFrame:WaitForChild("TextLabel") :: TextLabel
+    -- animGuiParentPanel.Position = GUI_START_POS
+
+    -- if handicap is being set, show animation
+    HANDICAP_INCRIPTION_TEXT_LABEL.Visible = false
     local allEntriesTable = S.Handicap
     local orderedArrayOfTextBoxes = {}
     for id, data in allEntriesTable do
-        local textBox = textBoxTemplate:Clone()
-        textBox.Name = data.name
-        textBox.Text = string.upper(data.name)
-        textBox.Parent = animGuiTextFrame
-        textBox.Position = ROTATING_SLOT_START_POS
-        if id == activeHandicap then
+        local textBox = assert(playerState:get(id :: num, C.Instance))
+        if id == activeHandicapId then
             table.insert(orderedArrayOfTextBoxes, 1, textBox)
         else
             table.insert(orderedArrayOfTextBoxes, textBox)
         end
     end
     TaskPool.spawn(function()
-        -- local howMany = 3
         local durFast = 0.3
         local durSlow = 0.4
         local sound = S.Sound[Id.Sound.WHEEL_SPIN]
@@ -98,7 +133,7 @@ m.OnHandicapModified = function(handicapAnimGui: ScreenGui, handicapPermTextBox,
 
         Misc.PlaySound(Id.Sound.WHEEL_SPIN)
 
-        animGuiBorder.Visible = true
+        -- animGuiBorder.Visible = true
 
         for rollCount = 1, howMany do
             for slotIndex = #orderedArrayOfTextBoxes, 1, -1 do
@@ -112,10 +147,10 @@ m.OnHandicapModified = function(handicapAnimGui: ScreenGui, handicapPermTextBox,
                 local tweenInfo = TweenInfo.new(currentDur, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
 
                 -- define tween for non-final position
-                local tween = TweenService:Create(orderedArrayOfTextBoxes[slotIndex], tweenInfo, { Position = UDim2.fromScale(0.5, 1.5) })
+                local tween = TweenService:Create(orderedArrayOfTextBoxes[slotIndex], tweenInfo, { Position = ROTATING_SLOT_BOTTOM_POS })
                 if slotIndex == 1 and rollCount == howMany then
                     -- define tween for final position
-                    tween = TweenService:Create(orderedArrayOfTextBoxes[slotIndex], tweenInfo, { Position = UDim2.fromScale(0.5, 0.5) })
+                    tween = TweenService:Create(orderedArrayOfTextBoxes[slotIndex], tweenInfo, { Position = ROTATING_SLOT_CENTER_POS })
                 end
 
                 tween:Play()
@@ -125,22 +160,27 @@ m.OnHandicapModified = function(handicapAnimGui: ScreenGui, handicapPermTextBox,
                     -- the roll is yet to be repeated, move slot back to starting pos
                     orderedArrayOfTextBoxes[slotIndex].Position = ROTATING_SLOT_START_POS
                 else
-                    -- the roll is over, finalize animation
-                    if slotIndex == 1 then
-                        animGuiBorder.Visible = false
-                        local finalTweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-                        local finalTween =
-                            TweenService:Create(animGuiParentPanel, finalTweenInfo, { Position = GUI_TARGET_POS, Size = GUI_TARGET_SCALE })
-                        finalTween:Play()
-                        finalTween.Completed:Wait()
+                    if slotIndex ~= 1 then
+                        -- the roll is over, move all except the active to starting pos
+                        orderedArrayOfTextBoxes[slotIndex].Position = ROTATING_SLOT_START_POS
+
+                        -- the roll is over, finalize animation
+                        -- if slotIndex == 1 then
+                        -- animGuiBorder.Visible = false
+                        -- local finalTweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+                        -- local finalTween =
+                        --     TweenService:Create(animGuiParentPanel, finalTweenInfo, { Position = GUI_TARGET_POS, Size = GUI_TARGET_SCALE })
+                        -- finalTween:Play()
+                        -- finalTween.Completed:Wait()
                         -- show text of the active handicap in the permanent text box
-                        handicapPermTextBox.Text = string.upper(S.Handicap[activeHandicap].name)
+                        -- m.OnPlayerConnected(handicapPermTextBox, activeHandicap)
                         -- reset the panel
-                        animGuiParentPanel.Position = GUI_START_POS
-                        animGuiParentPanel.Size = GUI_START_SCALE
+                        -- animGuiParentPanel.Position = GUI_START_POS
+                        -- animGuiParentPanel.Size = GUI_START_SCALE
+                        -- end
+                        -- destroy the slot that has been already shown
+                        -- orderedArrayOfTextBoxes[slotIndex]:Destroy()
                     end
-                    -- destroy the slot that has been already shown
-                    orderedArrayOfTextBoxes[slotIndex]:Destroy()
                 end
             end
         end

@@ -145,7 +145,7 @@ m.Enemy = {
     },
     [Id.Enemy.OCTOBOSS] = {
         damage = 30,
-        health = 1000,
+        health = 10000,
         speed = 10.0,
         reward = 10,
         xp = 10,
@@ -188,14 +188,58 @@ m.Obstacle = {
         meshTemplateHalf = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall2"),
         meshTemplateLast = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveSmall3"),
     },
+    [Id.Obstacle.GRAVE_MED] = {
+        damage = 25,
+        hp = 30,
+        reward = 1,
+        xp = 1,
+        meshTemplateFull = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveMedium1"),
+        meshTemplateHalf = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveMedium2"),
+        meshTemplateLast = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveMedium3"),
+    },
+    [Id.Obstacle.GRAVE_LARGE] = {
+        damage = 30,
+        hp = 40,
+        reward = 1,
+        xp = 1,
+        meshTemplateFull = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveLarge1"),
+        meshTemplateHalf = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveLarge2"),
+        meshTemplateLast = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_GraveLarge3"),
+    },
+    [Id.Obstacle.CROSS] = {
+        damage = 35,
+        hp = 50,
+        reward = 1,
+        xp = 2,
+        meshTemplateFull = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_Cross1"),
+        meshTemplateHalf = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_Cross2"),
+        meshTemplateLast = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_Cross3"),
+    },
+    [Id.Obstacle.CELTIC_CROSS] = {
+        damage = 40,
+        hp = 60,
+        reward = 1,
+        xp = 2,
+        meshTemplateFull = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_CelticCross1"),
+        meshTemplateHalf = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_CelticCross2"),
+        meshTemplateLast = GRAVES_TEMPLATE_FOLDER:WaitForChild("Enemy_CelticCross3"),
+    },
 }
 
 m.Handicap = {
     [Id.Handicap.BOMBS] = {
-        name = "Bombs",
+        -- double bombs
+        name = "Double bombs",
+        color = Color3.fromRGB(255, 0, 0),
     },
     [Id.Handicap.GRAVES] = {
-        name = "Graves",
+        name = "Obstacles",
+        color = Color3.fromRGB(129, 0, 158),
+    },
+    [Id.Handicap.DOUBLE_HP] = {
+        -- enemies and players receive double HP
+        name = "Double HP all",
+        color = Color3.fromRGB(255, 162, 0),
     },
 }
 
@@ -423,6 +467,7 @@ m.Sound = {
     [Id.Sound.WHEEL_SPIN] = assert(SOUNDS_ROOT:WaitForChild("WheelSpin")),
     -- localized sounds
     [Id.Sound.FIRE_PISTOL_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("FiredOther")),
+    [Id.Sound.EXPLOSION_SHORT_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ExplosionShort")),
     [Id.Sound.IMPACT_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Impact")),
     [Id.Sound.METAL_BUCKET_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("MetalBucket")),
     [Id.Sound.POP_LOW_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("PopLow")),

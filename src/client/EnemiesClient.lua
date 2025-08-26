@@ -234,7 +234,9 @@ local function animatePoisonBelt(worldState, poisonBelt: BasePart, playerRootPar
     local partBack = assert(poisonBelt:FindFirstChild("PartBack")) :: BasePart
     local partLeft = assert(poisonBelt:FindFirstChild("PartLeft")) :: BasePart
     local partRight = assert(poisonBelt:FindFirstChild("PartRight")) :: BasePart
-    local offset = 230
+    local originalSizeFront = partFront.Size
+    local partHalfWidth = originalSizeFront.Z / 2
+    local offset = originalSizeFront.X / 2 - partHalfWidth
     local y = 9
     partFront.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z - offset)
     partBack.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z + offset)
@@ -244,8 +246,6 @@ local function animatePoisonBelt(worldState, poisonBelt: BasePart, playerRootPar
     for _, part in { partFront, partBack, partLeft, partRight } do
         part.Size = Vector3.new(part.Size.X, part.Size.Y, beltWidth)
     end
-    local partHalfWidth = partFront.Size.Z / 2
-    local originalSizeFront = partFront.Size
     local targetSize1 = SharedConfig.POISON_BELT_SIZE_1
     local time1 = SharedConfig.POISON_BELT_TIME_1
     local size1 = Vector3.new(targetSize1, poisonBelt.Size.Y, targetSize1)

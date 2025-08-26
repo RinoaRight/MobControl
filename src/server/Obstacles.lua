@@ -64,9 +64,27 @@ local GRAVE_Z_DISTRIBUTION_RANDOMNESS = Vector2.new(10, 40)
 
 local maid = disposer.new()
 
--- TODO: real values
 local OBSTACLES_DATA_TABLE = {
+    { count = 25, gacha = { [Id.Obstacle.GRAVE] = 1 } },
     { count = 30, gacha = { [Id.Obstacle.GRAVE] = 1 } },
+    { count = 30, gacha = { [Id.Obstacle.GRAVE] = 90, [Id.Obstacle.GRAVE_MED] = 10 } },
+    { count = 30, gacha = { [Id.Obstacle.GRAVE] = 85, [Id.Obstacle.GRAVE_MED] = 15 } },
+    { count = 30, gacha = { [Id.Obstacle.GRAVE] = 20, [Id.Obstacle.GRAVE_MED] = 80 } },
+    { count = 30, gacha = { [Id.Obstacle.GRAVE] = 20, [Id.Obstacle.GRAVE_MED] = 50, [Id.Obstacle.GRAVE_LARGE] = 30 } },
+    { count = 30, gacha = { [Id.Obstacle.GRAVE] = 20, [Id.Obstacle.GRAVE_MED] = 30, [Id.Obstacle.GRAVE_LARGE] = 50 } },
+    { count = 30, gacha = { [Id.Obstacle.GRAVE] = 10, [Id.Obstacle.GRAVE_MED] = 30, [Id.Obstacle.GRAVE_LARGE] = 50 }, [Id.Obstacle.CROSS] = 10 },
+    {
+        count = 30,
+        gacha = { [Id.Obstacle.GRAVE_MED] = 30, [Id.Obstacle.GRAVE_LARGE] = 40 },
+        [Id.Obstacle.CROSS] = 20,
+        [Id.Obstacle.CELTIC_CROSS] = 10,
+    },
+    {
+        count = 30,
+        gacha = { [Id.Obstacle.GRAVE_MED] = 20, [Id.Obstacle.GRAVE_LARGE] = 30 },
+        [Id.Obstacle.CROSS] = 30,
+        [Id.Obstacle.CELTIC_CROSS] = 20,
+    },
 }
 
 local OBSTACLE_FLAGS_TABLE = {}
@@ -89,7 +107,7 @@ function m.AddObstacles(worldState: state.Main, groundUnit: BasePart, isFirstHal
     end
 
     -- all checks done, spawn obstacles
-    -- TODO: it sounds for everybody, but it should be for the players who are in session
+    -- TODO: it sounds for everybody, but it should be for the players who are in session?
     local audio = S.Sound[Id.Sound.CREAK_METAL]
     if audio then
         audio:Play()

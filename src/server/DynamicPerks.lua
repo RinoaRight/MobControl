@@ -58,10 +58,11 @@ local isMax = function(playerState: PSS.PlayerState, perkId: id)
 end
 
 local function isSelectable(playerState: PSS.PlayerState, perkId: id)
-    local isSlectable = not isMax(playerState, perkId)
-        or S.PlayerUpgradeNonPersistent[perkId].maxStage == 0
+    local isAcquired = Id.flag_test(playerState.state:get(perkId, C.Bitset), Id.PlayerF.PERK_ACQUIRED)
+    local isSelectable = not isMax(playerState, perkId)
+        or (S.PlayerUpgradeNonPersistent[perkId].maxStage == 0 and not isAcquired)
         or S.PlayerUpgradeNonPersistent[perkId].isRenewable
-    return isSlectable
+    return isSelectable
 end
 
 local m = {}
@@ -106,7 +107,7 @@ m.SelectPerks = function(playerState: PSS.PlayerState)
             table.insert(pool, Id.PlayerUpgradeNonPersistent.SHIELD)
         end
     else
-        -- add SHIELD_DAMAGE and SHIELD_COOLDOWN_MULTto the pool, if shield is rechargeable
+        -- add SHIELD_DAMAGE and SHIELD_COOLDOWN_MULT to the pool, if shield is rechargeable
         if isSelectable(playerState, Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE) then
             table.insert(pool, Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE)
         end

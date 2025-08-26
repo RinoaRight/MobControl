@@ -125,7 +125,7 @@ local TOKEN_SHOP_GUI = assert(PLAYER_GUI:WaitForChild("TokenShopGUI"))
 local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
 local SETTINGS_BTN_PANEL = assert(MAIN_GUI.GearPanel)
 local TOP_RIGHT_PANEL = assert(MAIN_GUI:WaitForChild("TopRightPanel"))
-local HANDICAP_TEXT_BOX = assert(TOP_RIGHT_PANEL:WaitForChild("HandicapFrame"):WaitForChild("TextLabel"))
+-- local HANDICAP_TEXT_BOX = assert(TOP_RIGHT_PANEL:WaitForChild("HandicapFrame"):WaitForChild("TextLabel"))
 
 local ANNOUNCEMENT_GUI = assert(PLAYER_GUI:WaitForChild("AnnouncementGUI"))
 
@@ -133,7 +133,7 @@ local COLLIDABLES_HP_GUI_NAME = "CollidableHpGui"
 local COLLIDABLES_HP_GUI_TEMPLATE = assert(PLAYER_GUI:WaitForChild(COLLIDABLES_HP_GUI_NAME)) :: BillboardGui
 
 local PERK_SELECTION_GUI = assert(PLAYER_GUI:WaitForChild("PerkSelectionGUI"))
-local HANDICAP_ANIM_GUI = assert(PLAYER_GUI:WaitForChild("HandicapGUI"))
+-- local HANDICAP_ANIM_GUI = assert(PLAYER_GUI:WaitForChild("HandicapGUI"))
 
 -- forward declarations
 local playRunAnimTrack
@@ -283,7 +283,8 @@ local on_cc = {} :: { [id]: (...any) -> () }
 
 on_cc[Id.S2CC.SESSION_HANDICAP_MODIFIED] = function(currentHandicap: id)
     -- show current session handicap
-    Handicaps.OnHandicapModified(HANDICAP_ANIM_GUI, HANDICAP_TEXT_BOX, currentHandicap)
+    -- Handicaps.OnHandicapModified(HANDICAP_ANIM_GUI, HANDICAP_TEXT_BOX, currentHandicap)
+    Handicaps.OnHandicapModified(PLAYER_STATE, MAIN_GUI, currentHandicap)
 end
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
@@ -438,6 +439,7 @@ local load = function(fire: FireServer, snapshot)
     Popup:Init(POPUP_GUI)
     UICounters.Init(state, TOP_RIGHT_PANEL)
     UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, PERK_SELECTION_GUI, LOCAL_HUMANOID_ROOT_PART)
+    Handicaps.Init(WORLD, PLAYER_STATE, MAIN_GUI)
 
     MAIN_GUI.Enabled = true
 
@@ -600,12 +602,6 @@ do
         -- initialize player's hp GUI
         PLAYER_HP_GUI.Adornee = LOCAL_HUMANOID_HEAD
         PLAYER_HP_TEXT_BOX.Text = SharedConfig.DEFAULT_HP_GUI_TEXT
-        
-        -- show current session handicap
-        local currentHandicap = WORLD:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
-        if currentHandicap and currentHandicap ~= Id.Handicap._NONE then
-            Handicaps.OnPlayerConnected(HANDICAP_TEXT_BOX, currentHandicap)
-        end
     end)
 end
 
@@ -832,7 +828,6 @@ RunService.Heartbeat:Connect(function(dt)
     local intendedPos = PlayerUtils.GetPredictedPositionWithVelocity(dt)
     us2cc:FireServer(Id.C2S.PLAYER_INTENDED_POS, intendedPos, roflake.time())
 
-    -- TODO: is it ok to define arrays this way?
     -- move clones
     local clonesRootParts = {}
     local clonesTargets = {}
@@ -875,7 +870,8 @@ RunService.Heartbeat:Connect(function(dt)
             local alreadyInCol = (i - 1) % SharedConfig.CLONES_IN_A_ROW
             local row = math.floor((i - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
             local cloneCFrame = Misc.GetCloneCFrame(playerRootPart.CFrame, alreadyInCol, row)
-            local cloneTarget = CFrame.lookAlong(cloneCFrame.Position, playerRootPart.CFrame.LookVector, Vector3.yAxis)
+            local playerLook = playerRootPart.CFrame.LookVector
+            local cloneTarget = CFrame.lookAlong(cloneCFrame.Position, playerLook, Vector3.yAxis)
             table.insert(clonesRootParts, cloneRootPart)
             table.insert(clonesTargets, cloneTarget)
             workspace:BulkMoveTo(clonesRootParts, clonesTargets, Enum.BulkMoveMode.FireCFrameChanged)

@@ -98,7 +98,7 @@ export type PlayerState = {
     AddObstacle: (self: PlayerState, refId: id, pos: Vector3) -> uid,
     AddCountableNonPersistent: (self: PlayerState, id: id, count: int) -> (),
     AddCountablePersistent: (self: PlayerState, id: id, count: int) -> (),
-    AddHp: (self: PlayerState, amount: num) -> (num, num),
+    AddHp: (self: PlayerState, amount: num, current_handicap: id) -> (num, num),
     DeductCountableNonPersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
     DeductCountablePersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
     ResetCountable: (self: PlayerState, id: id) -> (),
@@ -395,9 +395,13 @@ function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
     end
 end
 
-function PlayerState.AddHp(self: PlayerState, howMuch: num)
+function PlayerState.AddHp(self: PlayerState, howMuch: num, current_handicap: id)
     local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
-    local new_hp = math.min(current + howMuch, SharedConfig.PLAYER_BASE_HP)
+    local min_hp = SharedConfig.PLAYER_BASE_HP
+    if current_handicap == Id.Handicap.DOUBLE_HP then
+        min_hp *= SharedConfig.HP_HANDICAP_MULT
+    end
+    local new_hp = math.min(current + howMuch, min_hp)
     self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, new_hp)
     return current, new_hp
 end

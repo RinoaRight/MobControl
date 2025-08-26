@@ -141,16 +141,15 @@ local function isAura(playerState: state.Replica, localCharacter: Model, perk_id
 
     return isAura, aura
 end
-
+-- TODO: fixit. Shield aura is not being destroyed when recharge is active! 
 local function destroyAuraFast(playerState: state.Replica, localCharacter: Model, perk_id: id)
     local _, aura = isAura(playerState, localCharacter, perk_id)
     local isAuraBeingDestroyedAlready = playerState:get(perk_id, C.ClientFlags)
     if aura and not isAuraBeingDestroyedAlready then
         _maid.flickerShield = nil
-
         Misc.PlaySound(Id.Sound.POP)
-        playerState:set(perk_id, C.ClientFlags, false)
         aura:Destroy()
+        playerState:set(perk_id, C.ClientFlags, false)
     end
 end
 
@@ -159,10 +158,7 @@ local function createAura(playerState: state.Replica, localCharacter: Model, per
     local playerCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 
     -- check if there is already an aura, if it is, destroy it
-    local _, oldAura = isAura(playerState, playerCharacter, perk_id)
-    if oldAura then
-        destroyAuraFast(playerState, localCharacter, perk_id)
-    end
+    destroyAuraFast(playerState, localCharacter, perk_id)
 
     -- create a new aura
     local aura = S.VFX[Id.VFX.INVINCIBILITY_AURA]:Clone()
@@ -223,13 +219,12 @@ local function destroyAuraSlow(playerState: state.Replica, localCharacter: Model
                 tween4:Play()
                 task.wait(dur2)
             end
-            playerState:set(perk_id, C.ClientFlags, false)
             Misc.PlaySound(Id.Sound.POP)
             aura:Destroy()
+            playerState:set(perk_id, C.ClientFlags, false)
         end)
     end
 end
-
 
 local function hidePerkPanel()
     local tweenTimeUp = 0.5
@@ -452,6 +447,7 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
         -- subscribe purchase buttons
         _maid:Add(SharedUtils.ConnectThrottled(upgradesData[id].purchaseBtn.Activated, 0.3, function()
             onPurchaseBtnPressed(playerState, id)
+            -- TODO: add possibility to press Q and E for desktop players
         end))
 
         -- define which upgrades to show
