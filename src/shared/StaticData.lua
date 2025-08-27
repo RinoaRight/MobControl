@@ -233,7 +233,7 @@ m.Handicap = {
         color = Color3.fromRGB(255, 0, 0),
     },
     [Id.Handicap.GRAVES] = {
-        name = "Obstacles",
+        name = "Graves",
         color = Color3.fromRGB(129, 0, 158),
     },
     [Id.Handicap.DOUBLE_HP] = {

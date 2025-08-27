@@ -485,7 +485,7 @@ local function updatePlayerUpgrades(player_state: PSS.PlayerState, dt: num)
                             if cooldownStage and cooldownStage > 0 then
                                 cooldownMult *= cooldownStage
                             end
-                            period -= period * cooldownMult
+                            period *= cooldownMult
                         end
                     end
                     if period then
@@ -957,7 +957,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             end
         end
 
-        -- handle ttl
+        -- handle world ttl
         for uid, ttl in worldState:select(W.TTL) do
             if roflake.time() > ttl then
                 if worldState:get(uid, W.WeaponId) and worldState:get(uid, W.PlayerId) then
@@ -967,7 +967,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
             end
         end
 
-        -- handle tte
+        -- handle world tte
         for uid, tte in worldState:select(W.TTE) do
             local newTTE = tte - dt
             worldState:set(uid, W.TTE, newTTE)

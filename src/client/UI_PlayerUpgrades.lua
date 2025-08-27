@@ -39,6 +39,8 @@ local roflake = require(shared.roflake)
 local _maid = Disposer.new(script)
 local _shopMaid = Disposer.new(script)
 
+local isFlickering = false
+
 local SHOP_ROOT_PANEL
 local SHOP_SCROLLING_FRAME
 local X_BTN
@@ -141,12 +143,17 @@ local function isAura(playerState: state.Replica, localCharacter: Model, perk_id
 
     return isAura, aura
 end
--- TODO: fixit. Shield aura is not being destroyed when recharge is active! 
+
+local function stopFlickering()
+    _maid.flickerShield = nil
+    isFlickering = false
+end
+
 local function destroyAuraFast(playerState: state.Replica, localCharacter: Model, perk_id: id)
     local _, aura = isAura(playerState, localCharacter, perk_id)
     local isAuraBeingDestroyedAlready = playerState:get(perk_id, C.ClientFlags)
     if aura and not isAuraBeingDestroyedAlready then
-        _maid.flickerShield = nil
+        stopFlickering()
         Misc.PlaySound(Id.Sound.POP)
         aura:Destroy()
         playerState:set(perk_id, C.ClientFlags, false)
@@ -196,7 +203,7 @@ local tweenInfo2 = TweenInfo.new(dur2, Enum.EasingStyle.Linear)
 local function destroyAuraSlow(playerState: state.Replica, localCharacter: Model, perk_id: id)
     local _, aura = isAura(playerState, localCharacter, perk_id)
     if aura then
-        _maid.flickerShield = nil
+        stopFlickering()
 
         local initTransparency = aura.Transparency
         local targetTransparency = 1
@@ -467,16 +474,26 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
 end
 
 function m.OnModifyBitset(playerState: state.Replica, localCharacter, guid: guid, newValue: flag, oldValue: flag)
-    local isAcquired = Id.flag_test(newValue, Id.PlayerF.PERK_ACQUIRED)
-    local isActive = Id.flag_test(newValue, Id.PlayerF.PERK_ACTIVE)
+    local _isAcquiredNow = Id.flag_test(newValue, Id.PlayerF.PERK_ACQUIRED)
+    local isActiveNow = Id.flag_test(newValue, Id.PlayerF.PERK_ACTIVE)
+    local _isAcquiredBefore = Id.flag_test(oldValue, Id.PlayerF.PERK_ACQUIRED)
+    local isActiveBefore = Id.flag_test(oldValue, Id.PlayerF.PERK_ACTIVE)
     if
         guid == Id.PlayerUpgradeNonPersistent.INVINCIBILITY
         or guid == Id.PlayerUpgradeNonPersistent.SHIELD
         or guid == Id.PlayerUpgradeNonPersistent.ARMOR
     then
-        if isAcquired and isActive then
+        -- if isAcquiredNow and isActiveNow then
+        --     createAura(playerState, localCharacter, guid :: id)
+        -- elseif not isActiveNow then
+        --     local isAuraBeingDestroyedAlready = playerState:get(guid, C.ClientFlags)
+        --     if not isAuraBeingDestroyedAlready then
+        --         destroyAuraFast(playerState, localCharacter, guid :: id)
+        --     end
+        -- end
+        if isActiveNow and not isActiveBefore then
             createAura(playerState, localCharacter, guid :: id)
-        elseif not isActive then
+        elseif not isActiveNow and isActiveBefore then
             local isAuraBeingDestroyedAlready = playerState:get(guid, C.ClientFlags)
             if not isAuraBeingDestroyedAlready then
                 destroyAuraFast(playerState, localCharacter, guid :: id)
@@ -493,7 +510,6 @@ function m.OnModifyHP(playerState: state.Replica, localCharacter, guid: guid, ne
     end
 end
 
-local isFlickering = false
 function m.FlickerShield(playerState: state.Replica, localCharacter)
     local _, aura = isAura(playerState, localCharacter, Id.PlayerUpgradeNonPersistent.SHIELD)
     if aura and not isFlickering then
@@ -587,8 +603,16 @@ end
 function m.OnPlayerDead(playerState: state.Replica, localCharacter)
     -- cleanup
     hidePerkPanel()
-    _maid.flickerShield = nil
-    isFlickering = false
+    stopFlickering()
+    for _, child in localCharacter:GetChildren() do
+        if
+            child.Name == SharedConfig.INVINCIBILITY_AURA_NAME
+            or child.Name == SharedConfig.SHIELD_AURA_NAME
+            or child.Name == SharedConfig.ARMOR_AURA_NAME
+        then
+            child:Destroy()
+        end
+    end
 end
 
 return m

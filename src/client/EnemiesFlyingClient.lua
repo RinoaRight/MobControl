@@ -47,7 +47,7 @@ local TweenService = game:GetService("TweenService")
 local _roflake = require(shared.roflake)
 local TARGET_SIGN_TEMPLATE = assert(ReplicatedStorage:WaitForChild("TargetSign"))
 
-local function animateBomb(worldState: state.Replica, signPos: Vector3, bomb: BasePart)
+local function animateSign(worldState: state.Replica, signPos: Vector3, bomb: BasePart)
     TaskPool.spawn(function()
         -- animate target sign
         local targetInstance = TARGET_SIGN_TEMPLATE:Clone()
@@ -198,7 +198,7 @@ m.OnFlyerAdded = function(worldState: state.Replica, playerState: state.Replica,
         parentFolder.Name = SharedConfig.FLYERS_FOLDER_NAME
     end
     flyerInstance.Position = flyerPos
-    flyerInstance.CFrame = CFrame.new(flyerPos) -- * CFrame.Angles(0, math.pi, 0)
+    flyerInstance.CFrame = CFrame.new(flyerPos) 
     flyerInstance.Parent = parentFolder
 
     worldState:set(instanceGuid, W.ClientInstance, flyerInstance)
@@ -225,7 +225,7 @@ m.OnBombActivated = function(worldState: state.Replica, bombGuid: str)
     bomb.Position = pos
     worldState:set(bombGuid, W.ClientFlags, false) -- set "bomb exploded" flag to false
     worldState:set(bombGuid, W.ClientInstance, bomb)
-    animateBomb(worldState, pos, bomb)
+    animateSign(worldState, pos, bomb)
 end
 
 m.CleanupClientFlyer = function(worldState: state.Replica, instanceGuid: str)
