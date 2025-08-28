@@ -37,6 +37,7 @@ m.__index = m
 m.Animation = {
     [Id.Animation.DANCE] = "rbxassetid://507771019",
     [Id.Animation.HOLD] = "rbxassetid://14928151227",
+    [Id.Animation.RIFLE_AIM] = "rbxassetid://3972164452",
 }
 
 m.Weapon = {
@@ -94,7 +95,6 @@ m.Bomb = {
 
 -- stylua: ignore
 m.Boost = {
-    -- TODO: real values
     [Id.Boost.ADD_CLONE]         = {valueRange = Vector2.new(1, 2), baseReward = 1, xp = 1, hpRange = Vector2.new(50, 100)},
     [Id.Boost.CHANGE_WEAPON]     = {valueRange = Vector2.new(0, 0), baseReward = 1, xp = 1, hpRange = Vector2.new(50, 100), contentsRange = {Id.Weapon.SMG, Id.Weapon.ROCKET}},
     [Id.Boost.FIRST_AID_KIT]     = {valueRange = Vector2.new(20, 50), baseReward = 1, xp = 1, hpRange = Vector2.new(50, 100)},

@@ -155,10 +155,20 @@ local function setPlayerToClientState(player_id, weapon_id)
 end
 
 local function handleGunHoldingAnimation(character, weapon_id: int)
-    local animId = S.Animation[Id.Animation.HOLD]
-    local activeHoldAnimTrack = Misc.PlayCharacterAnim(character, animId, false)
+    local activeHoldAnimTrack
 
-    if weapon_id == Id.Weapon._NONE and activeHoldAnimTrack then
+    if weapon_id == Id.Weapon.BASIC or weapon_id == Id.Weapon.SMG then
+        local animId = S.Animation[Id.Animation.HOLD]
+        activeHoldAnimTrack = Misc.PlayCharacterAnim(character, animId, false)
+    else
+        local animId = S.Animation[Id.Animation.RIFLE_AIM]
+        activeHoldAnimTrack = Misc.PlayCharacterAnim(character, animId, false)
+        activeHoldAnimTrack.TimePosition = activeHoldAnimTrack.Length - .8
+        activeHoldAnimTrack:AdjustSpeed(0)
+    end
+
+    -- if weapon got unequipped, stop active weapon animation
+    if weapon_id == Id.Weapon._NONE then
         activeHoldAnimTrack:Stop()
     end
 end
@@ -381,6 +391,7 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
                         weaponInstance:Destroy()
                     end
                 else
+                    -- TODO: FIXIT: clones do not change weapons
                     -- player has equipped weapon, equip it for clones as well
                     if not weaponInstance then
                         -- clone doesn't yet have weapon, equip it

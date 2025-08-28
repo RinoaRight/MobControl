@@ -655,9 +655,10 @@ export type TimedEvent = typeof(Id.TimedEvent)
 -- Animation
 -----------------------------
 Id.Animation = enum.with_id "Id.Animation" {
-    _NONE   = iota(Id.Kind.Animation, 0),
-    DANCE   = iota'',
-    HOLD    = iota'',
+    _NONE     = iota(Id.Kind.Animation, 0),
+    DANCE     = iota'',
+    HOLD      = iota'',
+    RIFLE_AIM = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Animation] = Id.Animation
 export type Animation = typeof(Id.Animation)

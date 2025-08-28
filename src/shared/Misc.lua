@@ -126,11 +126,16 @@ end
 m.PlayCharacterAnim = function(character: Model, animId: str, isLooped: bool?)
     local humanoid = assert(character:WaitForChild("Humanoid"))
     local animator = humanoid:FindFirstChild("Animator") :: Animator
+    local isWeaponAnim = animId == S.Animation[Id.Animation.HOLD] or animId == S.Animation[Id.Animation.RIFLE_AIM]
     local activeAnimTrack
     for _, animTrack in ipairs(animator:GetPlayingAnimationTracks()) do
+        local thisAnimId = animTrack.Animation.AnimationId
+        if isWeaponAnim and (thisAnimId == S.Animation[Id.Animation.HOLD] or thisAnimId == S.Animation[Id.Animation.RIFLE_AIM]) then
+            -- if this is a weapon animation, stop all other weapon animations
+            animTrack:Stop()
+        end
         if animTrack.Animation.AnimationId == animId then
             activeAnimTrack = animTrack
-            break
         end
     end
 
@@ -454,8 +459,6 @@ m.EquipWeaponModel = function(char, weapon_id: int)
     local newCF
     if weapon_id == Id.Weapon.BASIC or weapon_id == Id.Weapon.SPRAYGUN then
         newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), math.rad(180), 0)
-        -- elseif weapon_id == Id.Weapon.ROCKET then
-        -- newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(0, math.rad(180), 0)
     else
         newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), 0, 0)
     end

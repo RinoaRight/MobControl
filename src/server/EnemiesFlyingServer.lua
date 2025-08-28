@@ -59,7 +59,8 @@ local Z_DISTRIBUTION_RANDOMNESS = Vector2.new(10, 40)
 
 -- NOTE: Only even waves are handled
 local ENEMIES_DATA_TABLE = {
-    { count = 0, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
+    -- TODO: revert first value to 0
+    { count = 5, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
     { count = 5, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
     { count = 7, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
     { count = 10, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},

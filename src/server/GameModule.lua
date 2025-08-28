@@ -930,7 +930,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 -- with obstacles and bombs
                 for objectGuid, refId, objectPos in worldState:select(W.RefId, W.Position) do
                     if Id.kind(refId) == Id.Kind.Obstacle then
-                        if (cloneCFrame.Position - objectPos).Magnitude < 10 then
+                        if (cloneCFrame.Position - objectPos).Magnitude < 2 then
                             WorldService.RemoveEntity(cloneGuid)
                             isCollided = true
                             break
