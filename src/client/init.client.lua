@@ -163,7 +163,7 @@ local function handleGunHoldingAnimation(character, weapon_id: int)
     else
         local animId = S.Animation[Id.Animation.RIFLE_AIM]
         activeHoldAnimTrack = Misc.PlayCharacterAnim(character, animId, false)
-        activeHoldAnimTrack.TimePosition = activeHoldAnimTrack.Length - .8
+        activeHoldAnimTrack.TimePosition = activeHoldAnimTrack.Length - 0.8
         activeHoldAnimTrack:AdjustSpeed(0)
     end
 
@@ -240,10 +240,10 @@ end
 
 on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause: id?)
     UIPlayerUpgrades.OnPlayerDead(state, LOCAL_CHARACTER)
+    Handicaps.OnPlayerDead()
     if deducted_hp then
         -- player died because they were damaged, otherwise it's the session finished
         onPlayerDamaged(deducted_hp, cause)
-        -- TODO: some death effect
     end
 
     LOCAL_HUMANOID.JumpPower = 50
@@ -391,7 +391,6 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
                         weaponInstance:Destroy()
                     end
                 else
-                    -- TODO: FIXIT: clones do not change weapons
                     -- player has equipped weapon, equip it for clones as well
                     if not weaponInstance then
                         -- clone doesn't yet have weapon, equip it
@@ -526,7 +525,11 @@ local function subscribeStartCollider()
                     maid.StartBtn = nil
                 end)
             else
-                -- TODO: show a message that the boss fight is on
+                -- show a message that the boss fight is on
+                Signal.Fire(Id.C2C.SHOW_POPUP_CLIENT, {
+                    text = "Wait for the boss fight\nto finish!",
+                    ok = function() end,
+                })
             end
             maid.StartCollider = SESSION_STARTER_COLLIDER.TouchEnded:Connect(function(other)
                 if other == LOCAL_HUMANOID_ROOT_PART then

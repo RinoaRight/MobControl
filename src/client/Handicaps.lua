@@ -83,6 +83,10 @@ m.Init = function(worldState: state.Replica, playerState: state.Replica, mainGui
     end
 end
 
+m.OnPlayerDead = function()
+    HANDICAP_INCRIPTION_TEXT_LABEL.Visible = true
+end
+
 m.OnHandicapModified = function(playerState: state.Replica, mainGui: ScreenGui, activeHandicapId: id)
     -- handicap is set to none, reset the slot's position
     if not activeHandicapId or activeHandicapId == Id.Handicap._NONE then

@@ -174,14 +174,13 @@ local function onPlayerSessionFinishedWorld(player_state, playerId)
 end
 
 local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState, deducted_hp: int?, cause_id: id | uid?)
-    print("Player dead")
     -- check if the player is not already dead
     local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
     if nonPersFlags and not Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
         return
     end
 
-    -- NOTE: don't reset perks on player's death, reset only when session is over
+    print("Player dead")
 
     local attachement = player_state.root:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
     if attachement then
@@ -786,7 +785,7 @@ s2s[Id.S2S.CHANGE_WEAPON] = function(player_state, weapon_id, ...)
 end
 
 s2s[Id.S2S.PLAYER_DIED] = function(player_state, deducted_hp: int, cause_id: id | uid?, ...)
-    onPlayerSessionFinishedPlayerState(player_state)
+    onPlayerSessionFinishedPlayerState(player_state, deducted_hp, cause_id)
 end
 
 s2s[Id.S2S.SHIELD_DAMAGE_SERVER] = function(player_state, target_guid: str, damage: int, ...)
