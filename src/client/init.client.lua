@@ -240,10 +240,9 @@ end
 
 on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause: id?)
     UIPlayerUpgrades.OnPlayerDead(state, LOCAL_CHARACTER)
-    Handicaps.OnPlayerDead()
     if deducted_hp then
         -- player died because they were damaged, otherwise it's the session finished
-        onPlayerDamaged(deducted_hp, cause)
+        onPlayerDamaged(-deducted_hp, cause)
     end
 
     LOCAL_HUMANOID.JumpPower = 50
@@ -385,22 +384,29 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
                 handleGunHoldingAnimation(clone, weapon_id)
                 local gunHand = clone:FindFirstChild("RightHand")
                 local weaponInstance = gunHand:FindFirstChildWhichIsA("Model")
-                if weapon_id == Id.Weapon._NONE then
-                    -- player has removed weapon, remove it for clones as well
-                    if weaponInstance then
-                        weaponInstance:Destroy()
-                    end
-                else
-                    -- player has equipped weapon, equip it for clones as well
-                    if not weaponInstance then
-                        -- clone doesn't yet have weapon, equip it
-                        Misc.EquipWeaponModel(clone, weapon_id)
-                    elseif weaponInstance and weaponInstance.Name ~= S.Weapon[weapon_id].name then
-                        -- clone is carrying different weapon than the player, change it
-                        weaponInstance:Destroy()
-                        Misc.EquipWeaponModel(clone, weapon_id)
-                    end
+                if weaponInstance then
+                    weaponInstance:Destroy()
                 end
+                if weaponInstance ~= Id.Weapon._NONE then
+                    Misc.EquipWeaponModel(clone, weapon_id)
+                end
+                    -- if weapon_id == Id.Weapon._NONE then
+                    --     -- player has removed weapon, remove it for clones as well
+                    --     if weaponInstance then
+                    --         weaponInstance:Destroy()
+                    --     end
+                -- else
+                    -- TODO: FIXIT: sometimes clone doesn;t change the weapon
+                    -- player has equipped weapon, equip it for clones as well
+                    -- if not weaponInstance then
+                    --     -- clone doesn't yet have weapon, equip it
+                    --     Misc.EquipWeaponModel(clone, weapon_id)
+                    -- elseif weaponInstance and weaponInstance.Name ~= S.Weapon[weapon_id].name then
+                    --     -- clone is carrying different weapon than the player, change it
+                    --     weaponInstance:Destroy()
+                    --     Misc.EquipWeaponModel(clone, weapon_id)
+                    -- end
+                -- end
             end
         end
     end
@@ -1199,6 +1205,10 @@ WORLD:set_on_modify(W.HP, function(guid: guid, newValue: num, oldValue: num)
     if Id.kind(refId) == Id.Kind.Enemy then
         if newValue < oldValue and newValue > 0 then
             EnemiesClient.OnEnemyHpDecreased(WORLD, guid :: string, refId, newValue, oldValue)
+        end
+    elseif Id.kind(refId) == Id.Kind.Clone then
+        if newValue < oldValue and newValue > 0 then
+            Misc.PlaySound(Id.Sound.ENERGY_SHIELD_HIT)
         end
     end
 end)

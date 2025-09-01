@@ -437,7 +437,7 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
     if isArmorActive then
         local armor_stage = self.state:get(Id.PlayerUpgradeNonPersistent.ARMOR, C.ValueNonPers)
         local armor_multiplier = S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.ARMOR].multiplier * armor_stage
-        howMuch = math.floor(howMuch * (1 - armor_multiplier))
+        howMuch = math.floor(howMuch * armor_multiplier)
     end
 
     local current_hp = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)

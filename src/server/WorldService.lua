@@ -235,7 +235,10 @@ end
 function m.AddClone(id: id, player_id: int)
     local guid = m.nullary_transient(_roflake.uida())
     m.world:set(guid, W.RefId, id)
+    local clone_hp = S.Bomb[Id.Bomb.ZOMBALLOON_BOMB].damage
+    m.world:set(guid, W.HP, clone_hp)
     m.world:set(guid, W.PlayerId, player_id)
+    m.world:set(guid, W.TTE, 0)
     local isPlayerEntity = m.world:has(player_id)
     if not isPlayerEntity then
         log:error("player entity not found for player id: ", player_id)
@@ -248,6 +251,28 @@ function m.AddClone(id: id, player_id: int)
         m.world:set(player_id, W.Value, newCount)
     end
     return guid
+end
+
+function m.DamageClone(guid: guid, damage: number)
+    -- check for damage throttle
+    local tte = m.world:get(guid, W.TTE)
+    if tte > 0 then
+        return
+    end
+
+    m.world:set(guid, W.TTE, SharedConfig.CLONE_DMG_THROTTLE)
+    local hp = m.world:get(guid, W.HP)
+    if hp then
+        if m.world:get(Id.WorldSpecs.HANDICAP, W.Value) == Id.Handicap.BOMBS then
+            damage *= assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.ARMOR].multiplier)
+        end
+        hp -= math.floor(damage)
+        if hp < 0 then
+            m.RemoveEntity(guid)
+        else
+            m.world:set(guid, W.HP, hp)
+        end
+    end
 end
 
 local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.TTL, W.TTE, W.Bitset)

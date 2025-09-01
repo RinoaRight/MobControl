@@ -260,7 +260,7 @@ local function startGameSession()
 
         local handicapIds = Id.Handicap:ids()
         local handicapId = Random.new():NextInteger(handicapIds[1], handicapIds[#handicapIds])
-        -- local handicapId = Id.Handicap.DOUBLE_HP
+        -- local handicapId = Id.Handicap.BOMBS
         WorldService.SetHandicap(handicapId)
 
         GameModule.Init(WorldService.world, get_state)

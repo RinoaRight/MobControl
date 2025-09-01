@@ -229,7 +229,7 @@ m.Obstacle = {
 m.Handicap = {
     [Id.Handicap.BOMBS] = {
         -- double bombs
-        name = "Double bombs",
+        name = "Double bombs, armored clones",
         color = Color3.fromRGB(255, 0, 0),
     },
     [Id.Handicap.GRAVES] = {
@@ -238,7 +238,7 @@ m.Handicap = {
     },
     [Id.Handicap.DOUBLE_HP] = {
         -- enemies and players receive double HP
-        name = "Double HP all",
+        name = "Double HP enemies and players",
         color = Color3.fromRGB(255, 162, 0),
     },
 }
@@ -420,22 +420,13 @@ m.PlayerUpgradeNonPersistent = {
         multiplier = .5,
         color = Color3.fromRGB(255, 165, 0),
     },
-    -- [Id.PlayerUpgradeNonPersistent.ARMOR] = {
-    --     period = 10,
-    --     maxStage = 1,
-    --     isRenewable = true,
-    --     isLooped = false,
-    --     isExpirable = true,
-    --     multiplier = .5, -- half damage
-    --     color = Color3.fromRGB(220, 194, 1),
-    -- },
     [Id.PlayerUpgradeNonPersistent.ARMOR] = {
         period = 0xffff_ffff,
         maxStage = 3,
         isRenewable = false,
         isLooped = false,
         isExpirable = false,
-        multiplier = .1, -- damage reduction
+        multiplier = .9, -- 10% damage reduction
         color = Color3.fromRGB(220, 194, 1),
     },
 }

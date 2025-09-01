@@ -891,6 +891,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         -- check clones collisions
+        local explosionHitRegistered = false
         for cloneGuid, refId, playerId in worldState:select(W.RefId, W.PlayerId) do
             if Id.kind(refId) == Id.Kind.Clone then
                 local playerState = get_state(playerId)
@@ -912,12 +913,13 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         continue
                     end
                     local boosterInstance = worldState:get(booster.Name, W.ServerInstance)
+                    local boosterHP = worldState:get(booster.Name, W.HP)
                     local boosterSizeZ = boosterInstance.Size.Z
                     local boosterSizeX = boosterInstance.Size.X
                     local distZ = math.abs(cloneCFrame.Position.Z - boosterInstance.Position.Z)
                     local distX = math.abs(cloneCFrame.Position.X - boosterInstance.Position.X)
                     if distZ < boosterSizeZ / 2 and distX < boosterSizeX / 2 then
-                        WorldService.RemoveEntity(cloneGuid)
+                        WorldService.DamageClone(cloneGuid :: str, boosterHP)
                         isCollided = true
                         break
                     end
@@ -931,7 +933,8 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 for objectGuid, refId, objectPos in worldState:select(W.RefId, W.Position) do
                     if Id.kind(refId) == Id.Kind.Obstacle then
                         if (cloneCFrame.Position - objectPos).Magnitude < 2 then
-                            WorldService.RemoveEntity(cloneGuid)
+                            local damage = S.Obstacle[refId].damage
+                            WorldService.DamageClone(cloneGuid :: str, damage)
                             isCollided = true
                             break
                         end
@@ -943,8 +946,13 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                         end
                         local explosionSize = assert(S.Bomb[refId].explosionSize)
                         if (cloneCFrame.Position - objectPos).Magnitude < explosionSize.X then
-                            playerState:NotifyClient(Id.S2C.BOMB_HIT, objectGuid, objectPos)
-                            WorldService.RemoveEntity(cloneGuid)
+                            local tte = worldState:get(cloneGuid, W.TTE)
+                            if tte <= 0 and not explosionHitRegistered then
+                                playerState:NotifyClient(Id.S2C.BOMB_HIT, objectGuid, objectPos)
+                            end
+                            local bombDamage = S.Bomb[refId].damage
+                            WorldService.DamageClone(cloneGuid :: str, bombDamage)
+                            explosionHitRegistered = true
                             isCollided = true
                             break
                         end

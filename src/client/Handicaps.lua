@@ -83,10 +83,6 @@ m.Init = function(worldState: state.Replica, playerState: state.Replica, mainGui
     end
 end
 
-m.OnPlayerDead = function()
-    HANDICAP_INCRIPTION_TEXT_LABEL.Visible = true
-end
-
 m.OnHandicapModified = function(playerState: state.Replica, mainGui: ScreenGui, activeHandicapId: id)
     -- handicap is set to none, reset the slot's position
     if not activeHandicapId or activeHandicapId == Id.Handicap._NONE then
@@ -96,11 +92,10 @@ m.OnHandicapModified = function(playerState: state.Replica, mainGui: ScreenGui, 
                 slot.Position = ROTATING_SLOT_START_POS
             end
         end
+        HANDICAP_INCRIPTION_TEXT_LABEL.Position = ROTATING_SLOT_CENTER_POS
         HANDICAP_INCRIPTION_TEXT_LABEL.Visible = true
         return
     end
-    -- TODO: show detailed description, then leave the possibility to look it up again
-    -- TODO: for double bombs, make clones invulnerable to explosions
 
     -- if the handicap was just set, play animation
     -- local animGuiParentPanel = mainGui:WaitForChild("TopRightPanel") :: Frame
