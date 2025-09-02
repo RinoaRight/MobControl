@@ -106,6 +106,10 @@ function m.AddObstacles(worldState: state.Main, groundUnit: BasePart, isFirstHal
         return
     end
 
+    if worldState:get(Id.WorldSpecs.HANDICAP, W.Value) == Id.Handicap.GRAVES then
+        numberOfObstacles *= SharedConfig.OBSTACLES_HANDICAP_MULT
+    end
+
     -- all checks done, spawn obstacles
     -- TODO: it sounds for everybody, but it should be for the players who are in session?
     local audio = S.Sound[Id.Sound.CREAK_METAL]

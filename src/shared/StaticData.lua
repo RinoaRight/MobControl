@@ -233,8 +233,8 @@ m.Handicap = {
         color = Color3.fromRGB(255, 0, 0),
     },
     [Id.Handicap.GRAVES] = {
-        name = "Graves",
-        color = Color3.fromRGB(129, 0, 158),
+        name = "More graves",
+        color = Color3.fromRGB(208, 0, 255),
     },
     [Id.Handicap.DOUBLE_HP] = {
         -- enemies and players receive double HP

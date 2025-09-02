@@ -378,35 +378,34 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
     local clonesFolder = playerChar:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
     if clonesFolder then
         local clones = clonesFolder:GetChildren()
-        if clones and #clones > 1 then
+        if clones and #clones > 0 then
             for i, clone in ipairs(clones) do
                 -- handle weapon instance for clones
                 handleGunHoldingAnimation(clone, weapon_id)
                 local gunHand = clone:FindFirstChild("RightHand")
                 local weaponInstance = gunHand:FindFirstChildWhichIsA("Model")
-                if weaponInstance then
-                    weaponInstance:Destroy()
-                end
-                if weaponInstance ~= Id.Weapon._NONE then
-                    Misc.EquipWeaponModel(clone, weapon_id)
-                end
-                    -- if weapon_id == Id.Weapon._NONE then
-                    --     -- player has removed weapon, remove it for clones as well
-                    --     if weaponInstance then
-                    --         weaponInstance:Destroy()
-                    --     end
-                -- else
-                    -- TODO: FIXIT: sometimes clone doesn;t change the weapon
-                    -- player has equipped weapon, equip it for clones as well
-                    -- if not weaponInstance then
-                    --     -- clone doesn't yet have weapon, equip it
-                    --     Misc.EquipWeaponModel(clone, weapon_id)
-                    -- elseif weaponInstance and weaponInstance.Name ~= S.Weapon[weapon_id].name then
-                    --     -- clone is carrying different weapon than the player, change it
-                    --     weaponInstance:Destroy()
-                    --     Misc.EquipWeaponModel(clone, weapon_id)
-                    -- end
+                -- if weaponInstance then
+                --     weaponInstance:Destroy()
                 -- end
+                -- if weapon_id ~= Id.Weapon._NONE then
+                --     Misc.EquipWeaponModel(clone, weapon_id)
+                -- end
+                if weapon_id == Id.Weapon._NONE then
+                    -- player has removed weapon, remove it for clones as well
+                    if weaponInstance then
+                        weaponInstance:Destroy()
+                    end
+                else
+                    -- player has equipped weapon, equip it for clones as well
+                    if not weaponInstance then
+                        -- clone doesn't yet have weapon, equip it
+                        Misc.EquipWeaponModel(clone, weapon_id)
+                    elseif weaponInstance and weaponInstance.Name ~= S.Weapon[weapon_id].name then
+                        -- clone is carrying different weapon than the player, change it
+                        weaponInstance:Destroy()
+                        Misc.EquipWeaponModel(clone, weapon_id)
+                    end
+                end
             end
         end
     end
@@ -891,9 +890,17 @@ RunService.Heartbeat:Connect(function(dt)
             local row = math.floor((i - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
             local cloneCFrame = Misc.GetCloneCFrame(playerRootPart.CFrame, alreadyInCol, row)
             local playerLook = playerRootPart.CFrame.LookVector
-            local cloneTarget = CFrame.lookAlong(cloneCFrame.Position, playerLook, Vector3.yAxis)
+            -- local cloneTargetCFrame = CFrame.lookAlong(cloneCFrame.Position, playerLook, Vector3.yAxis)
+            -- if boss fight is on, clone orientation == playerLook, else it's straight ahead along the z axis
+            local cloneTargetCFrame
+            local isBossFight = WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
+            if isBossFight then
+                cloneTargetCFrame = CFrame.lookAlong(cloneCFrame.Position, playerLook, Vector3.yAxis)
+            else
+                cloneTargetCFrame = CFrame.new(cloneCFrame.Position, cloneCFrame.Position + Vector3.new(0, 0, -1))
+            end
             table.insert(clonesRootParts, cloneRootPart)
-            table.insert(clonesTargets, cloneTarget)
+            table.insert(clonesTargets, cloneTargetCFrame)
             workspace:BulkMoveTo(clonesRootParts, clonesTargets, Enum.BulkMoveMode.FireCFrameChanged)
         end
     end

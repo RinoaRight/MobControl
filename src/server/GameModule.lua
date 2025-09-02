@@ -337,11 +337,9 @@ local function subscribeTrigger(worldState: state.Main, get_state: (player_id: i
     workerMaid.trigger = trigger.Touched:Connect(function(triggerer)
         if triggerer == DRIVING_BOX_FRONT then
             local fourth = GROUND_UNITS[FIELD_NAMES.FOURTH].unit :: Part
-            -- if "obstacles" is the active handicap, create obstacles on the next ground unit
-            if worldState:get(Id.WorldSpecs.HANDICAP, W.Value) == Id.Handicap.GRAVES then
-                WorldService.UpdateObstacleWaveCount()
-                Obstacles.AddObstacles(worldState, fourth, true)
-            end
+            -- create obstacles on the next ground unit
+            WorldService.UpdateObstacleWaveCount()
+            Obstacles.AddObstacles(worldState, fourth, true)
 
             subscribeTrigger(worldState, get_state, FIELD_NAMES.FOURTH, fourth)
             trigger:Destroy()
