@@ -128,7 +128,7 @@ local function resetHp(player_state)
         hp *= S.PlayerUpgradePersistent[hpUpgrade].value
     end
 
-    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, hp)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP, hp)
     WorldService.world:set(player_state.player_id, W.HP, hp)
 
     return hp
@@ -204,7 +204,7 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
 
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, 0)
-    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, 0)
+    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP, 0)
     -- reset player flags
     for _, player_flag_id in Id.PlayerF:ids() do
         if player_flag_id > Id.PlayerF._NON_PERSISTENT then
@@ -316,7 +316,7 @@ stopGameSession = function(exception_player_id: num?)
         if exception_player_id and playerId ~= exception_player_id then
             continue
         end
-        playerState:DeductHp(playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers))
+        playerState:DeductHp(playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP))
     end
 
     workerMaid.worldLoop = nil

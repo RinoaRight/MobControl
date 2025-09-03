@@ -49,6 +49,7 @@ m.Weapon = {
         cooldown = 0.5, --sec
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
         barrelLength = 1,
+        magazineSize = 100,
         instance = WEAPONS_ROOT.PistolModel,
         name = "Pistol",
     },
@@ -59,6 +60,7 @@ m.Weapon = {
         cooldown = 0.2,
         bulletSize = Vector3.new(1, 1, 1),
         barrelLength = 1.5,
+        magazineSize = 250,
         instance = WEAPONS_ROOT.SMGModel,
         name = "SMG",
     },
@@ -69,6 +71,7 @@ m.Weapon = {
         cooldown = 0.7,
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
         barrelLength = 2.5,
+        magazineSize = 70,
         instance = WEAPONS_ROOT.ShotgunModel,
         name = "Spraygun",
     },
@@ -79,6 +82,7 @@ m.Weapon = {
         cooldown = 1.2,
         bulletSize = Vector3.new(4, 4, 6),
         barrelLength = 3,
+        magazineSize = 10,
         explosionSize = Vector3.new(20, 20, 20),
         instance = WEAPONS_ROOT.RocketLauncherModel,
         name = "Rocket",
@@ -233,7 +237,7 @@ m.Handicap = {
         color = Color3.fromRGB(255, 0, 0),
     },
     [Id.Handicap.GRAVES] = {
-        name = "More graves",
+        name = "Double obstacles",
         color = Color3.fromRGB(208, 0, 255),
     },
     [Id.Handicap.DOUBLE_HP] = {

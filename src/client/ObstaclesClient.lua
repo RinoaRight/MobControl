@@ -171,6 +171,9 @@ end
 local m = {}
 
 m.onObstacleAdded = function(worldState: state.Replica, instanceGuid: str, localRoot: BasePart)
+    if not worldState:has(instanceGuid) then
+        return
+    end
     local obstPos = worldState:get(instanceGuid, W.Position)
     local refId = worldState:get(instanceGuid, W.RefId)
     local meshTemplate = S.Obstacle[refId].meshTemplateFull

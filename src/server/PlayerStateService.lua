@@ -143,18 +143,19 @@ local function update_ids(main: state.Main)
         _countable_persistent(id, 0, 0)
     end)
 
-    -- weapon_id, intended_pos_time_stamp, weapon_tte, hp, pers_flags, non_pers_flags, intended_pos
-    local player_specs = main:constructor(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.BitsetNonPers, C.V3)
+    -- weapon_id, intended_pos_time_stamp, weapon_tte, weapon_ammo, pers_flags, non_pers_flags, intended_pos, hp
+    local player_specs = main:constructor(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.BitsetNonPers, C.V3, C.HP)
     merge(Id.PlayerSpecs, function(id)
         player_specs(
             id,
             Id.Weapon._NONE,
             0,
             0,
-            SharedConfig.PLAYER_BASE_HP,
+            0,
             Id.PlayerF._NONE,
             Id.PlayerF._NONE,
-            Vector3.new(0, 0, 0)
+            Vector3.new(0, 0, 0),
+            SharedConfig.PLAYER_BASE_HP
         )
     end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
 
@@ -396,13 +397,13 @@ function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
 end
 
 function PlayerState.AddHp(self: PlayerState, howMuch: num, current_handicap: id)
-    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
+    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP)
     local min_hp = SharedConfig.PLAYER_BASE_HP
     if current_handicap == Id.Handicap.DOUBLE_HP then
         min_hp *= SharedConfig.HP_HANDICAP_MULT
     end
     local new_hp = math.min(current + howMuch, min_hp)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP, new_hp)
     return current, new_hp
 end
 
@@ -440,9 +441,9 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
         howMuch = math.floor(howMuch * armor_multiplier)
     end
 
-    local current_hp = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
+    local current_hp = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP)
     local new_hp = math.max(current_hp - howMuch, 0)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP, new_hp)
     if new_hp <= 0 then
         Signal.Fire(Id.S2S.PLAYER_DIED, self.player_id, current_hp, cause)
     else
@@ -452,7 +453,7 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
 end
 
 function PlayerState.UpdateSessionDamageStats(self: PlayerState, dmg: num): int
-    local oldVal = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
+    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.ValueNonPers)
     local newVal = oldVal + dmg
     self.state:set(Id.PlayerSpecs.SESSION_DAMAGE, C.ValueNonPers, newVal)
     return newVal

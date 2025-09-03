@@ -136,6 +136,11 @@ function m.AddObstacles(worldState: state.Main, groundUnit: BasePart, isFirstHal
         rows += 1
     end
 
+    -- make sure grid doesn't exceed GROUND_UNIT_LENGTH
+    if cell_h * rows > GROUND_UNIT_LENGTH then
+        cell_h = math.floor(GROUND_UNIT_LENGTH / rows)
+    end
+
     local grid, bitmap, _rc2idx, _idx2rc = Misc.CreateGrid(cell_w, cell_h, cols, rows, origin)
 
     for i = 1, numberOfObstacles do

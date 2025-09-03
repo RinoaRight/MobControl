@@ -326,7 +326,7 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
     hidePerkPanel()
 
     -- initialize player HP value view
-    local playerHP = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
+    local playerHP = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP)
     playerState:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueView, playerHP)
 
     _maid.slot1Btn = PERK_1_SLOT_BTN.Activated:Connect(function()
@@ -537,7 +537,7 @@ function m.OnStateUpdate(playerState: state.Replica, localCharacter)
     local isShield = Id.flag_test(playerState:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset), Id.PlayerF.PERK_ACTIVE)
     local isArmor = Id.flag_test(playerState:get(Id.PlayerUpgradeNonPersistent.ARMOR, C.Bitset), Id.PlayerF.PERK_ACTIVE)
     local playerHPValueView = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueView)
-    local playerHP = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
+    local playerHP = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP)
     local playerFlags = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
     local isPlayerInSession = playerFlags and Id.flag_test(playerFlags, Id.PlayerF.READY)
 
