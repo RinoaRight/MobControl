@@ -47,7 +47,7 @@ local GUI_TARGET_SCALE = UDim2.new(0.45, 0, 0.45, 0)
 local ROTATING_SLOT_START_POS = UDim2.fromScale(0.5, -0.5)
 local ROTATING_SLOT_CENTER_POS = UDim2.fromScale(0.5, 0.5)
 local ROTATING_SLOT_BOTTOM_POS = UDim2.fromScale(0.5, 1.5)
-local HANDICAP_GUI_PARENT_PANEL
+local TOP_RIGHT_PANEL
 local HANDICAP_GUI_MAIN_FRAME
 local HANDICAP_GUI_TEXT_FRAME
 local HANDICAP_INCRIPTION_TEXT_LABEL
@@ -55,13 +55,12 @@ local HANDICAP_INCRIPTION_TEXT_LABEL
 local m = {}
 
 m.Init = function(worldState: state.Replica, playerState: state.Replica, mainGui: ScreenGui)
-    local activeHandicap = worldState:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+    local activeHandicapId = worldState:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
     -- initialize slots
-    HANDICAP_GUI_PARENT_PANEL = mainGui:WaitForChild("TopRightPanel") :: Frame
-    HANDICAP_GUI_MAIN_FRAME = HANDICAP_GUI_PARENT_PANEL:WaitForChild("HandicapFrame")
+    TOP_RIGHT_PANEL = mainGui:WaitForChild("TopRightPanel") :: Frame
+    HANDICAP_GUI_MAIN_FRAME = TOP_RIGHT_PANEL:WaitForChild("HandicapFrame")
     HANDICAP_GUI_TEXT_FRAME = HANDICAP_GUI_MAIN_FRAME:WaitForChild("TextFrame") :: Frame
     HANDICAP_INCRIPTION_TEXT_LABEL = HANDICAP_GUI_TEXT_FRAME:WaitForChild("Handicap") :: Frame
-    -- local animGuiBorder = anumGuiMainFrame:WaitForChild("Border") :: Frame
     local allEntriesTable = S.Handicap
     local textBoxTemplate = assert(HANDICAP_GUI_TEXT_FRAME:WaitForChild("TextLabel")) :: TextLabel
     for handicapId, data in allEntriesTable do
@@ -73,7 +72,7 @@ m.Init = function(worldState: state.Replica, playerState: state.Replica, mainGui
         textBox.Text = string.upper(data.name)
         textBox.Parent = HANDICAP_GUI_TEXT_FRAME
         local pos = ROTATING_SLOT_START_POS
-        if activeHandicap and activeHandicap ~= Id.Handicap._NONE then
+        if activeHandicapId and activeHandicapId ~= Id.Handicap._NONE then
             pos = ROTATING_SLOT_CENTER_POS
         end
         textBox.Position = pos
@@ -84,6 +83,8 @@ m.Init = function(worldState: state.Replica, playerState: state.Replica, mainGui
 end
 
 m.OnHandicapModified = function(playerState: state.Replica, mainGui: ScreenGui, activeHandicapId: id)
+    -- NOTE: handicap animation is shown to both active and non-active players, when the handicap is being modified
+
     -- handicap is set to none, reset the slot's position
     if not activeHandicapId or activeHandicapId == Id.Handicap._NONE then
         local allSlots = HANDICAP_GUI_TEXT_FRAME:GetChildren()
@@ -185,6 +186,10 @@ m.OnHandicapModified = function(playerState: state.Replica, mainGui: ScreenGui, 
                 end
             end
         end
+
+        -- show ammo frame if the handicap is finite ammo
+        local ammoFrame = assert(TOP_RIGHT_PANEL:WaitForChild("AmmoFrame")) :: Frame
+        ammoFrame.Visible = activeHandicapId == Id.Handicap.FINITE_AMMO
     end)
 end
 

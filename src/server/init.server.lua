@@ -111,7 +111,8 @@ GameModule.StartDamageThrottleSupervisor(get_state)
 -----------------------------
 
 local function changeWeapon(player_state, weapon_id: id)
-    player_state:ChangeWeapon(weapon_id)
+    local current_handicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value)
+    player_state:ChangeWeapon(weapon_id, current_handicap)
     WorldService.ChangeWeapon(player_state, player_state.player_id, weapon_id)
 end
 
@@ -260,7 +261,8 @@ local function startGameSession()
 
         local handicapIds = Id.Handicap:ids()
         local handicapId = Random.new():NextInteger(handicapIds[1], handicapIds[#handicapIds])
-        -- local handicapId = Id.Handicap.GRAVES
+        -- TODO: comment out
+        local handicapId = Id.Handicap.FINITE_AMMO
         WorldService.SetHandicap(handicapId)
 
         GameModule.Init(WorldService.world, get_state)
@@ -513,6 +515,12 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
         return
     end
 
+    -- check if the weapon id matches the current weapon
+    if current_weapon_id ~= bullet_weapon_id then
+        log:error("Weapon id mismatch", current_weapon_id, bullet_weapon_id)
+        return
+    end
+
     -- check the legitimacy of the shot
     local currentTTE = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE)
     local tolerance = 0.1
@@ -533,6 +541,25 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
     -- reset  weapon's cooldown
     local cooldown = S.Weapon[current_weapon_id].cooldown
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, cooldown)
+
+    -- reset ammo if finite ammo handicap is on
+    if current_weapon_id ~= Id.Weapon.BASIC then
+        local current_handicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value)
+        if current_handicap and current_handicap == Id.Handicap.FINITE_AMMO then
+            local current_ammo = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
+            if current_ammo and current_ammo > 0 then
+                current_ammo -= 1
+                if current_ammo == 0 then
+                    changeWeapon(player_state, Id.Weapon.BASIC)
+                else
+                    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, current_ammo)
+                end
+            else
+                -- no ammo left, can't shoot
+                return
+            end
+        end
+    end
 
     local playerRoot = player_state.root
     -- TODO: refactor to coordinate this with the client ->

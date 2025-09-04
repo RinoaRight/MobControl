@@ -186,6 +186,22 @@ function m.GetCurrentBoosterHpMult(worldState: state.Main)
     return mult
 end
 
+function m.GiveBoosterBonus(playerState: PSS.PlayerState, boost_ref_id: id, boost_content_id: id, value: int)
+    if boost_ref_id == Id.Boost.ADD_CLONE then
+        for i = 1, value do
+            local playerId = playerState.player_id
+            local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
+        end
+    elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
+        Signal.Fire(Id.S2S.CHANGE_WEAPON, playerState.player_id, boost_content_id)
+    elseif boost_ref_id == Id.Boost.FIRST_AID_KIT then
+        local currentHandicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+        local old_hp, new_hp = playerState:AddHp(value, currentHandicap)
+        local hp_added = new_hp - old_hp
+        playerState:NotifyClient(Id.S2C.BOOSTER_DESTROYED, boost_ref_id, hp_added, boost_content_id)
+    end
+end
+
 function m.DeleteBooster(worldState: state.Main, instanceGuid: string, get_state: (int) -> PSS.PlayerState?)
     if worldState:has(instanceGuid) then
         WorldService.RemoveEntity(instanceGuid)

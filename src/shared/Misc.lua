@@ -424,7 +424,7 @@ m.PlaySound = function(sound_id: int, isLooped: bool?, volume: num?)
     end
 end
 
-m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num)
+m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num, times: int?)
     Taskpool.defer(function()
         local audioEmitter = audioEmitterTemplate:Clone()
         audioEmitter.Parent = game.Workspace
@@ -433,10 +433,16 @@ m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num)
 
         task.wait(delay)
 
-        aud:Play()
-        aud.Ended:Connect(function()
-            audioEmitter:Destroy()
-        end)
+        if not times then
+            times = 1
+        end
+        for i = 1, (times:: int) do
+            aud:Play()
+            task.wait(aud.TimeLength + 0.1)
+            if i == times then
+                audioEmitter:Destroy()
+            end
+        end
     end)
 end
 

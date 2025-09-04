@@ -240,6 +240,7 @@ end
 
 on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause: id?)
     UIPlayerUpgrades.OnPlayerDead(state, LOCAL_CHARACTER)
+
     if deducted_hp then
         -- player died because they were damaged, otherwise it's the session finished
         onPlayerDamaged(-deducted_hp, cause)
@@ -258,6 +259,8 @@ on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause
     if clonesFolder then
         clonesFolder:Destroy()
     end
+
+    UICounters.ToggleAmmoFrame(false)
 end
 
 on[Id.S2C.SHOW_POPUP_SERVER] = function(state: state.Replica, event_id: id)
@@ -290,10 +293,9 @@ end
 -- Server Broadcasts
 local on_cc = {} :: { [id]: (...any) -> () }
 
-on_cc[Id.S2CC.SESSION_HANDICAP_MODIFIED] = function(currentHandicap: id)
+on_cc[Id.S2CC.SESSION_HANDICAP_MODIFIED] = function(currentHandicapId: id)
     -- show current session handicap
-    -- Handicaps.OnHandicapModified(HANDICAP_ANIM_GUI, HANDICAP_TEXT_BOX, currentHandicap)
-    Handicaps.OnHandicapModified(PLAYER_STATE, MAIN_GUI, currentHandicap)
+    Handicaps.OnHandicapModified(PLAYER_STATE, MAIN_GUI, currentHandicapId)
 end
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
@@ -328,11 +330,17 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
     end
 
     setPlayerToClientState(player_id, weapon_id)
+
+    local activeHandicapId = WORLD:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+    -- if the handicap has been already defined, show the ammo bar, otherwise it will be shown on [Id.S2CC.SESSION_HANDICAP_MODIFIED]
+    if activeHandicapId and activeHandicapId == Id.Handicap.FINITE_AMMO then
+        UICounters.ToggleAmmoFrame(true)
+    end
 end
 
 on_cc[Id.S2CC.PLAYER_STOPPED_SESSION] = function(player_id: id)
     if player_id == LOCAL_PLAYER.UserId then
-        -- the logic is already done in on[Id.S2C.PLAYER_DIED]
+        -- NOTE: the logic is already done in on[Id.S2C.PLAYER_DIED]
         return
     else
         local player = Players:GetPlayerByUserId(player_id)
@@ -384,12 +392,7 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
                 handleGunHoldingAnimation(clone, weapon_id)
                 local gunHand = clone:FindFirstChild("RightHand")
                 local weaponInstance = gunHand:FindFirstChildWhichIsA("Model")
-                -- if weaponInstance then
-                --     weaponInstance:Destroy()
-                -- end
-                -- if weapon_id ~= Id.Weapon._NONE then
-                --     Misc.EquipWeaponModel(clone, weapon_id)
-                -- end
+
                 if weapon_id == Id.Weapon._NONE then
                     -- player has removed weapon, remove it for clones as well
                     if weaponInstance then
@@ -602,7 +605,7 @@ do
         local allPlayers = Players:GetPlayers()
         for _, player in ipairs(allPlayers) do
             if player == LOCAL_PLAYER then
-                -- initialization of the local player is set in on PLAYER_STARTED_SESSION
+                -- NOTE: initialization of the local player is set in on PLAYER_STARTED_SESSION
                 continue
             end
             local player_id = player.UserId
@@ -667,6 +670,7 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id, rotation: 
     if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
         bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
     else
+        -- TODO: change to a normal bullet model
         bullet = Instance.new("Part")
     end
     local guid = roflake.uida()
@@ -808,6 +812,21 @@ local function fireBullet(player)
         tte = S.Weapon[weapon_id].cooldown
     end
     PLAYER_STATE:set(player.UserId, C.ClientTTE, tte)
+
+    -- TODO: if current handicap == finite ammo and is not pistol and ammo count == 0, then play empty sound
+    local currentHandicap = WORLD:get(Id.WorldSpecs.HANDICAP, W.Value)
+    if currentHandicap == Id.Handicap.FINITE_AMMO and weapon_id ~= Id.Weapon.BASIC then
+        local ammoCount = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers) or 0
+        if ammoCount == 1 then -- last bullet was just fired
+            local audioId = Id.Sound.RELOAD_CLICK
+            local audio = S.Sound[audioId]
+            TaskPool.spawn(function()
+                Misc.PlaySound(audioId)
+                task.wait(audio.TimeLength + 0.1)
+                Misc.PlaySound(audioId)
+            end)
+        end
+    end
 end
 
 local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_size)
@@ -966,7 +985,8 @@ RunService.Heartbeat:Connect(function(dt)
         local start_pos = bulletData.start_pos
         local bullet_range = bulletData.range
         -- enlarge Y axis to check for collisions with obstacles  (graves) when they are partly destroyed already
-        local raycast_size = Vector3.new(bulletData.size.X, 5, bulletData.size.Z)
+        local sizeTolerance = 2
+        local raycast_size = Vector3.new(bulletData.size.X + sizeTolerance, 5, bulletData.size.Z + sizeTolerance)
         local newBulletCframe = bullet.CFrame + bullet.CFrame.LookVector * (speed * dt)
 
         -- check for collisions

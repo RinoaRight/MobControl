@@ -1082,19 +1082,20 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     end
     -- unsubscribe booster
     workerMaid[booster_guid] = nil
-    if boost_ref_id == Id.Boost.ADD_CLONE then
-        for i = 1, value do
-            local playerId = playerState.player_id
-            local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
-        end
-    elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
-        Signal.Fire(Id.S2S.CHANGE_WEAPON, playerState.player_id, boost_content_id)
-    elseif boost_ref_id == Id.Boost.FIRST_AID_KIT then
-        local currentHandicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
-        local old_hp, new_hp = playerState:AddHp(value, currentHandicap)
-        local hp_added = new_hp - old_hp
-        playerState:NotifyClient(Id.S2C.BOOSTER_DESTROYED, boost_ref_id, hp_added, boost_content_id)
-    end
+    BoosterServer.GiveBoosterBonus(playerState, boost_ref_id, boost_content_id, value)
+    -- if boost_ref_id == Id.Boost.ADD_CLONE then
+    --     for i = 1, value do
+    --         local playerId = playerState.player_id
+    --         local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
+    --     end
+    -- elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
+    --     Signal.Fire(Id.S2S.CHANGE_WEAPON, playerState.player_id, boost_content_id)
+    -- elseif boost_ref_id == Id.Boost.FIRST_AID_KIT then
+    --     local currentHandicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+    --     local old_hp, new_hp = playerState:AddHp(value, currentHandicap)
+    --     local hp_added = new_hp - old_hp
+    --     playerState:NotifyClient(Id.S2C.BOOSTER_DESTROYED, boost_ref_id, hp_added, boost_content_id)
+    -- end
 end
 
 function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)

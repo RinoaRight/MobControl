@@ -50,6 +50,8 @@ local COIN_TEXTBOX
 local COIN_IMG
 local RANK_TEXT_BOX
 local RANK_PROGRESS_BAR
+local AMMO_FRAME
+local AMMO_PROGRESS_BAR
 
 local _maid = disposer.new()
 
@@ -78,6 +80,11 @@ m.Init = function(playerState: state.Replica, mainGuiPanel)
     local xpFrame = assert(mainGuiPanel:WaitForChild("RankFrame"))
     RANK_TEXT_BOX = assert(xpFrame.TextLabel)
     RANK_PROGRESS_BAR = assert(xpFrame.InsideBarBGFrame.InsideBarSliderFrame)
+
+    AMMO_FRAME = assert(mainGuiPanel:WaitForChild("AmmoFrame"))
+    AMMO_FRAME.Visible = false
+    AMMO_PROGRESS_BAR = assert(AMMO_FRAME.InsideBarBGFrame.InsideBarSliderFrame)
+    AMMO_PROGRESS_BAR.Size = UDim2.fromScale(1, 1)
 
     for _, refId in Id.CountablePersistent:ids() do
         local currentValue = playerState:get(refId, C.ValuePers) or 0
@@ -136,9 +143,26 @@ m.OnStateUpdate = function(playerState: state.Replica)
         PlayerUpgrades.OnPlayerRankUpdate(playerState)
     end
     playerState:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueView, currentRank)
-
     -- clamp min value to avoid visual artifacts
     local currentProgressBarValue = math.max(currentXpInPercent, 0.05)
     RANK_PROGRESS_BAR.Size = UDim2.fromScale(currentProgressBarValue, RANK_PROGRESS_BAR_INIT_SIZE.Y.Scale)
+
+    -- ammo
+    local currentWeaponId = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
+    if currentWeaponId and currentWeaponId ~= Id.Weapon._NONE then
+        local maxAmmo = S.Weapon[currentWeaponId].magazineSize
+        local currentAmmo = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers) or maxAmmo
+        local ammoInPercent = currentAmmo / maxAmmo
+        -- clamp min value to avoid visual artifacts
+        local currentAmmoBarValue = math.max(ammoInPercent, 0.05)
+        AMMO_PROGRESS_BAR.Size = UDim2.fromScale(currentAmmoBarValue, AMMO_PROGRESS_BAR.Size.Y.Scale)
+    end
 end
+
+m.ToggleAmmoFrame = function(isToShow: bool)
+    if AMMO_FRAME then
+        AMMO_FRAME.Visible = isToShow
+    end
+end
+
 return m

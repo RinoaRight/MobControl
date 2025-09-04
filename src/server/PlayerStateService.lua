@@ -105,7 +105,7 @@ export type PlayerState = {
     DeactivatePlayerUpgradeNonPers: (self: PlayerState, id: id) -> (),
     ActivatePlayerUpgradeNonPers: (self: PlayerState, id: id) -> (),
     DeductHp: (self: PlayerState, amount: num, cause: id | uid?) -> num,
-    ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
+    ChangeWeapon: (self: PlayerState, weapon_id: id, current_handicap: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
     -- UpdatePlayerXP: (self: PlayerState, xp: int) -> (int, int),
     ResetPlayerXP: (self: PlayerState) -> (),
@@ -386,14 +386,20 @@ function PlayerState.ActivatePlayerUpgradeNonPers(self: PlayerState, perk_id: id
     end
 end
 
-function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
+function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id, current_handicap: id)
     self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, weapon_id)
     local tte = 0
-    if weapon_id ~= Id.Weapon._NONE then
-        tte = S.Weapon[weapon_id].cooldown
-    elseif not self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) then
-        self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, tte)
+    local ammo = 0
+    if current_handicap and current_handicap == Id.Handicap.FINITE_AMMO then
+        ammo = assert(S.Weapon[weapon_id].magazineSize)
     end
+    -- if weapon_id ~= Id.Weapon._NONE then
+    --     tte = assert(S.Weapon[weapon_id].cooldown)
+    --     elseif not self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) then
+    --         self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, tte)
+    -- end
+    -- self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, tte)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, ammo)
 end
 
 function PlayerState.AddHp(self: PlayerState, howMuch: num, current_handicap: id)

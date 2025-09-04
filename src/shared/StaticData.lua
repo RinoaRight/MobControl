@@ -82,7 +82,7 @@ m.Weapon = {
         cooldown = 1.2,
         bulletSize = Vector3.new(4, 4, 6),
         barrelLength = 3,
-        magazineSize = 10,
+        magazineSize = 30,
         explosionSize = Vector3.new(20, 20, 20),
         instance = WEAPONS_ROOT.RocketLauncherModel,
         name = "Rocket",
@@ -244,6 +244,11 @@ m.Handicap = {
         -- enemies and players receive double HP
         name = "Double HP enemies and players",
         color = Color3.fromRGB(255, 162, 0),
+    },
+    [Id.Handicap.FINITE_AMMO] = {
+        -- players have finite ammo
+        name = "No infinite ammo",
+        color = Color3.fromRGB(0, 162, 255),
     },
 }
 
@@ -454,6 +459,7 @@ m.Sound = {
     [Id.Sound.METAL_BUCKET] = assert(SOUNDS_ROOT:WaitForChild("MetalBucket")),
     [Id.Sound.POP] = assert(SOUNDS_ROOT:WaitForChild("Pop")),
     [Id.Sound.POP_LOW] = assert(SOUNDS_ROOT:WaitForChild("PopLow")),
+    [Id.Sound.RELOAD_CLICK] = assert(SOUNDS_ROOT:WaitForChild("ReloadClick")),
     [Id.Sound.RELOAD_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("ReloadPistol")),
     [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
     [Id.Sound.SCREAM_HIGH] = assert(SOUNDS_ROOT:WaitForChild("ScreamHigh")),
@@ -466,6 +472,7 @@ m.Sound = {
     [Id.Sound.IMPACT_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Impact")),
     [Id.Sound.METAL_BUCKET_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("MetalBucket")),
     [Id.Sound.POP_LOW_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("PopLow")),
+    [Id.Sound.RELOAD_CLICK_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ReloadClick")),
     [Id.Sound.SCREAM_LOCALIZED_HIGH] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ScreamHigh")),
     [Id.Sound.SCREAM_LOCALIZED_REG] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("ScreamReg")),
     [Id.Sound.STOMP_LOCALIZED] = assert(LOCALIZED_SOUNDS_ROOT:WaitForChild("Stomp")),
