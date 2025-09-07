@@ -261,8 +261,7 @@ local function startGameSession()
 
         local handicapIds = Id.Handicap:ids()
         local handicapId = Random.new():NextInteger(handicapIds[1], handicapIds[#handicapIds])
-        -- TODO: comment out
-        local handicapId = Id.Handicap.FINITE_AMMO
+        local handicapId = Id.Handicap.HP_DRAIN
         WorldService.SetHandicap(handicapId)
 
         GameModule.Init(WorldService.world, get_state)
@@ -757,6 +756,12 @@ on[Id.C2S.PLAYER_READY_TO_START] = function(player_state, ...)
                 local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
             end
         end
+    end
+
+    -- if current handicap is HP drain, player starts with ARMOR
+    local currentHandicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value)
+    if currentHandicap == Id.Handicap.HP_DRAIN then
+        acquirePlayerUpgradeNonPers(player_state, Id.PlayerUpgradeNonPersistent.ARMOR)
     end
 end
 

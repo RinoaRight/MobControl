@@ -699,6 +699,7 @@ Id.Sound = enum.with_id "Id.Sound" {
     SCREAM_HIGH               = iota'',
     SCREAM_LOCALIZED_HIGH     = iota'',
     SCREAM_LOCALIZED_REG      = iota'',
+    SCREAM_SQUEAK             = iota'',
     STOMP_LOCALIZED           = iota'',
     THUMP                     = iota'',
     THUMP_LOCALIZED           = iota'',
@@ -762,6 +763,7 @@ Id.Handicap = enum.with_id "Id.Handicap" {
     DOUBLE_HP                    = iota'',
     GRAVES                       = iota'',
     FINITE_AMMO                  = iota'',
+    HP_DRAIN                     = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Handicap] = Id.Handicap
 export type Handicap = typeof(Id.Handicap)

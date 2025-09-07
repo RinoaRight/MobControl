@@ -564,6 +564,18 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 continue
             end
 
+            -- handle handicaps
+            local current_handicap = worldState:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+            if current_handicap == Id.Handicap.HP_DRAIN then
+                local hp_drain = SharedConfig.HP_DRAIN_AMOUNT
+                local tte = worldState:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.TTE) :: num
+                if tte < 0 then
+                    playerState:DeductHp(hp_drain, Id.Handicap.HP_DRAIN)
+                    local hp_drain_period = SharedConfig.HP_DRAIN_PERIOD
+                    worldState:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.TTE, hp_drain_period)
+                end
+            end
+
             -- handle perks
             updatePlayerUpgrades(playerState, dt)
 

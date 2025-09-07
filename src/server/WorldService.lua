@@ -196,21 +196,23 @@ function m.SetBossFightOff()
     end
 end
 
-local _game_session = m.world:constructor(W.Value)
+local _game_session = m.world:constructor(W.Value, W.TTE) -- isOn, hp_drain_period
 function m.SetGameSessionOn()
     local value = m.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
     if value == nil then
-        _game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, true)
+        _game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, true, SharedConfig.HP_DRAIN_PERIOD)
     else
         m.world:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value, true)
+        m.world:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.TTE, SharedConfig.HP_DRAIN_PERIOD)
     end
 end
 function m.SetGameSessionOff()
     local value = m.world:get(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value)
     if value == nil then
-        _game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, false)
+        _game_session(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, false, 0)
     else
         m.world:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.Value, false)
+        m.world:set(Id.WorldSpecs.GAME_SESSION_IN_PROGRESS, W.TTE, 0)
     end
 end
 

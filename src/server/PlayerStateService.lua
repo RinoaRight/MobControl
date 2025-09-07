@@ -146,17 +146,7 @@ local function update_ids(main: state.Main)
     -- weapon_id, intended_pos_time_stamp, weapon_tte, weapon_ammo, pers_flags, non_pers_flags, intended_pos, hp
     local player_specs = main:constructor(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.BitsetNonPers, C.V3, C.HP)
     merge(Id.PlayerSpecs, function(id)
-        player_specs(
-            id,
-            Id.Weapon._NONE,
-            0,
-            0,
-            0,
-            Id.PlayerF._NONE,
-            Id.PlayerF._NONE,
-            Vector3.new(0, 0, 0),
-            SharedConfig.PLAYER_BASE_HP
-        )
+        player_specs(id, Id.Weapon._NONE, 0, 0, 0, Id.PlayerF._NONE, Id.PlayerF._NONE, Vector3.new(0, 0, 0), SharedConfig.PLAYER_BASE_HP)
     end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
 
     local _player_perk_non_persistent = main:constructor(C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.HP) -- ttl, stage number, flag, hp
@@ -245,13 +235,13 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
             return
         end
         if event_id == Id.C2S.PLAYER_INTENDED_POS then
-                -- if new timestamp is older than the previous, the event is expired, disregard
-                local previous_timestamp = state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL)
-                if previous_timestamp > timestamp then
-                    return
-                end
-                state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3, intended_pos)
-                state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL, timestamp)
+            -- if new timestamp is older than the previous, the event is expired, disregard
+            local previous_timestamp = state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL)
+            if previous_timestamp > timestamp then
+                return
+            end
+            state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3, intended_pos)
+            state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL, timestamp)
         end
     end))
     log:trace("~~~> server\n", player_state, debug.traceback)
@@ -414,6 +404,8 @@ function PlayerState.AddHp(self: PlayerState, howMuch: num, current_handicap: id
 end
 
 function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
+    -- NOTE: HP drain damage bypasses all perks except invincibility
+    
     -- check if player is invincible
     local flags = self.state:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset)
     local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
@@ -426,7 +418,7 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
     local shield_hp = self.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.HP)
     local shield_flags = self.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
     local isShieldActive = Id.flag_test(shield_flags, Id.PlayerF.PERK_ACTIVE)
-    if isShieldActive and shield_hp > 0 then
+    if isShieldActive and shield_hp > 0 and cause ~= Id.Handicap.HP_DRAIN then
         local new_shield_hp = math.max(shield_hp - howMuch, 0)
         self.state:set(Id.PlayerUpgradeNonPersistent.SHIELD, C.HP, new_shield_hp)
         if new_shield_hp <= 0 then
@@ -441,9 +433,9 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
     -- check if player has armor
     local armor_flags = self.state:get(Id.PlayerUpgradeNonPersistent.ARMOR, C.Bitset)
     local isArmorActive = Id.flag_test(armor_flags, Id.PlayerF.PERK_ACTIVE)
-    if isArmorActive then
+    if isArmorActive and cause ~= Id.Handicap.HP_DRAIN then
         local armor_stage = self.state:get(Id.PlayerUpgradeNonPersistent.ARMOR, C.ValueNonPers)
-        local armor_multiplier = S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.ARMOR].multiplier * armor_stage
+        local armor_multiplier = S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.ARMOR].multiplier - (0.1 * armor_stage)
         howMuch = math.floor(howMuch * armor_multiplier)
     end
 
@@ -504,7 +496,7 @@ function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
     return clonesAmount
 end
 
-function PlayerState.set_flag(self: PlayerState, uid: state.uid, comp:state.cid, flag: Id.flag, value: bool)
+function PlayerState.set_flag(self: PlayerState, uid: state.uid, comp: state.cid, flag: Id.flag, value: bool)
     assert(comp == C.Bitset or comp == C.BitsetNonPers, "not Bitset of BitsetNonPers")
     local flags = self.state:get(uid, comp)
     if not flags then
@@ -517,7 +509,7 @@ function PlayerState.set_flag(self: PlayerState, uid: state.uid, comp:state.cid,
     end
     self.state:set(uid, comp, Id.flag_set(flags, flag, value))
 end
-function PlayerState.test_flag(self: PlayerState, uid: state.uid, comp:state.cid, flag: Id.flag): bool
+function PlayerState.test_flag(self: PlayerState, uid: state.uid, comp: state.cid, flag: Id.flag): bool
     assert(comp == C.Bitset or comp == C.BitsetNonPers, "not Bitset of BitsetNonPers")
     local flags = self.state:get(uid, comp)
     if not flags then

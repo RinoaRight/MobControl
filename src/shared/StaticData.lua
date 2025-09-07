@@ -235,20 +235,30 @@ m.Handicap = {
         -- double bombs
         name = "Double bombs, armored clones",
         color = Color3.fromRGB(255, 0, 0),
+        secondary_color = Color3.fromRGB(85, 0, 0),
     },
     [Id.Handicap.GRAVES] = {
         name = "Double obstacles",
         color = Color3.fromRGB(208, 0, 255),
+        secondary_color = Color3.fromRGB(85, 0, 0),
     },
     [Id.Handicap.DOUBLE_HP] = {
         -- enemies and players receive double HP
         name = "Double HP enemies and players",
         color = Color3.fromRGB(255, 162, 0),
+        secondary_color = Color3.fromRGB(85, 0, 0),
     },
     [Id.Handicap.FINITE_AMMO] = {
         -- players have finite ammo
         name = "No infinite ammo",
         color = Color3.fromRGB(0, 162, 255),
+        secondary_color = Color3.fromRGB(85, 0, 0),
+    },
+    [Id.Handicap.HP_DRAIN] = {
+        -- players lose HP over time
+        name = "Start with armor, HP drain",
+        color = Color3.fromRGB(251, 255, 0),
+        secondary_color = Color3.fromRGB(85, 0, 0),
     },
 }
 
@@ -463,6 +473,7 @@ m.Sound = {
     [Id.Sound.RELOAD_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("ReloadPistol")),
     [Id.Sound.SCREAM] = assert(SOUNDS_ROOT:WaitForChild("Scream")),
     [Id.Sound.SCREAM_HIGH] = assert(SOUNDS_ROOT:WaitForChild("ScreamHigh")),
+    [Id.Sound.SCREAM_SQUEAK] = assert(SOUNDS_ROOT:WaitForChild("ScreamSqueak")),
     [Id.Sound.THUMP] = assert(SOUNDS_ROOT:WaitForChild("Thump")),
     [Id.Sound.WEAK_BULLET] = assert(SOUNDS_ROOT:WaitForChild("WeakBullet")),
     [Id.Sound.WHEEL_SPIN] = assert(SOUNDS_ROOT:WaitForChild("WheelSpin")),

@@ -175,12 +175,16 @@ end
 
 local function onStateUpdate(playerState: state.Replica)
     UICounters.OnStateUpdate(playerState)
-    UIPlayerUpgrades.OnStateUpdate(playerState, LOCAL_CHARACTER)
+    UIPlayerUpgrades.OnStateUpdate(playerState, WORLD, LOCAL_CHARACTER)
 end
 
 local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
     Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, deducted_hp)
-    Misc.PlaySound(Id.Sound.SCREAM)
+    local soundId = Id.Sound.SCREAM
+    if cause == Id.Handicap.HP_DRAIN then
+        soundId = Id.Sound.SCREAM_SQUEAK
+    end
+    Misc.PlaySound(soundId)
     if cause then
         local causeRefId
         if type(cause) == "string" then

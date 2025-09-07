@@ -24,6 +24,7 @@ type flag = Id.flag
 local S = require(shared.StaticData)
 local SharedConfig = require(shared.SharedConfig)
 local C = SharedConfig.PlayerState.CId
+local W = SharedConfig.World.CId
 local SharedUtils = require(shared.util)
 local state = require(shared.state)
 local UserInputService = game:GetService("UserInputService")
@@ -532,7 +533,7 @@ function m.FlickerShield(playerState: state.Replica, localCharacter)
     end
 end
 
-function m.OnStateUpdate(playerState: state.Replica, localCharacter)
+function m.OnStateUpdate(playerState: state.Replica, worldState: state.Replica, localCharacter)
     local isInvincible = Id.flag_test(playerState:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset), Id.PlayerF.PERK_ACTIVE)
     local isShield = Id.flag_test(playerState:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset), Id.PlayerF.PERK_ACTIVE)
     local isArmor = Id.flag_test(playerState:get(Id.PlayerUpgradeNonPersistent.ARMOR, C.Bitset), Id.PlayerF.PERK_ACTIVE)
@@ -555,7 +556,9 @@ function m.OnStateUpdate(playerState: state.Replica, localCharacter)
         end
     elseif isArmor then
         -- SFX for ARMOR
-        if playerHPValueView > playerHP and isPlayerInSession then
+        local currentHandicap = worldState:get(Id.WorldSpecs.HANDICAP, W.Value)
+        local isHpDrain = currentHandicap and currentHandicap == Id.Handicap.HP_DRAIN
+        if playerHPValueView > playerHP and isPlayerInSession and not isHpDrain then
             Misc.PlaySound(Id.Sound.ARMOR_HIT)
         end
     end

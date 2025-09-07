@@ -69,6 +69,10 @@ m.Init = function(worldState: state.Replica, playerState: state.Replica, mainGui
         if data.color then
             textBox.TextColor3 = data.color
         end
+        if data.secondary_color then
+            local uiStroke = assert(textBox:FindFirstChildWhichIsA("UIStroke"))
+            uiStroke.Color = data.secondary_color
+        end
         textBox.Text = string.upper(data.name)
         textBox.Parent = HANDICAP_GUI_TEXT_FRAME
         local pos = ROTATING_SLOT_START_POS
