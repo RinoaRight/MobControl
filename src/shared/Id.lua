@@ -759,11 +759,12 @@ export type WorldSpecs = typeof(Id.WorldSpecs)
 -----------------------------
 Id.Handicap = enum.with_id "Id.Handicap" {
     _NONE                        = iota(Id.Kind.Handicap, 0),
-    BOMBS                        = iota'',
-    DOUBLE_HP                    = iota'',
+    BOMBS                        = iota'', -- double bombs + armor to clones
+    DOUBLE_HP                    = iota'', -- to enemies and players
     GRAVES                       = iota'',
     FINITE_AMMO                  = iota'',
-    HP_DRAIN                     = iota'',
+    HP_DRAIN                     = iota'', -- + start with armor
+    PISTOLS_ONLY                 = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Handicap] = Id.Handicap
 export type Handicap = typeof(Id.Handicap)

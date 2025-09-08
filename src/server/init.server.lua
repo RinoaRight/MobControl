@@ -261,7 +261,7 @@ local function startGameSession()
 
         local handicapIds = Id.Handicap:ids()
         local handicapId = Random.new():NextInteger(handicapIds[1], handicapIds[#handicapIds])
-        local handicapId = Id.Handicap.HP_DRAIN
+        local handicapId = Id.Handicap.PISTOLS_ONLY
         WorldService.SetHandicap(handicapId)
 
         GameModule.Init(WorldService.world, get_state)

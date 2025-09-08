@@ -260,6 +260,12 @@ m.Handicap = {
         color = Color3.fromRGB(251, 255, 0),
         secondary_color = Color3.fromRGB(85, 0, 0),
     },
+    [Id.Handicap.PISTOLS_ONLY] = {
+        -- players can use only pistols
+        name = "Pistols only",
+        color = Color3.fromRGB(0, 255, 162),
+        secondary_color = Color3.fromRGB(85, 0, 0),
+    },
 }
 
 m.PlayerUpgradePersistent = {

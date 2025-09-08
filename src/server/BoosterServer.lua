@@ -168,6 +168,10 @@ function m.SetBoosterValue(worldState: state.Main)
     -- define booster id
     local boostGacha = m.BOOSTER_DATA_TABLE[wavesTotal].boost_gacha
     boosterRefId = Rand.weighted_choice(boostGacha)
+    local currentHandicap = worldState:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+    if currentHandicap == Id.Handicap.PISTOLS_ONLY and boosterRefId == Id.Boost.CHANGE_WEAPON then
+        boosterRefId = Id.Boost.ADD_CLONE
+    end
     if boosterRefId == Id.Boost.CHANGE_WEAPON then
         -- define weapon id
         local weaponGacha = m.BOOSTER_DATA_TABLE[wavesTotal].weapon_gacha
