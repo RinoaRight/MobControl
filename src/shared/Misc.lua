@@ -53,12 +53,15 @@ m.DefineObjectY = function(enemyInstance: BasePart)
     return y
 end
 
-m.ShowAnnouncement = function(text, announcementGui, fontFace: Enum.Font?)
+m.ShowAnnouncement = function(text, announcementGui, fontFace: Enum.Font?, color: Color3?)
     local textBox = assert(announcementGui:WaitForChild("ContainerFrame").Message) :: TextLabel
     if fontFace then
         textBox.FontFace = Font.fromEnum(fontFace)
     end
     textBox.Text = text
+    if color then
+        textBox.TextColor3 = color
+    end
     announcementGui.Enabled = true
     Taskpool.defer(function()
         local t = 0.5
@@ -67,7 +70,7 @@ m.ShowAnnouncement = function(text, announcementGui, fontFace: Enum.Font?)
         local targetSize = UDim2.fromScale(1, 1.3)
         local tween1 = TweenService:Create(textBox, tweenInfo, { Size = targetSize })
         local tween2 = TweenService:Create(textBox, tweenInfo, { Size = origSize })
-        for i = 1, 2 do
+        for i = 1, 4 do
             tween1:Play()
             task.wait(t)
             tween2:Play()

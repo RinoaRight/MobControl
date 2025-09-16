@@ -242,10 +242,10 @@ on[Id.S2C.BOOSTER_DESTROYED] = function(state: state.Replica, boost_ref_id: id, 
     end
 end
 
-on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause: id?)
+on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int, cause: id?)
     UIPlayerUpgrades.OnPlayerDead(state, LOCAL_CHARACTER)
 
-    if deducted_hp then
+    if cause ~= Id.S2C.GAMES_SESSION_ENDED then
         -- player died because they were damaged, otherwise it's the session finished
         onPlayerDamaged(-deducted_hp, cause)
     end
@@ -441,6 +441,13 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
     end
 end
 
+on_cc[Id.S2CC.BOSS_KILLED_BY_PLAYER] = function()
+    Misc.PlaySound(Id.Sound.FANFARE_1)
+    local font = Enum.Font.FredokaOne
+    local color = Color3.fromHex("00ff00")
+    Misc.ShowAnnouncement("Boss defeated!", ANNOUNCEMENT_GUI, font, color)
+end
+
 -----------------------------
 -- Handshake
 -----------------------------
@@ -537,9 +544,9 @@ local function subscribeStartCollider()
                     maid.StartBtn = nil
                 end)
             else
-                -- show a message that the boss fight is on
+                -- show a message 
                 Signal.Fire(Id.C2C.SHOW_POPUP_CLIENT, {
-                    text = "Wait for the boss fight\nto finish!",
+                    text = "Wait for the next round!",
                     ok = function() end,
                 })
             end
@@ -817,9 +824,9 @@ local function fireBullet(player)
     end
     PLAYER_STATE:set(player.UserId, C.ClientTTE, tte)
 
-    -- TODO: if current handicap == finite ammo and is not pistol and ammo count == 0, then play empty sound
+    -- if current handicap == finite ammo and ammo count == 0, then play empty sound
     local currentHandicap = WORLD:get(Id.WorldSpecs.HANDICAP, W.Value)
-    if currentHandicap == Id.Handicap.FINITE_AMMO and weapon_id ~= Id.Weapon.BASIC then
+    if currentHandicap == Id.Handicap.FINITE_AMMO then
         local ammoCount = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers) or 0
         if ammoCount == 1 then -- last bullet was just fired
             local audioId = Id.Sound.RELOAD_CLICK
@@ -1150,7 +1157,8 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         EnemiesClient.OnEnemyAdded(WORLD, PLAYER_STATE, guid :: string, isBoss, DRIVING_BOX_BACK_PART, LOCAL_HUMANOID_ROOT_PART)
         if isBoss then
             local font = Enum.Font.Creepster
-            Misc.ShowAnnouncement("BOSS INCOMING! POISON GAS RELEASED", ANNOUNCEMENT_GUI, font)
+            local color = Color3.fromHex("ff5500")
+            Misc.ShowAnnouncement("BOSS INCOMING! POISON GAS RELEASED", ANNOUNCEMENT_GUI, font, color)
         end
     elseif Id.kind(newValue) == Id.Kind.EnemyFlying and WORLD:get(guid, W.PlayerId) then
         EnemiesFlying.OnFlyerAdded(WORLD, PLAYER_STATE, guid :: string, LOCAL_HUMANOID_ROOT_PART)

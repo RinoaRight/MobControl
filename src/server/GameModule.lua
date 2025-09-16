@@ -149,6 +149,17 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     groundUnit:Destroy()
 end
 
+local function setPlayersForFinal(get_state: (player_id: int) -> PSS.PlayerState?)
+    for _, player in game.Players:GetPlayers() do
+        local player_state = get_state(player.UserId)
+        if not player_state then
+            continue
+        end
+        player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
+        player_state.humanoid.AutoRotate = false
+    end
+end
+
 local function onBossArrival(get_state: (player_id: int) -> PSS.PlayerState?, enemyGuid: guid)
     WorldService.SetBossFightOn(enemyGuid)
     -- spawn poison belt
@@ -161,14 +172,12 @@ local function onBossArrival(get_state: (player_id: int) -> PSS.PlayerState?, en
     poisonBeltInstance.Name = SharedConfig.POISON_BELT_NAME_SERVER
     Misc.AnimatePoisonBelt(poisonBeltInstance, poisonBeltInstance)
 
-    for _, player in game.Players:GetPlayers() do
-        local player_state = get_state(player.UserId)
-        if not player_state then
-            continue
-        end
-        player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
-        player_state.humanoid.AutoRotate = false
-    end
+    setPlayersForFinal(get_state)
+end
+
+local function onPvpActivated(get_state: (player_id: int) -> PSS.PlayerState?)
+    setPlayersForFinal(get_state)
+    -- TODO: the logic
 end
 
 local function setBooster(worldState: state.Main, instance: BasePart, get_state: (int) -> PSS.PlayerState?)
@@ -267,33 +276,7 @@ local function spawnGroundUnit(worldState: state.Main, groundUnit: Part, index: 
     end
 end
 
-local function generateEnemies(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
-    local newWaveNumber = WorldService.UpdateEnemyWaveCount()
-    local unit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
-    local enemyWalkingGuids = Enemies.AddEnemies(worldState, get_state, unit, true, newWaveNumber) :: {}
-    local enemyGuids = {} :: { guid }
-    for _, enemyGuid in ipairs(enemyWalkingGuids) do
-        table.insert(enemyGuids, enemyGuid)
-    end
-
-    local enemiesFlyingGuids = EnemiesFlying.AddEnemiesFlying(worldState, unit, true, newWaveNumber) :: {}
-    for _, enemyGuid in ipairs(enemiesFlyingGuids) do
-        table.insert(enemyGuids, enemyGuid)
-    end
-
-    if #enemyGuids > 0 then
-        for _, enemyGuid in ipairs(enemyGuids) do
-            local refId = worldState:get(enemyGuid, W.RefId)
-            -- NOTE: can't test the 'isBoss' flag, because it is yet to be set
-            if Id.kind(refId) == Id.Kind.Enemy and refId > Id.Enemy._BOSS then
-                onBossArrival(get_state, enemyGuid)
-            end
-        end
-    end
-end
-
-local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?)
-    local waveNumber = WorldService.GetEnemyWaveNumber()
+local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?, waveNumber: int)
     local isPvPTime = false
     if waveNumber == SharedConfig.FINAL_BOSS_WAVE_NUMBER then
         local allPlayers = game.Players:GetPlayers()
@@ -316,20 +299,52 @@ local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?)
         -- if there are more than 1 player in the session, it's PvP time, otherwise spawn boss
         if playersInSession > 1 then
             isPvPTime = true
-            WorldService.SetPvPTimeOn()
-            local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
-            TaskPool.spawn(function()
-                for _, unit in ipairs(unitsFolder) do
-                    -- unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
-                    local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-                    local tween = TweenService:Create(unit, tweenInfo, { AssemblyLinearVelocity = Vector3.new(0, 0, 0) })
-                    tween:Play()
-                end
-                task.wait(10)
-            end)
+            -- WorldService.SetPvPTimeOn()
+            -- local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
+            -- TaskPool.spawn(function()
+            --     for _, unit in ipairs(unitsFolder) do
+            --         -- unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
+            --         local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+            --         local tween = TweenService:Create(unit, tweenInfo, { AssemblyLinearVelocity = Vector3.new(0, 0, 0) })
+            --         tween:Play()
+            --     end
+            --     task.wait(10)
+            -- end)
         end
     end
     return isPvPTime
+end
+
+local function generateEnemies(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
+    local newWaveNumber = WorldService.UpdateEnemyWaveCount()
+
+    -- PvP time
+    if isPvPTime(get_state, newWaveNumber) then
+        onPvpActivated(get_state)
+        return
+    end
+
+    -- no PvP time, spawn boss or regular enemies
+    local unit = GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part
+    local enemyWalkingGuids = Enemies.AddEnemies(worldState, get_state, unit, true, newWaveNumber) :: {}
+    local enemyGuids = {} :: { guid }
+    for _, enemyGuid in ipairs(enemyWalkingGuids) do
+        table.insert(enemyGuids, enemyGuid)
+    end
+
+    local enemiesFlyingGuids = EnemiesFlying.AddEnemiesFlying(worldState, unit, true, newWaveNumber) :: {}
+    for _, enemyGuid in ipairs(enemiesFlyingGuids) do
+        table.insert(enemyGuids, enemyGuid)
+    end
+
+    if #enemyGuids > 0 then
+        for _, enemyGuid in ipairs(enemyGuids) do
+            local flags = worldState:get(enemyGuid, W.Bitset)
+            if Id.flag_test(flags, Id.EnemyF.IS_BOSS) then
+                onBossArrival(get_state, enemyGuid)
+            end
+        end
+    end
 end
 
 local function subscribeTrigger(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?, index, groundUnit)
@@ -737,7 +752,9 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                     end
                                     local thisPlayerState = assert(get_state(player.UserId))
                                     thisPlayerState:NotifyClient(Id.S2C.BOMB_HIT, enemyGuid, playerHeadPos)
-                                    WorldService.RemoveEntity(enemyGuid)
+                                    if worldState:has(enemyGuid) then
+                                        WorldService.RemoveEntity(enemyGuid)
+                                    end
                                 end
                             end
                         end

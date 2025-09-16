@@ -177,8 +177,6 @@ function m.SetBossFightOn(enemyGuid: guid)
         log:error("enemy guid is not an enemy: ", enemyGuid)
         return
     end
-    local flags = m.world:get(enemyGuid, W.Bitset)
-    m.world:set(enemyGuid, W.Bitset, Id.flag_or(flags, Id.EnemyF.IS_BOSS))
 
     local value = m.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
     if value == nil then
@@ -289,6 +287,12 @@ function m.AddEnemyToState(id: id, pos)
         tte = S.Enemy[id].tte :: number
     end
     _enemy(guid, id, hp, pos, SharedConfig.DEFAULT_PLAYER_ID, 0xffff_ffff, tte, Id.EnemyF.NONE)
+
+    if id > Id.Enemy._BOSS then
+        local flags = m.world:get(guid, W.Bitset)
+        m.world:set(guid, W.Bitset, Id.flag_or(flags, Id.EnemyF.IS_BOSS))
+    end
+    
     return guid
 end
 

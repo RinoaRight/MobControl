@@ -681,6 +681,8 @@ Id.Sound = enum.with_id "Id.Sound" {
     ERROR                     = iota'',
     EXPLOSION_SHORT           = iota'',
     EXPLOSION_SHORT_LOCALIZED = iota'',
+    FANFARE_1                 = iota'',
+    FANFARE_2                 = iota'',
     FIRE_PISTOL               = iota'',
     FIRE_PISTOL_LOCALIZED     = iota'',
     HISS                      = iota'',
@@ -819,7 +821,7 @@ Id.S2S = enum.with_id "Id.S2S" {
     PASS_GRANTED              = iota'',
     PURCHASE_FINISHED         = iota'',
     CHANGE_WEAPON             = iota'', -- player_id,weapon_id
-    PLAYER_DIED               = iota'', -- player_id, int (player damage)?, cause_id\uid?
+    PLAYER_DIED               = iota'', -- player_id, int (player damage), cause_id\uid?
     SHIELD_DAMAGE_SERVER      = iota'', -- player_id, target_guid, damage
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
@@ -862,17 +864,18 @@ export type C2S = typeof(Id.C2S)
 -- S2C
 -----------------------------
 Id.S2C = enum.with_id "Id.S2C" {
-    _NONE             = iota(Id.Kind.S2C, 0),
-    UPDATE_STATE      = iota'',
-    BOMB_HIT          = iota'', -- bomb_guid, pos
-    BOOSTER_DESTROYED = iota'', -- boost_ref_id, value, boost_content_id
-    INIT_WORLD        = iota'',
-    UPDATE_WORLD      = iota'',
-    ENEMY_DEAD        = iota'', -- enemy_guid
-    PLAYER_DAMAGED    = iota'', -- int (player damage), cause_id\uid?
-    PLAYER_DIED       = iota'', -- int (player damage), cause_id\uid?
-    SHIELD_DAMAGE     = iota'', -- int (shield damage)
-    SHOW_POPUP_SERVER = iota'', -- event_id
+    _NONE                 = iota(Id.Kind.S2C, 0),
+    UPDATE_STATE          = iota'',
+    BOMB_HIT              = iota'', -- bomb_guid, pos
+    BOOSTER_DESTROYED     = iota'', -- boost_ref_id, value, boost_content_id
+    GAMES_SESSION_ENDED   = iota'', -- NOTE: never broadcasted, used only as a cause_id
+    INIT_WORLD            = iota'',
+    UPDATE_WORLD          = iota'',
+    ENEMY_DEAD            = iota'', -- enemy_guid
+    PLAYER_DAMAGED        = iota'', -- int (player damage), cause_id\uid?
+    PLAYER_DIED           = iota'', -- int (player damage), cause_id\uid?
+    SHIELD_DAMAGE         = iota'', -- int (shield damage)
+    SHOW_POPUP_SERVER     = iota'', -- event_id
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)
@@ -883,6 +886,7 @@ export type S2C = typeof(Id.S2C)
 -----------------------------
 Id.S2CC = enum.with_id "Id.S2CC" {
     _NONE                      = iota(Id.Kind.S2CC, 0),
+    BOSS_KILLED_BY_PLAYER      = iota'', 
     PLAYER_STARTED_SESSION     = iota'', -- player_id, player_hp
     PLAYER_STOPPED_SESSION     = iota'', -- player_id
     PLAYER_CHANGED_WEAPON      = iota'', -- player_id, weapon_id

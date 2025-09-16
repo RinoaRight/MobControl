@@ -261,7 +261,7 @@ local function startGameSession()
 
         local handicapIds = Id.Handicap:ids()
         local handicapId = Random.new():NextInteger(handicapIds[1], handicapIds[#handicapIds])
-        local handicapId = Id.Handicap.PISTOLS_ONLY
+        -- local handicapId = Id.Handicap.FINITE_AMMO
         WorldService.SetHandicap(handicapId)
 
         GameModule.Init(WorldService.world, get_state)
@@ -317,14 +317,14 @@ stopGameSession = function(exception_player_id: num?)
         if exception_player_id and playerId ~= exception_player_id then
             continue
         end
-        playerState:DeductHp(playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP))
+        playerState:DeductHp(playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP), Id.S2C.GAMES_SESSION_ENDED)
     end
 
     workerMaid.worldLoop = nil
 end
 
 local function onFinalBossKilledByPlayer(boss_killer_player_state)
-    -- TODO: congratulatory effects
+    Remote.Server.Broadcast(Id.S2CC.BOSS_KILLED_BY_PLAYER)
 
     stopGameSession()
 
@@ -509,20 +509,15 @@ end
 
 -- local preiousWeaponsInfo = {}
 on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_weapon_id, ...)
+    -- NOTE: current weapon may have changed already server-side
     local current_weapon_id = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
     if not current_weapon_id or current_weapon_id == Id.Weapon._NONE then
         return
     end
 
-    -- check if the weapon id matches the current weapon
-    if current_weapon_id ~= bullet_weapon_id then
-        log:error("Weapon id mismatch", current_weapon_id, bullet_weapon_id)
-        return
-    end
-
-    -- check the legitimacy of the shot
+    -- check the legitimacy of the shot's cooldown
     local currentTTE = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE)
-    local tolerance = 0.1
+    local tolerance = 0.2
     if current_weapon_id == bullet_weapon_id then
         if currentTTE and currentTTE > tolerance then
             log:error("The shot happened faster than the weapon's cooldown lets it", currentTTE)
@@ -542,7 +537,7 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, cooldown)
 
     -- reset ammo if finite ammo handicap is on
-    if current_weapon_id ~= Id.Weapon.BASIC then
+    -- if current_weapon_id ~= Id.Weapon.BASIC then
         local current_handicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value)
         if current_handicap and current_handicap == Id.Handicap.FINITE_AMMO then
             local current_ammo = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
@@ -558,10 +553,9 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
                 return
             end
         end
-    end
+    -- end
 
     local playerRoot = player_state.root
-    -- TODO: refactor to coordinate this with the client ->
     local bulletStartPos = playerRoot.Position + playerRoot.CFrame.LookVector * SharedConfig.BULLET_RAYCAST_START_MULT
 
     for i = 1, #bullet_guids do
@@ -648,8 +642,6 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
                 return
             end
 
-            -- TODO: FIXIT: spraygun bullets. Are they handled at all?
-
             local distance = (bulletStartPos - targetPos).Magnitude
             if bulletWeaponId == Id.Weapon.ROCKET then
                 distance -= bulletWeaponDataEntry.explosionSize.Z
@@ -702,6 +694,8 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
             else
                 return
             end
+
+
         end
     end
 

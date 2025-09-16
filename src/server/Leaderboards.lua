@@ -44,6 +44,9 @@ local PlayerService = game:GetService("Players")
 local SharedUtil = require(shared.util)
 local rand = require(shared.rand)
 local BoosterServer = require(server.BoosterServer)
+local ReplicatedStorage = game.ReplicatedStorage
+
+local maid = disposer.new()
 
 local LOBBY = workspace:WaitForChild("Lobby")
 local LEADERBOARDS_FOLDER = LOBBY:WaitForChild("Leaderboards")
@@ -51,6 +54,8 @@ local PODIUMS_STAND = LEADERBOARDS_FOLDER:WaitForChild("WinnerPodiums")
 local BOSS_KILLER_PODIUM = assert(PODIUMS_STAND:WaitForChild("BossKillerPodium"))
 local MOST_DAMAGE_PODIUM = assert(PODIUMS_STAND:WaitForChild("MostDamagePodium"))
 local MOST_ENEMIES_PODIUM = assert(PODIUMS_STAND:WaitForChild("MostEnemiesPodium"))
+
+local WINNER_GUI_PART_TEMPLATE = assert(ReplicatedStorage:WaitForChild("UI"):WaitForChild("WinnerGuiPart"))
 
 local m = {}
 
@@ -65,45 +70,73 @@ m.ResetLeaderboards = function()
 end
 
 m.SpawnWinner = function(playerState: PSS.PlayerState, achievementId)
-    local podium
-    if achievementId == Id.Achievement.BOSS_KILLER then
-        podium = BOSS_KILLER_PODIUM
-    elseif achievementId == Id.Achievement.MOST_DAMAGE then
-        podium = MOST_DAMAGE_PODIUM
-    elseif achievementId == Id.Achievement.MOST_ENEMIES then
-        podium = MOST_ENEMIES_PODIUM
-    end
-    if not podium then
-        return
-    end
+    TaskPool.defer(function()
+        local podium
+        if achievementId == Id.Achievement.BOSS_KILLER then
+            podium = BOSS_KILLER_PODIUM
+        elseif achievementId == Id.Achievement.MOST_DAMAGE then
+            podium = MOST_DAMAGE_PODIUM
+        elseif achievementId == Id.Achievement.MOST_ENEMIES then
+            podium = MOST_ENEMIES_PODIUM
+        end
+        if not podium then
+            return
+        end
 
-    local playerChar = playerState.character
-    if not playerChar then
-        return
-    end
+        local playerChar = playerState.character
+        if not playerChar then
+            return
+        end
 
-    local orientationBlock = podium:FindFirstChild("OrientationBlock")
+        local orientationBlock = podium:FindFirstChild("OrientationBlock")
 
-    -- spawn winner's clone
-    local clone = playerChar:Clone()
-    clone.Parent = podium
-    local cloneRoot = clone:FindFirstChild("HumanoidRootPart") :: Part
-    local currentScale = clone:GetScale()
-    local newScale = currentScale * 3
-    clone:ScaleTo(newScale)
-    local oldPos = cloneRoot.Position :: Vector3
-    local podiumPos = podium.Position :: Vector3 
-    local diff = math.abs(podium.Position.Y - cloneRoot.Position.Y)
-    local yOffset = podium.Size.Y / 2 + diff
-    local targetPos = Vector3.new(podiumPos.X, oldPos.Y + yOffset, podiumPos.Z)
-    cloneRoot.CFrame = CFrame.lookAlong(targetPos, -orientationBlock.Position)
+        -- spawn winner's clone
+        local clone = playerChar:Clone()
+        clone.Parent = podium
+        local cloneRoot = clone:FindFirstChild("HumanoidRootPart") :: Part
+        local currentScale = clone:GetScale()
+        local newScale = currentScale * 3
+        clone:ScaleTo(newScale)
+        local oldPos = cloneRoot.Position :: Vector3
+        local podiumPos = podium.Position :: Vector3
+        local diff = math.abs(podium.Position.Y - cloneRoot.Position.Y)
+        local yOffset = podium.Size.Y / 2 + diff
+        local targetPos = Vector3.new(podiumPos.X, oldPos.Y + yOffset, podiumPos.Z)
+        cloneRoot.CFrame = CFrame.lookAlong(targetPos, -orientationBlock.Position)
+        -- TODO: create a custom name plate
+        local cloneHumanoid = clone:FindFirstChild("Humanoid") :: Humanoid
+        if cloneHumanoid then   
+            cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        end
 
-    -- play animation
-    -- TODO: different animations for each achievement
-    local animId = S.Animation[Id.Animation.DANCE]
-    if animId then
-        Misc.PlayCharacterAnim(clone, animId, true)
-    end
+        -- spawn gui
+        local winnerGuiPart = assert(WINNER_GUI_PART_TEMPLATE:Clone())
+        winnerGuiPart.Parent = clone
+        winnerGuiPart.Anchored = true
+        winnerGuiPart.CanCollide = false
+        local cloneHead = assert(clone:FindFirstChild("Head") :: Part)
+        local headPos = cloneHead.Position :: Vector3
+        winnerGuiPart.Position = Vector3.new(headPos.X, headPos.Y + 15, headPos.Z)
+        local winnerGui = assert(winnerGuiPart:FindFirstChild("WinnerGUI") :: BillboardGui)
+        winnerGui.Enabled = true
+        local nameBox = assert(winnerGui:FindFirstChild("Name")) :: TextLabel
+        local descrBox = assert(winnerGui:FindFirstChild("Description")) :: TextLabel
+        local entry = S.Achievement[achievementId]
+        if entry then
+            nameBox.Text = entry.name
+            nameBox.TextColor3 = entry.color
+            descrBox.Text = entry.description
+            descrBox.TextColor3 = entry.color
+        end
+
+        -- play animation
+        -- TODO: different animations for each achievement
+        task.wait(.2)
+        local animId = S.Animation[Id.Animation.DANCE]
+        if animId then
+            Misc.PlayCharacterAnim(clone, animId, true)
+        end
+    end)
 end
 
 return m

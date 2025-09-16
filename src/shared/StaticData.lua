@@ -34,6 +34,24 @@ local VFX_ROOT = ReplicatedStorage:WaitForChild("VFX")
 local m = {}
 m.__index = m
 
+m.Achievement = {
+    [Id.Achievement.BOSS_KILLER] = {
+        name = "Boss Killer",
+        description = "Final blow inflicted",
+        color = Color3.fromRGB(255, 0, 0),
+    },
+    [Id.Achievement.MOST_DAMAGE] = {
+        name = "Top Shooter",
+        description = "Most damage dealt",
+        color = Color3.fromRGB(255, 215, 0),
+    },
+    [Id.Achievement.MOST_ENEMIES] = {
+        name = "Zombie Slayer",
+        description = "Most enemies killed",
+        color = Color3.fromRGB(0, 255, 0),              
+    },
+}
+
 m.Animation = {
     [Id.Animation.DANCE] = "rbxassetid://507771019",
     [Id.Animation.HOLD] = "rbxassetid://14928151227",
@@ -66,7 +84,7 @@ m.Weapon = {
     },
     [Id.Weapon.SPRAYGUN] = {
         baseSpeed = 50,
-        range = 100, -- units
+        range = 150, -- units
         damage = 5,
         cooldown = 0.7,
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
@@ -468,6 +486,8 @@ m.Sound = {
     [Id.Sound.ENERGY_SWEEP] = assert(SOUNDS_ROOT:WaitForChild("EnergySweep")),
     [Id.Sound.ERROR] = assert(SOUNDS_ROOT:WaitForChild("ErrorZap")),
     [Id.Sound.EXPLOSION_SHORT] = assert(SOUNDS_ROOT:WaitForChild("ExplosionShort")),
+    [Id.Sound.FANFARE_1] = assert(SOUNDS_ROOT:WaitForChild("Fanfare1")),
+    [Id.Sound.FANFARE_2] = assert(SOUNDS_ROOT:WaitForChild("Fanfare2")),
     [Id.Sound.FIRE_PISTOL] = assert(SOUNDS_ROOT:WaitForChild("Fired")),
     [Id.Sound.HISS] = assert(SOUNDS_ROOT:WaitForChild("Hiss")),
     [Id.Sound.HURT] = assert(SOUNDS_ROOT:WaitForChild("Hurt")),
