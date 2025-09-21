@@ -98,6 +98,11 @@ local W = SharedConfig.World.CId
 WORLD:env(ENV_WORLD_READY, false)
 -----------------------------
 
+local MAIN_CAMERA = workspace.CurrentCamera :: Camera
+-- local SHOULDER_OFFSET = Vector3.new(2, 1.5, 6)
+local SHOULDER_OFFSET = Vector3.new(3, 1.5, 12)
+-- MAIN_CAMERA.CameraType = Enum.CameraType.Scriptable
+
 local Players = game:GetService("Players")
 local LOCAL_PLAYER = Players.LocalPlayer
 repeat
@@ -244,7 +249,7 @@ end
 
 on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int, cause: id?)
     UIPlayerUpgrades.OnPlayerDead(state, LOCAL_CHARACTER)
-
+    MAIN_CAMERA.CameraType = Enum.CameraType.Custom
     if cause ~= Id.S2C.GAMES_SESSION_ENDED then
         -- player died because they were damaged, otherwise it's the session finished
         onPlayerDamaged(-deducted_hp, cause)
@@ -535,7 +540,8 @@ local function subscribeStartCollider()
     maid.StartCollider = SESSION_STARTER_COLLIDER.Touched:Connect(function(other)
         if other == LOCAL_HUMANOID_ROOT_PART then
             local isBossFightOn = WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
-            if not isBossFightOn then
+            local isPvPModeOn = WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value)
+            if not isBossFightOn and not isPvPModeOn then
                 -- interaction with the button is possible only when the boss fight is off
                 START_GUI.Enabled = true
                 maid.StartBtn = START_BTN.MouseButton1Click:Connect(function()
@@ -544,7 +550,7 @@ local function subscribeStartCollider()
                     maid.StartBtn = nil
                 end)
             else
-                -- show a message 
+                -- show a message
                 Signal.Fire(Id.C2C.SHOW_POPUP_CLIENT, {
                     text = "Wait for the next round!",
                     ok = function() end,
@@ -605,6 +611,8 @@ local function onShowClonesToggled(isTurnedOn)
     end
 end
 
+-- TODO: sights when player is in session, hide sights when player is not in session and make it dynamic. And change it for different weapons
+
 -- Initialization
 do
     TaskPool.spawn(function()
@@ -642,8 +650,8 @@ local function getBulletDirection(rootPart: BasePart, humanoid: Humanoid): Vecto
     local moveDir = humanoid.MoveDirection
     -- local z = rootPart.CFrame.LookVector.Z
     local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z)
-    if not WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then
-        -- if boss fight is not on, then shoot straight ahead
+    if not WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) and not WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value) then
+        -- if boss fight or pvp is not on, then shoot straight ahead
         -- z = -1
         facing = Vector3.new(0, 0, -1)
     end
@@ -703,7 +711,7 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id, rotation: 
     local speedPerkFlags = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT, C.Bitset)
     local isSpeedPerkActive = Id.flag_test(speedPerkFlags, Id.PlayerF.PERK_ACTIVE)
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
-    -- check for a bulletspeed perk
+    -- check for a bullet speed perk
     if isSpeedPerkActive then
         local mult = assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT].multiplier)
         local stage = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT, C.ValueNonPers) or 1
@@ -866,6 +874,23 @@ local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_si
     end
     return target, isTargetKillable, targetThickness, targetRefId
 end
+
+-- local function applyShoulderOffset()
+--     if MAIN_CAMERA.CameraSubject and MAIN_CAMERA.CameraType == Enum.CameraType.Custom then
+--         local camCF = MAIN_CAMERA.CFrame
+
+--         -- Get right and up vectors from current camera orientation
+--         local right = camCF.RightVector
+--         local up = camCF.UpVector
+
+--         -- Calculate offset position (no back/forward)
+--         local offset = right * SHOULDER_OFFSET.X + up * SHOULDER_OFFSET.Y + camCF.LookVector * SHOULDER_OFFSET.Z
+
+--         MAIN_CAMERA.CFrame = camCF + offset
+--     end
+-- end
+
+-- RunService:BindToRenderStep("CameraShoulderOffset", Enum.RenderPriority.Camera.Value + 1, applyShoulderOffset)
 
 -- MAIN LOOP
 RunService.Heartbeat:Connect(function(dt)
@@ -1083,10 +1108,22 @@ RunService.Heartbeat:Connect(function(dt)
 
     workspace:BulkMoveTo(activeBullets, bulletsTargetCFrames, Enum.BulkMoveMode.FireCFrameChanged)
 
-    -- fire bullets for the local player
+    -- fire bullets for the local player + move camera
     if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION_PARAMS) then
         local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
         if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+            -- move camera
+            -- local lookCF = LOCAL_HUMANOID_HEAD.CFrame
+            -- local _, y, _ = LOCAL_HUMANOID_HEAD.CFrame:ToEulerAnglesYXZ()
+            -- local pos = LOCAL_HUMANOID_HEAD.Position
+            -- local yawCFrame = CFrame.new(pos) * CFrame.Angles(0, y, 0)
+            -- -- Calculate camera position: offset is in local space (right, up, back)
+            -- local cameraPosition = (yawCFrame * CFrame.new(SHOULDER_OFFSET)).Position
+            -- -- Look horizontally forward, lock at player's Y-level (no vertical tilt)
+            -- local lookAt = pos + yawCFrame.LookVector * 100
+            -- MAIN_CAMERA.CFrame = CFrame.new(cameraPosition, Vector3.new(lookAt.X, cameraPosition.Y, lookAt.Z))
+
+            -- fire bullets
             local weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
             if not weaponId or weaponId == Id.Weapon._NONE then
                 return

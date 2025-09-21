@@ -353,7 +353,7 @@ end
 -- end
 
 m.GetCloneCFrame = function(cFrame: CFrame, alreadyInCol: int, row: int)
-    local dist = SharedConfig.INTERCLONES_DISTANCE + 1
+    local dist = SharedConfig.INTERCLONES_DISTANCE
 
     local sideOffset = 0
     local behindOffset = dist * row
@@ -373,23 +373,23 @@ m.GetCloneCFrame = function(cFrame: CFrame, alreadyInCol: int, row: int)
     return CFrame.new(cFrame.Position + offset, cFrame.Position + cFrame.LookVector)
 end
 
-m.GetCloneDummyPos = function(pos: Vector3, alreadyInCol: int, row: int)
-    local dist = SharedConfig.INTERCLONES_DISTANCE
-    local new_pos = Vector3.new(pos.X, pos.Y, pos.Z)
-    local x = 0
+-- m.GetCloneDummyPos = function(pos: Vector3, alreadyInCol: int, row: int)
+--     local dist = SharedConfig.INTERCLONES_DISTANCE
+--     local new_pos = Vector3.new(pos.X, pos.Y, pos.Z)
+--     local x = 0
 
-    if alreadyInCol == 1 then
-        x = -dist
-    elseif alreadyInCol == 2 then
-        x = dist
-    elseif alreadyInCol == 3 then
-        x = -dist * 2
-    elseif alreadyInCol == 4 then
-        x = dist * 2
-    end
-    new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z)
-    return new_pos
-end
+--     if alreadyInCol == 1 then
+--         x = -dist
+--     elseif alreadyInCol == 2 then
+--         x = dist
+--     elseif alreadyInCol == 3 then
+--         x = -dist * 2
+--     elseif alreadyInCol == 4 then
+--         x = dist * 2
+--     end
+--     new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z)
+--     return new_pos
+-- end
 
 -- attach hitbox to the player == clones formation width
 m.AttachHitboxToPlayer = function(player_state)

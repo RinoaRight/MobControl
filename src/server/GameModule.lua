@@ -52,6 +52,7 @@ local Rand = require(shared.rand)
 local supervisor = require(shared.supervisor)
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Pvp = require(server.Pvp)
 
 local ftest = WorldService.ftest
 local worldfset = WorldService.fset
@@ -87,6 +88,7 @@ local BOOSTER_OFFSET_Z = -50
 local BOOSTER_GAP = 40
 local GAP_WIDTH = BOOSTER_GAP - BOOSTER_WIDTH
 local BOOSTER_CONTENTS_BILLBOARD_TEMPLATE = assert(ReplicatedStorage.BoosterContentsBillboard)
+local FINISH_LINE_TEMPLATE = assert(ReplicatedStorage.FinishLine)
 
 local FIELD_NAMES = En.with_id("*")({
     FIRST = 1,
@@ -149,17 +151,6 @@ local function deleteGroundUnit(groundUnit: Part, index: int)
     groundUnit:Destroy()
 end
 
-local function setPlayersForFinal(get_state: (player_id: int) -> PSS.PlayerState?)
-    for _, player in game.Players:GetPlayers() do
-        local player_state = get_state(player.UserId)
-        if not player_state then
-            continue
-        end
-        player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
-        player_state.humanoid.AutoRotate = false
-    end
-end
-
 local function onBossArrival(get_state: (player_id: int) -> PSS.PlayerState?, enemyGuid: guid)
     WorldService.SetBossFightOn(enemyGuid)
     -- spawn poison belt
@@ -172,12 +163,50 @@ local function onBossArrival(get_state: (player_id: int) -> PSS.PlayerState?, en
     poisonBeltInstance.Name = SharedConfig.POISON_BELT_NAME_SERVER
     Misc.AnimatePoisonBelt(poisonBeltInstance, poisonBeltInstance)
 
-    setPlayersForFinal(get_state)
+    for _, player in game.Players:GetPlayers() do
+        local player_state = get_state(player.UserId)
+        if not player_state then
+            continue
+        end
+        player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
+        player_state.humanoid.AutoRotate = false
+    end
 end
 
-local function onPvpActivated(get_state: (player_id: int) -> PSS.PlayerState?)
-    setPlayersForFinal(get_state)
-    -- TODO: the logic
+local function onPvpActivated(get_state: (player_id: int) -> PSS.PlayerState?, playersInSession: { Player })
+    -- spawn finish line
+    -- local finishLineInstance = FINISH_LINE_TEMPLATE:Clone()
+    -- local groundUnit = assert(GROUND_UNITS[FIELD_NAMES.MIDDLE].unit :: Part)
+    -- finishLineInstance.Parent = groundUnit
+    -- local unitPos = groundUnit.Position
+    -- finishLineInstance.Position = Vector3.new(unitPos.X, 0, unitPos.Z)
+    -- local trigger = assert(finishLineInstance:FindFirstChild("InvisibleTrigger") :: BasePart)
+    -- trigger.Position = Vector3.new(unitPos.X, 20, unitPos.Z)
+    -- workerMaid.finishLine = trigger.Touched:Connect(function(triggerer)
+    --     if triggerer.Name == "HumanoidRootPart" then
+    --         -- TODO: the logic
+    --     end
+    -- end)
+    -- -- cancel subscription when finish line gets destroyed
+    -- trigger.Destroying:Connect(function()
+    --     workerMaid.finishLine = nil
+    -- end)
+
+    -- remove align constraints from all active players
+    for _, player in playersInSession do
+        local player_state = get_state(player.UserId)
+        if not player_state then
+            continue
+        end
+        m.UnconstrainPlayer(player_state)
+    end
+
+    -- spawn players on rectangle perimeter on the next ground unit
+    -- TODO: and place the driving box in the center of it (necessary, otherwise player's orientation will be autocorrected, because he will be beyond the space limit)
+    -- TODO: spawn grid of booster-partitions for players to hide behind
+    -- TODO: announce PvP time client-side
+    local nextUnit = GROUND_UNITS[FIELD_NAMES.FOURTH].unit :: Part
+    Pvp.PlacePlayersOnRectanglePerimeter(playersInSession, nextUnit.Position)
 end
 
 local function setBooster(worldState: state.Main, instance: BasePart, get_state: (int) -> PSS.PlayerState?)
@@ -278,49 +307,40 @@ end
 
 local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?, waveNumber: int)
     local isPvPTime = false
+    local playersInSession = {}
     if waveNumber == SharedConfig.FINAL_BOSS_WAVE_NUMBER then
         local allPlayers = game.Players:GetPlayers()
-        local playersInSession = 0
+        local playersInSessionCount = 0
+
+        -- TODO: uncomment
         if #allPlayers > 1 then
             for _, player in ipairs(allPlayers) do
                 local thisPlayerState = get_state(player.UserId)
                 if thisPlayerState then
                     local playerFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
                     if Id.flag_test(playerFlags, Id.PlayerF.READY) then
-                        playersInSession += 1
-                        local algnConstraint = thisPlayerState.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
-                        if algnConstraint then
-                            algnConstraint:Destroy()
-                        end
+                        table.insert(playersInSession, player)
+                        playersInSessionCount += 1
                     end
                 end
             end
         end
-        -- if there are more than 1 player in the session, it's PvP time, otherwise spawn boss
-        if playersInSession > 1 then
-            isPvPTime = true
-            -- WorldService.SetPvPTimeOn()
-            -- local unitsFolder = GROUND_UNIT_FOLDER:GetChildren()
-            -- TaskPool.spawn(function()
-            --     for _, unit in ipairs(unitsFolder) do
-            --         -- unit.AssemblyLinearVelocity = unit.CFrame.LookVector * SharedConfig.MOVEMENT_LINEAR_VELOCITY_BOSS
-            --         local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-            --         local tween = TweenService:Create(unit, tweenInfo, { AssemblyLinearVelocity = Vector3.new(0, 0, 0) })
-            --         tween:Play()
-            --     end
-            --     task.wait(10)
-            -- end)
-        end
+        -- TODO: PVP is currently disabled!
+        -- if playersInSessionCount > 1 then
+        --     isPvPTime = true
+        --     WorldService.SetPvPTimeOn()
+        -- end
     end
-    return isPvPTime
+    return isPvPTime, playersInSession
 end
 
 local function generateEnemies(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     local newWaveNumber = WorldService.UpdateEnemyWaveCount()
 
-    -- PvP time
-    if isPvPTime(get_state, newWaveNumber) then
-        onPvpActivated(get_state)
+    -- if there are more than 1 player in the session, it's PvP time, otherwise spawn boss
+    local isPvPTime, playersInSession = isPvPTime(get_state, newWaveNumber)
+    if isPvPTime then
+        onPvpActivated(get_state, playersInSession)
         return
     end
 
@@ -536,6 +556,21 @@ local function getEnemyTargetPos(playerRoot: BasePart, critDist: num, currentPos
     return newPos
 end
 
+local function isNewPosWithinLimits(newX, newZ)
+    local isWithinLimitsX = true
+    local isWithinLimitsZ = true
+    if
+        newX > DRIVING_BOX_LIMIT_RIGHT.Position.X - DRIVING_BOX_LIMIT_RIGHT.Size.Z
+        or newX < DRIVING_BOX_LIMIT_LEFT.Position.X + DRIVING_BOX_LIMIT_RIGHT.Size.Z
+    then
+        isWithinLimitsX = false
+    end
+    if newZ > DRIVING_BOX_BACK_PART.Position.Z - DRIVING_BOX_FRONT.Size.Z or newZ < DRIVING_BOX_FRONT.Position.Z + DRIVING_BOX_FRONT.Size.Z / 2 then
+        isWithinLimitsZ = false
+    end
+    return isWithinLimitsX, isWithinLimitsZ
+end
+
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
     m.get_state = get_state
     -- init first batch of ground units and fill in the data table
@@ -566,6 +601,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         local isBossFightOn = worldState:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
+        local isPvPTime = worldState:get(Id.WorldSpecs.PVP_TIME, W.Value)
         local studPerSec = SharedConfig.MOVEMENT_SPEED
         local studPerTick = SharedConfig.MOVEMENT_SPEED * dt
         if isBossFightOn then
@@ -613,31 +649,46 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                 local input = humanoid.MoveDirection -- client's current input
 
-                -- player movement (boss fight is handled separately below)
-                if not isBossFightOn then
+                -- player movement 
+                if not isBossFightOn and not isPvPTime then
                     playerState.humanoid.WalkSpeed = studPerSec
-
-                    -- limit player's movement to the driving box's limits
+                    -- regular movement: limit player's movement to the driving box's limits and move player
                     local currentX = playerRootPartPos.X
                     local currentZ = playerRootPartPos.Z
                     local changeX = input.X / 4
                     local changeZ = studPerTick
                     local newX = currentX + changeX
                     local newZ = currentZ - changeZ
-                    if
-                        newX > DRIVING_BOX_LIMIT_RIGHT.Position.X - DRIVING_BOX_LIMIT_RIGHT.Size.Z
-                        or newX < DRIVING_BOX_LIMIT_LEFT.Position.X + DRIVING_BOX_LIMIT_RIGHT.Size.Z
-                    then
+                    local isWithinLimitsX, isWithinLimitsZ = isNewPosWithinLimits(newX, newZ)
+                    if not isWithinLimitsX then
                         newX = currentX
                     end
-                    if
-                        newZ > DRIVING_BOX_BACK_PART.Position.Z - DRIVING_BOX_FRONT.Size.Z
-                        or newZ < DRIVING_BOX_FRONT.Position.Z + DRIVING_BOX_FRONT.Size.Z / 2
-                    then
+                    if not isWithinLimitsZ then
                         newZ = currentZ
                     end
 
                     character:PivotTo(CFrame.new(newX, HUMANOID_Y_OFFSET, newZ))
+                elseif isPvPTime then
+                    -- TODO: orientation. If the "fire" button is down, than orient towards the mouse pointer, otherwise orient according to movement direction
+                else
+                    -- special mode movement: free movement, but still within the driving box's limits
+                    -- NOTE: player rotation during boss fight is handled separately below
+                    local changeX = input.X
+                    local changeZ = input.Z
+                    local currentX = playerRootPartPos.X    
+                    local currentZ = playerRootPartPos.Z
+                    local newX = currentX + changeX
+                    local newZ = currentZ - changeZ
+                    local isWithinLimitsX, isWithinLimitsZ = isNewPosWithinLimits(newX, newZ)
+                    if not isWithinLimitsX then
+                        newX = currentX
+                    end
+                    if not isWithinLimitsZ then
+                        newZ = currentZ
+                    end
+                    if not isWithinLimitsX or not isWithinLimitsZ then
+                        character:PivotTo(CFrame.new(newX, HUMANOID_Y_OFFSET, newZ))
+                    end
                 end
 
                 -- check obstacle collision for player and driver
@@ -680,7 +731,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         end
 
         -- driving box movement
-        if not isBossFightOn then
+        if not isBossFightOn and not isPvPTime then
             DRIVING_BOX_INSTANCE:PivotTo(CFrame.new(driverOldPos.X, driverOldPos.Y, driverOldPos.Z - studPerTick))
         end
         driverOldPos = DRIVING_BOX_BACK_PART.Position
@@ -893,7 +944,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                                     end
                                 end
                             elseif isBoss then
-                                -- check if it's time for boss to perform special attack
+                                -- handle player rotation and check if it's time for boss to perform special attack
                                 Enemies.DoBossSpecial(worldState, thisPlayerState, refId, enemyGuid, currentPos, root, proximity, dt)
                             end
                         end
@@ -1112,19 +1163,6 @@ function m.HandleBoosterDeath(playerState: PSS.PlayerState, booster_guid: str, b
     -- unsubscribe booster
     workerMaid[booster_guid] = nil
     BoosterServer.GiveBoosterBonus(playerState, boost_ref_id, boost_content_id, value)
-    -- if boost_ref_id == Id.Boost.ADD_CLONE then
-    --     for i = 1, value do
-    --         local playerId = playerState.player_id
-    --         local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
-    --     end
-    -- elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
-    --     Signal.Fire(Id.S2S.CHANGE_WEAPON, playerState.player_id, boost_content_id)
-    -- elseif boost_ref_id == Id.Boost.FIRST_AID_KIT then
-    --     local currentHandicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
-    --     local old_hp, new_hp = playerState:AddHp(value, currentHandicap)
-    --     local hp_added = new_hp - old_hp
-    --     playerState:NotifyClient(Id.S2C.BOOSTER_DESTROYED, boost_ref_id, hp_added, boost_content_id)
-    -- end
 end
 
 function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
@@ -1237,5 +1275,4 @@ function m.ApplyExplosionKnockback(player_state: PSS.PlayerState, explosionPos: 
 end
 
 print("[Game Module -- started]")
-
 return m

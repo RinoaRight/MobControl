@@ -767,6 +767,7 @@ Id.Handicap = enum.with_id "Id.Handicap" {
     FINITE_AMMO                  = iota'',
     HP_DRAIN                     = iota'', -- + start with armor
     PISTOLS_ONLY                 = iota'',
+    -- TODO: merging clones
 }
 KIND_TO_ENUM[Id.Kind.Handicap] = Id.Handicap
 export type Handicap = typeof(Id.Handicap)

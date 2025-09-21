@@ -183,6 +183,7 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
 
     print("Player dead")
 
+    -- delete player's attachment for clones
     local attachement = player_state.root:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
     if attachement then
         attachement:Destroy()
