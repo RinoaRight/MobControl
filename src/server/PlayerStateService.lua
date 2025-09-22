@@ -230,7 +230,7 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
     }, PlayerState)) :: any
     fill_state(player_state)
     --- @todo: maybe not the best place for this US2CC subscription
-    player_state.maid:Add(Remote.Server.US2CC.OnServerEvent:Connect(function(player, event_id, intended_pos, timestamp)
+    player_state.maid:Add(Remote.Server.US2CC.OnServerEvent:Connect(function(player, event_id, intended_pos, look_vector, timestamp)
         if player.UserId ~= player_state.player_id then
             return
         end
@@ -242,6 +242,7 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
             end
             state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3, intended_pos)
             state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL, timestamp)
+            state:set(Id.PlayerSpecs.ORIENTATION, C.V3, look_vector)
         end
     end))
     log:trace("~~~> server\n", player_state, debug.traceback)

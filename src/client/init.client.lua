@@ -87,6 +87,18 @@ local ACTIVE_BULLETS_REPOSITORY = assert(workspace:WaitForChild("Bullets"))
 local INACTIVE_BULLETS_REPOSITORY = assert(ReplicatedStorage:WaitForChild("Bullets"))
 local activeBulletsDataTable = {} :: { table }
 local NIL_TABLE = table.freeze { "NIL" }
+
+-- device detection
+local isPC = UserInputService.TouchEnabled == false
+local isMobileDevice = UserInputService.TouchEnabled == true and UserInputService.KeyboardEnabled == false
+local isTouchingScreen = false
+-- detect if the user is touching the screen (for mobile devices)
+UserInputService.TouchStarted:Connect(function()
+    isTouchingScreen = true
+end)
+UserInputService.TouchEnded:Connect(function()
+    isTouchingScreen = false
+end)
 -----------------------------
 -- States
 -----------------------------
@@ -892,6 +904,34 @@ end
 
 -- RunService:BindToRenderStep("CameraShoulderOffset", Enum.RenderPriority.Camera.Value + 1, applyShoulderOffset)
 
+local function definePlayerOrientation()
+    local lookVector = Vector3.new(0, 0, -1)
+    if isTouchingScreen then
+        -- Orient towards mouse/touch world position
+        local mousePos
+        if UserInputService.TouchEnabled and #UserInputService:GetTouches() > 0 then
+            mousePos = UserInputService:GetTouches()[1].Position
+        else
+            mousePos = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+        end
+
+        local unitRay = MAIN_CAMERA:ScreenPointToRay(mousePos.X, mousePos.Y)
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = { LOCAL_CHARACTER }
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+
+        local raycastResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, raycastParams)
+        if raycastResult then
+            local lookPoint = raycastResult.Position
+            lookVector = (lookPoint - LOCAL_HUMANOID_ROOT_PART.Position) * Vector3.new(1, 0, 1)
+        end
+    else
+        -- Orient according to movement
+        lookVector = LOCAL_HUMANOID.MoveDirection
+    end
+    return lookVector
+end
+
 -- MAIN LOOP
 RunService.Heartbeat:Connect(function(dt)
     local players = game:GetService("Players"):GetPlayers()
@@ -899,8 +939,18 @@ RunService.Heartbeat:Connect(function(dt)
         return
     end
 
-    local intendedPos = PlayerUtils.GetPredictedPositionWithVelocity(dt)
-    us2cc:FireServer(Id.C2S.PLAYER_INTENDED_POS, intendedPos, roflake.time())
+    local gameSessionFlags
+    local isPlayerInSession
+    if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION_PARAMS) then
+        gameSessionFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+        isPlayerInSession = gameSessionFlags and Id.flag_test(gameSessionFlags, Id.PlayerF.READY)
+    end
+
+    if isPlayerInSession then
+        local intendedPos = PlayerUtils.GetPredictedPositionWithVelocity(dt)
+        local lookVector = definePlayerOrientation()
+        us2cc:FireServer(Id.C2S.PLAYER_INTENDED_POS, intendedPos, lookVector, roflake.time())
+    end
 
     -- move clones
     local clonesRootParts = {}
@@ -949,7 +999,8 @@ RunService.Heartbeat:Connect(function(dt)
             -- if boss fight is on, clone orientation == playerLook, else it's straight ahead along the z axis
             local cloneTargetCFrame
             local isBossFight = WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
-            if isBossFight then
+            local isPvPModeOn = WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value)
+            if isBossFight or isPvPModeOn then
                 cloneTargetCFrame = CFrame.lookAlong(cloneCFrame.Position, playerLook, Vector3.yAxis)
             else
                 cloneTargetCFrame = CFrame.new(cloneCFrame.Position, cloneCFrame.Position + Vector3.new(0, 0, -1))
@@ -1109,65 +1160,61 @@ RunService.Heartbeat:Connect(function(dt)
     workspace:BulkMoveTo(activeBullets, bulletsTargetCFrames, Enum.BulkMoveMode.FireCFrameChanged)
 
     -- fire bullets for the local player + move camera
-    if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION_PARAMS) then
-        local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-        if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
-            -- move camera
-            -- local lookCF = LOCAL_HUMANOID_HEAD.CFrame
-            -- local _, y, _ = LOCAL_HUMANOID_HEAD.CFrame:ToEulerAnglesYXZ()
-            -- local pos = LOCAL_HUMANOID_HEAD.Position
-            -- local yawCFrame = CFrame.new(pos) * CFrame.Angles(0, y, 0)
-            -- -- Calculate camera position: offset is in local space (right, up, back)
-            -- local cameraPosition = (yawCFrame * CFrame.new(SHOULDER_OFFSET)).Position
-            -- -- Look horizontally forward, lock at player's Y-level (no vertical tilt)
-            -- local lookAt = pos + yawCFrame.LookVector * 100
-            -- MAIN_CAMERA.CFrame = CFrame.new(cameraPosition, Vector3.new(lookAt.X, cameraPosition.Y, lookAt.Z))
+    -- local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    if isPlayerInSession then
+        -- move camera
+        -- local lookCF = LOCAL_HUMANOID_HEAD.CFrame
+        -- local _, y, _ = LOCAL_HUMANOID_HEAD.CFrame:ToEulerAnglesYXZ()
+        -- local pos = LOCAL_HUMANOID_HEAD.Position
+        -- local yawCFrame = CFrame.new(pos) * CFrame.Angles(0, y, 0)
+        -- -- Calculate camera position: offset is in local space (right, up, back)
+        -- local cameraPosition = (yawCFrame * CFrame.new(SHOULDER_OFFSET)).Position
+        -- -- Look horizontally forward, lock at player's Y-level (no vertical tilt)
+        -- local lookAt = pos + yawCFrame.LookVector * 100
+        -- MAIN_CAMERA.CFrame = CFrame.new(cameraPosition, Vector3.new(lookAt.X, cameraPosition.Y, lookAt.Z))
 
-            -- fire bullets
-            local weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
-            if not weaponId or weaponId == Id.Weapon._NONE then
-                return
-            end
-            local shot_tte = PLAYER_STATE:get(LOCAL_PLAYER.UserId, C.ClientTTE) :: num
-            if shot_tte then
-                shot_tte -= dt
-                if shot_tte <= 0 then
-                    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-                        fireBullet(LOCAL_PLAYER)
-                    end
-                else
-                    PLAYER_STATE:set(LOCAL_PLAYER.UserId, C.ClientTTE, math.max(shot_tte, 0))
+        -- fire bullets
+        local weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
+        if not weaponId or weaponId == Id.Weapon._NONE then
+            return
+        end
+        local shot_tte = PLAYER_STATE:get(LOCAL_PLAYER.UserId, C.ClientTTE) :: num
+        if shot_tte then
+            shot_tte -= dt
+            if shot_tte <= 0 then
+                if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or isTouchingScreen then
+                    fireBullet(LOCAL_PLAYER)
                 end
+            else
+                PLAYER_STATE:set(LOCAL_PLAYER.UserId, C.ClientTTE, math.max(shot_tte, 0))
             end
         end
     end
 
     -- fake bullets' animation for other players (if the options to others' bullets is on)
-    local currentFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-    if currentFlags then
-        local bulletsFlag = Id.flag_test(currentFlags, Id.PlayerF.OTHER_BULLETS_ON)
-        if bulletsFlag then
-            for _, player in ipairs(players) do
-                if player == LOCAL_PLAYER then
-                    continue
-                end
-                if not WORLD:env(ENV_WORLD_READY) then
-                    log:warn("WORLD is not ready yet")
-                    continue
-                end
-                local playerId = player.UserId
-                if PLAYER_STATE:has(playerId) then
-                    local weapon_id = PLAYER_STATE:get(playerId, C.ClientWeaponId)
-                    if weapon_id and weapon_id ~= Id.Weapon._NONE then
-                        -- player is inside the game session, fire bullets
-                        local shot_tte = PLAYER_STATE:get(playerId, C.ClientTTE)
-                        if shot_tte then
-                            shot_tte -= dt
-                            if shot_tte <= 0 then
-                                fireBullet(player)
-                            else
-                                PLAYER_STATE:set(playerId, C.ClientTTE, math.max(shot_tte, 0))
-                            end
+
+    local bulletsFlag = Id.flag_test(gameSessionFlags, Id.PlayerF.OTHER_BULLETS_ON)
+    if bulletsFlag then
+        for _, player in ipairs(players) do
+            if player == LOCAL_PLAYER then
+                continue
+            end
+            if not WORLD:env(ENV_WORLD_READY) then
+                log:warn("WORLD is not ready yet")
+                continue
+            end
+            local playerId = player.UserId
+            if PLAYER_STATE:has(playerId) then
+                local weapon_id = PLAYER_STATE:get(playerId, C.ClientWeaponId)
+                if weapon_id and weapon_id ~= Id.Weapon._NONE then
+                    -- player is inside the game session, fire bullets
+                    local shot_tte = PLAYER_STATE:get(playerId, C.ClientTTE)
+                    if shot_tte then
+                        shot_tte -= dt
+                        if shot_tte <= 0 then
+                            fireBullet(player)
+                        else
+                            PLAYER_STATE:set(playerId, C.ClientTTE, math.max(shot_tte, 0))
                         end
                     end
                 end

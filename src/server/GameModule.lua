@@ -202,6 +202,7 @@ local function onPvpActivated(get_state: (player_id: int) -> PSS.PlayerState?, p
     end
 
     -- spawn players on rectangle perimeter on the next ground unit
+    -- TODO: effects of trasition
     -- TODO: and place the driving box in the center of it (necessary, otherwise player's orientation will be autocorrected, because he will be beyond the space limit)
     -- TODO: spawn grid of booster-partitions for players to hide behind
     -- TODO: announce PvP time client-side
@@ -308,28 +309,28 @@ end
 local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?, waveNumber: int)
     local isPvPTime = false
     local playersInSession = {}
+    -- TODO: uncomment if anything is commented out
     if waveNumber == SharedConfig.FINAL_BOSS_WAVE_NUMBER then
-        local allPlayers = game.Players:GetPlayers()
-        local playersInSessionCount = 0
+    local allPlayers = game.Players:GetPlayers()
+    local playersInSessionCount = 0
 
-        -- TODO: uncomment
-        if #allPlayers > 1 then
-            for _, player in ipairs(allPlayers) do
-                local thisPlayerState = get_state(player.UserId)
-                if thisPlayerState then
-                    local playerFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-                    if Id.flag_test(playerFlags, Id.PlayerF.READY) then
-                        table.insert(playersInSession, player)
-                        playersInSessionCount += 1
-                    end
+    if #allPlayers > 1 then
+        for _, player in ipairs(allPlayers) do
+            local thisPlayerState = get_state(player.UserId)
+            if thisPlayerState then
+                local playerFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+                if Id.flag_test(playerFlags, Id.PlayerF.READY) then
+                    table.insert(playersInSession, player)
+                    playersInSessionCount += 1
                 end
             end
         end
-        -- TODO: PVP is currently disabled!
-        -- if playersInSessionCount > 1 then
-        --     isPvPTime = true
-        --     WorldService.SetPvPTimeOn()
-        -- end
+    end
+    -- TODO: PVP is currently disabled!
+    -- if playersInSessionCount > 1 then
+    -- isPvPTime = true
+    -- WorldService.SetPvPTimeOn()
+    -- end
     end
     return isPvPTime, playersInSession
 end
@@ -649,7 +650,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                 local input = humanoid.MoveDirection -- client's current input
 
-                -- player movement 
+                -- player movement
                 if not isBossFightOn and not isPvPTime then
                     playerState.humanoid.WalkSpeed = studPerSec
                     -- regular movement: limit player's movement to the driving box's limits and move player
@@ -669,13 +670,20 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
                     character:PivotTo(CFrame.new(newX, HUMANOID_Y_OFFSET, newZ))
                 elseif isPvPTime then
-                    -- TODO: orientation. If the "fire" button is down, than orient towards the mouse pointer, otherwise orient according to movement direction
+                    -- if player is firing, orient towards the mouse pointer, otherwise orient according to movement direction
+                    -- TODO: if evrything is OK, refactor boss fight orientation too
+                    local lookVector = playerState.state:get(Id.PlayerSpecs.ORIENTATION, C.V3) :: Vector3
+                    local playerIntendedPos = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
+
+                    if lookVector and lookVector.Magnitude > 0.1 then
+                        -- playerRootPart.CFrame = CFrame.new(playerIntendedPos, playerIntendedPos + lookVector)
+                    end
                 else
                     -- special mode movement: free movement, but still within the driving box's limits
-                    -- NOTE: player rotation during boss fight is handled separately below
+                    -- NOTE: player rotation during boss fight is handled separately below, when calling DoBossSpecial
                     local changeX = input.X
                     local changeZ = input.Z
-                    local currentX = playerRootPartPos.X    
+                    local currentX = playerRootPartPos.X
                     local currentZ = playerRootPartPos.Z
                     local newX = currentX + changeX
                     local newZ = currentZ - changeZ

@@ -27,7 +27,6 @@ local C = SharedConfig.PlayerState.CId
 local W = SharedConfig.World.CId
 local SharedUtils = require(shared.util)
 local state = require(shared.state)
-local UserInputService = game:GetService("UserInputService")
 local Misc = require(shared.Misc)
 local TaskPool = require(shared.TaskPool)
 local TweenService = game:GetService("TweenService")

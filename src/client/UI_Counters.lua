@@ -40,7 +40,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Util = require(shared.util)
 local TweenService = game:GetService("TweenService")
 local TaskPool = require(shared.TaskPool)
-local UserInputService = game:GetService("UserInputService")
 local NumFormat = require(shared.num_format)
 local PlayerUpgrades = require(script.Parent.UI_PlayerUpgrades)
 
@@ -134,6 +133,7 @@ m.OnStateUpdate = function(playerState: state.Replica)
 
     -- xp
     local currentRank = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank)
+    -- print("LLLLLLLLL", currentRank)
     local currentXP = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers)
     local xpToNextRank = SharedConfig.PLAYER_RANK_XP_REQUIRED + currentRank * SharedConfig.PLAYER_RANK_XP_INCREMENT
     local currentXpInPercent = currentXP / xpToNextRank

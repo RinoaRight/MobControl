@@ -730,6 +730,7 @@ export type VFX = typeof(Id.VFX)
 Id.PlayerSpecs = enum.with_id "Id.PlayerSpecs" {
     _NONE                = iota(Id.Kind.PlayerSpecs, 0),
     GAME_SESSION_PARAMS  = iota'',
+    ORIENTATION         = iota'',
     XP_PROGRESS          = iota'',
     SESSION_DAMAGE       = iota'',
     SESSION_ENEMY_KILLS  = iota'',
@@ -854,7 +855,7 @@ Id.C2S = enum.with_id "Id.C2S" {
     TARGET_HIT                        = iota'', -- {enemy_guids}, bullet_guid
     TOGGLE_PLAYER_FLAG                = iota'', -- bool, flag_id
     PERK_SELECTED                     = iota'', -- 1 or 2
-    PLAYER_INTENDED_POS               = iota'', -- pos, timestamp
+    PLAYER_INTENDED_POS               = iota'', -- pos, lookVector, timestamp
     PLAYER_READY_TO_START             = iota'',               
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
