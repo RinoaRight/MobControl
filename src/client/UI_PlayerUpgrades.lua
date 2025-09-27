@@ -305,7 +305,7 @@ end
 
 local m = {}
 
-function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, perkSelectionGui, localRoot)
+function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, perkSelectionGui, localRoot, isMobileDevice: bool)
     shopGui.Enabled = false
     SHOP_ROOT_PANEL = assert(shopGui:FindFirstChild("ContainerFrame"):FindFirstChild("ShopPanel"))
     SHOP_SCROLLING_FRAME = assert(SHOP_ROOT_PANEL:FindFirstChild("ContainerFrame"):FindFirstChild("ScrollingFrame")) :: ScrollingFrame
@@ -322,6 +322,10 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
     PERK_2_SLOT_BG = assert(PERK_2_SLOT:WaitForChild("BG"))
     PERK_2_SLOT_BTN = assert(PERK_2_SLOT:WaitForChild("SelectButton")) :: TextButton
     PERK_2_SLOT_IMG = assert(PERK_2_SLOT_BG:WaitForChild("ImageLabel"))
+    local keyTextbox1 = assert(PERK_1_SLOT_BG:FindFirstChild("Key"))
+    local keyTextbox2 = assert(PERK_2_SLOT_BG:FindFirstChild("Key"))
+    keyTextbox1.Visible = not isMobileDevice
+    keyTextbox2.Visible = not isMobileDevice
 
     hidePerkPanel()
 
@@ -471,6 +475,16 @@ function m.Init(playerState: state.Replica, worldState: state.Replica, shopGui, 
     end
 
     subscribeTokenShopCollider(playerState, worldState, shopGui, localRoot)
+end
+
+function m.OnEQPressed(playerState: state.Replica, key: Enum.KeyCode)
+    if PERK_SELECTION_GUI.Enabled then
+        if key == Enum.KeyCode.Q and PERK_1_SLOT.Visible then
+            onPerkBtnPressed(playerState, PERK_1_SLOT_BTN)
+        elseif key == Enum.KeyCode.E and PERK_2_SLOT.Visible then
+            onPerkBtnPressed(playerState, PERK_2_SLOT_BTN)
+        end
+    end
 end
 
 function m.OnModifyBitset(playerState: state.Replica, localCharacter, guid: guid, newValue: flag, oldValue: flag)

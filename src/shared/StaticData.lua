@@ -48,7 +48,7 @@ m.Achievement = {
     [Id.Achievement.MOST_ENEMIES] = {
         name = "Zombie Slayer",
         description = "Most enemies killed",
-        color = Color3.fromRGB(0, 255, 0),              
+        color = Color3.fromRGB(0, 255, 0),
     },
 }
 
@@ -58,6 +58,7 @@ m.Animation = {
     [Id.Animation.RIFLE_AIM] = "rbxassetid://3972164452",
 }
 
+local BASE_BULLET_SIZE = Vector3.new(0.213, 0.213, 0.438)
 m.Weapon = {
     -- TODO: real sizes
     [Id.Weapon.BASIC] = {
@@ -66,6 +67,7 @@ m.Weapon = {
         damage = 10,
         cooldown = 0.5, --sec
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
+        bulletInstanceSize = BASE_BULLET_SIZE * 2,
         barrelLength = 1,
         magazineSize = 100,
         instance = WEAPONS_ROOT.PistolModel,
@@ -77,6 +79,7 @@ m.Weapon = {
         damage = 5,
         cooldown = 0.2,
         bulletSize = Vector3.new(1, 1, 1),
+        bulletInstanceSize = BASE_BULLET_SIZE,
         barrelLength = 1.5,
         magazineSize = 250,
         instance = WEAPONS_ROOT.SMGModel,
@@ -88,6 +91,7 @@ m.Weapon = {
         damage = 5,
         cooldown = 0.7,
         bulletSize = Vector3.new(1.5, 1.5, 1.5),
+        bulletInstanceSize = BASE_BULLET_SIZE * 2,
         barrelLength = 2.5,
         magazineSize = 70,
         instance = WEAPONS_ROOT.ShotgunModel,
@@ -99,6 +103,7 @@ m.Weapon = {
         damage = 50,
         cooldown = 1.2,
         bulletSize = Vector3.new(4, 4, 6),
+        bulletInstanceSize = BASE_BULLET_SIZE * 8,
         barrelLength = 3,
         magazineSize = 30,
         explosionSize = Vector3.new(20, 20, 20),
@@ -174,7 +179,7 @@ m.Enemy = {
         animationDur = 2.1,
         ttl = 5.0, -- time for which the enemy is locked on 1 player
         tte = 4, -- NOTE: should be greater than jump animation duration
-        hitThrottleDuration = .5,
+        hitThrottleDuration = 0.5,
         specialAttackRange = 55,
         ultDamage = 20,
         meshTemplate = ZOMBIES_TEMPLATE_FOLDER:WaitForChild("Octoboss"),
@@ -268,7 +273,7 @@ m.Handicap = {
     },
     [Id.Handicap.FINITE_AMMO] = {
         -- players have finite ammo
-        name = "No infinite ammo",
+        name = "Limited ammo",
         color = Color3.fromRGB(0, 162, 255),
         secondary_color = Color3.fromRGB(85, 0, 0),
     },
@@ -390,19 +395,19 @@ m.PlayerUpgradePersistent = {
 m.PlayerUpgradeNonPersistent = {
     [Id.PlayerUpgradeNonPersistent.INVINCIBILITY] = {
         period = 2, -- sec
-        maxStage = 0, 
+        maxStage = 0,
         isRenewable = true,
         isLooped = false, -- is always active or not
         isExpirable = true,
         color = Color3.fromRGB(0, 255, 255),
     },
     [Id.PlayerUpgradeNonPersistent.FIREPOWER] = {
-        period = 0xffff_ffff, 
-        maxStage = 5, 
+        period = 0xffff_ffff,
+        maxStage = 5,
         isRenewable = false,
         isLooped = false,
         isExpirable = false,
-        multiplier = .1, -- percent
+        multiplier = 0.1, -- percent
         color = Color3.fromRGB(255, 0, 0),
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD] = {
@@ -425,7 +430,7 @@ m.PlayerUpgradeNonPersistent = {
         isRenewable = false,
         isLooped = false,
         isExpirable = false,
-        multiplier = .1,
+        multiplier = 0.1,
         color = Color3.fromRGB(0, 255, 0),
     },
     [Id.PlayerUpgradeNonPersistent.CLONE_FACTORY] = {
@@ -460,7 +465,7 @@ m.PlayerUpgradeNonPersistent = {
         isRenewable = false,
         isLooped = false,
         isExpirable = false,
-        multiplier = .5,
+        multiplier = 0.5,
         color = Color3.fromRGB(255, 165, 0),
     },
     [Id.PlayerUpgradeNonPersistent.ARMOR] = {
@@ -469,7 +474,7 @@ m.PlayerUpgradeNonPersistent = {
         isRenewable = false,
         isLooped = false,
         isExpirable = false,
-        multiplier = .9, -- 10% damage reduction
+        multiplier = 0.9, -- 10% damage reduction
         color = Color3.fromRGB(220, 194, 1),
     },
 }

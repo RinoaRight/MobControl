@@ -654,6 +654,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                 if not isBossFightOn and not isPvPTime then
                     playerState.humanoid.WalkSpeed = studPerSec
                     -- regular movement: limit player's movement to the driving box's limits and move player
+                    -- TODO: refactor. Limiting doesn't work
                     local currentX = playerRootPartPos.X
                     local currentZ = playerRootPartPos.Z
                     local changeX = input.X / 4
@@ -669,15 +670,14 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     end
 
                     character:PivotTo(CFrame.new(newX, HUMANOID_Y_OFFSET, newZ))
-                elseif isPvPTime then
-                    -- if player is firing, orient towards the mouse pointer, otherwise orient according to movement direction
-                    -- TODO: if evrything is OK, refactor boss fight orientation too
-                    local lookVector = playerState.state:get(Id.PlayerSpecs.ORIENTATION, C.V3) :: Vector3
-                    local playerIntendedPos = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
+                -- elseif isPvPTime then
+                --     -- if player is firing, orient towards the mouse pointer, otherwise orient according to movement direction
+                --     local lookVector = playerState.state:get(Id.PlayerSpecs.ORIENTATION, C.V3) :: Vector3
+                --     local playerIntendedPos = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
 
-                    if lookVector and lookVector.Magnitude > 0.1 then
-                        -- playerRootPart.CFrame = CFrame.new(playerIntendedPos, playerIntendedPos + lookVector)
-                    end
+                --     if lookVector and lookVector.Magnitude > 0.1 then
+                --         -- playerRootPart.CFrame = CFrame.new(playerIntendedPos, playerIntendedPos + lookVector)
+                --     end
                 else
                     -- special mode movement: free movement, but still within the driving box's limits
                     -- NOTE: player rotation during boss fight is handled separately below, when calling DoBossSpecial

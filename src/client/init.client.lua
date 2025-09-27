@@ -84,9 +84,20 @@ local ENEMY_FLYERS_FOLDER = assert(workspace:WaitForChild("EnemiesFlying"))
 
 local ACTIVE_BULLETS_REPOSITORY = assert(workspace:WaitForChild("Bullets"))
 -- Misc.AddInstanceToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
-local INACTIVE_BULLETS_REPOSITORY = assert(ReplicatedStorage:WaitForChild("Bullets"))
+local INACTIVE_BULLETS_REPOSITORY = assert(ReplicatedStorage:WaitForChild("BulletsPool"))
 local activeBulletsDataTable = {} :: { table }
 local NIL_TABLE = table.freeze { "NIL" }
+
+-----------------------------
+-- States
+-----------------------------
+local PLAYER_STATE = state.replica(SharedConfig.PlayerState.replica_config)
+local C = SharedConfig.PlayerState.CId
+PLAYER_STATE:env(ENV_READY, false)
+local WORLD = state.replica(SharedConfig.World.replica_config)
+local W = SharedConfig.World.CId
+WORLD:env(ENV_WORLD_READY, false)
+-----------------------------
 
 -- device detection
 local isPC = UserInputService.TouchEnabled == false
@@ -99,16 +110,35 @@ end)
 UserInputService.TouchEnded:Connect(function()
     isTouchingScreen = false
 end)
------------------------------
--- States
------------------------------
-local PLAYER_STATE = state.replica(SharedConfig.PlayerState.replica_config)
-local C = SharedConfig.PlayerState.CId
-PLAYER_STATE:env(ENV_READY, false)
-local WORLD = state.replica(SharedConfig.World.replica_config)
-local W = SharedConfig.World.CId
-WORLD:env(ENV_WORLD_READY, false)
------------------------------
+local isPressingEKey = false
+local isPressingQKey = false
+-- subscribe to user input
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then
+        return
+    end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == Enum.KeyCode.Q then
+            isPressingEKey = true
+            UIPlayerUpgrades.OnEQPressed(PLAYER_STATE, Enum.KeyCode.Q)
+        elseif input.KeyCode == Enum.KeyCode.E then
+            isPressingQKey = true
+            UIPlayerUpgrades.OnEQPressed(PLAYER_STATE, Enum.KeyCode.E)
+        end
+    end
+end)
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if gameProcessed then
+        return
+    end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == Enum.KeyCode.E then
+            isPressingEKey = false
+        elseif input.KeyCode == Enum.KeyCode.Q then
+            isPressingQKey = false
+        end
+    end
+end)
 
 local MAIN_CAMERA = workspace.CurrentCamera :: Camera
 -- local SHOULDER_OFFSET = Vector3.new(2, 1.5, 6)
@@ -484,7 +514,7 @@ local load = function(fire: FireServer, snapshot)
     Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_PANEL, SETTINGS_MENU_GUI)
     Popup:Init(POPUP_GUI)
     UICounters.Init(state, TOP_RIGHT_PANEL)
-    UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, PERK_SELECTION_GUI, LOCAL_HUMANOID_ROOT_PART)
+    UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, PERK_SELECTION_GUI, LOCAL_HUMANOID_ROOT_PART, isMobileDevice)
     Handicaps.Init(WORLD, PLAYER_STATE, MAIN_GUI)
 
     MAIN_GUI.Enabled = true
@@ -684,12 +714,12 @@ end
 
 local function defineBulletCframe(rootPart: BasePart, bulletInstance: BasePart, weapon_id: id, humanoid: Humanoid)
     local direction = getBulletDirection(rootPart, humanoid)
-    local bulletSize = Vector3.new(1, 1, 1)
-    if S.Weapon[weapon_id].bulletSize then
-        bulletSize = S.Weapon[weapon_id].bulletSize
+    local bulletInstanceSize = Vector3.new(1, 1, 1)
+    if S.Weapon[weapon_id].bulletInstanceSize then
+        bulletInstanceSize = S.Weapon[weapon_id].bulletInstanceSize
     end
     local barrelLength = S.Weapon[weapon_id].barrelLength or 2
-    local displacement = direction * (bulletSize.Z / 2 + barrelLength + SharedConfig.BULLET_RAYCAST_START_MULT)
+    local displacement = direction * (bulletInstanceSize.Z / 2 + barrelLength + SharedConfig.BULLET_RAYCAST_START_MULT)
     local targetPos = Vector3.new(rootPart.Position.X + 1.2, rootPart.Position.Y, rootPart.Position.Z) + displacement
     local newCFrame = CFrame.new(targetPos, targetPos + direction)
     return newCFrame
@@ -701,8 +731,7 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id, rotation: 
     if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
         bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
     else
-        -- TODO: change to a normal bullet model
-        bullet = Instance.new("Part")
+        bullet = ReplicatedStorage.Bullet:Clone() :: BasePart
     end
     local guid = roflake.uida()
     bullet.Name = guid
@@ -712,11 +741,12 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id, rotation: 
     bullet.CanCollide = false
     bullet.Anchored = true
     bullet:SetAttribute(SharedConfig.BULLET_ATTRIBUTE_NAME, player.UserId)
-    local bulletSize = Vector3.new(1, 1, 1)
-    if S.Weapon[weapon_id].bulletSize then
-        bulletSize = S.Weapon[weapon_id].bulletSize
+
+    local bulletInstaceSize = Vector3.new(1, 1, 1)
+    if S.Weapon[weapon_id].bulletInstanceSize then
+        bulletInstaceSize = S.Weapon[weapon_id].bulletInstanceSize
     end
-    bullet.Size = bulletSize
+    bullet.Size = bulletInstaceSize
 
     -- set bullet's position
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
@@ -741,6 +771,12 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id, rotation: 
         bullet.CFrame = bullet.CFrame * rotation
     end
     pos = bullet.Position
+
+    -- NOTE: not an instance size, a hitbox size, for raycast below
+    local bulletSize = Vector3.new(1, 1, 1)
+    if S.Weapon[weapon_id].bulletSize then
+        bulletSize = S.Weapon[weapon_id].bulletSize
+    end
 
     table.insert(activeBulletsDataTable, {
         bullet = bullet,
@@ -948,6 +984,7 @@ RunService.Heartbeat:Connect(function(dt)
 
     if isPlayerInSession then
         local intendedPos = PlayerUtils.GetPredictedPositionWithVelocity(dt)
+        -- TODO: do we need this orientation thingie? Currently it is not used for anything
         local lookVector = definePlayerOrientation()
         us2cc:FireServer(Id.C2S.PLAYER_INTENDED_POS, intendedPos, lookVector, roflake.time())
     end
@@ -1132,7 +1169,6 @@ RunService.Heartbeat:Connect(function(dt)
                             end
                         end
                     end
-                    -- TODO: do we register spraygun hits?
                     fire_server(Id.C2S.TARGET_HIT, targetGuids, bullet.Name)
                 end
             end
