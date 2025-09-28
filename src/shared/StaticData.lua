@@ -60,7 +60,6 @@ m.Animation = {
 
 local BASE_BULLET_SIZE = Vector3.new(0.213, 0.213, 0.438)
 m.Weapon = {
-    -- TODO: real sizes
     [Id.Weapon.BASIC] = {
         baseSpeed = 50, -- units/sec
         range = 240, -- units
@@ -400,6 +399,7 @@ m.PlayerUpgradeNonPersistent = {
         isLooped = false, -- is always active or not
         isExpirable = true,
         color = Color3.fromRGB(0, 255, 255),
+        imageId = "rbxassetid://77802221040760", 
     },
     [Id.PlayerUpgradeNonPersistent.FIREPOWER] = {
         period = 0xffff_ffff,
@@ -409,6 +409,7 @@ m.PlayerUpgradeNonPersistent = {
         isExpirable = false,
         multiplier = 0.1, -- percent
         color = Color3.fromRGB(255, 0, 0),
+        imageId = "rbxassetid://71513746139189",
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD] = {
         period = 10,
@@ -418,12 +419,8 @@ m.PlayerUpgradeNonPersistent = {
         isExpirable = true,
         hp = 80,
         color = Color3.fromRGB(171, 19, 163),
+        imageId = "rbxassetid://128068734619039",
     },
-    -- [Id.PlayerUpgradeNonPersistent.DRONES] = {
-    --     ttl = 0,
-    --     maxStage = 0,
-    --     prerequisite = 0,
-    -- },
     [Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT] = {
         period = 0xffff_ffff,
         maxStage = 3,
@@ -432,6 +429,7 @@ m.PlayerUpgradeNonPersistent = {
         isExpirable = false,
         multiplier = 0.1,
         color = Color3.fromRGB(0, 255, 0),
+        imageId = "rbxassetid://137610407450277",
     },
     [Id.PlayerUpgradeNonPersistent.CLONE_FACTORY] = {
         -- + 1 for every stage every ttl seconds
@@ -441,6 +439,7 @@ m.PlayerUpgradeNonPersistent = {
         isLooped = true,
         isExpirable = false,
         color = Color3.fromRGB(0, 0, 255),
+        imageId = "rbxassetid://92188341924262",
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_RECHARGE] = {
         period = 10,
@@ -449,6 +448,7 @@ m.PlayerUpgradeNonPersistent = {
         isLooped = true,
         isExpirable = false,
         color = Color3.fromRGB(255, 165, 0),
+        imageId = "rbxassetid://139365410105151",
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE] = {
         period = 0xffff_ffff,
@@ -458,6 +458,7 @@ m.PlayerUpgradeNonPersistent = {
         isExpirable = false,
         damage = 5,
         color = Color3.fromRGB(255, 0, 0),
+        imageId = "rbxassetid://81277362241414",
     },
     [Id.PlayerUpgradeNonPersistent.SHIELD_COOLDOWN_MULT] = {
         period = 0xffff_ffff,
@@ -467,6 +468,7 @@ m.PlayerUpgradeNonPersistent = {
         isExpirable = false,
         multiplier = 0.5,
         color = Color3.fromRGB(255, 165, 0),
+        imageId = "rbxassetid://128356463252283",
     },
     [Id.PlayerUpgradeNonPersistent.ARMOR] = {
         period = 0xffff_ffff,
@@ -476,6 +478,7 @@ m.PlayerUpgradeNonPersistent = {
         isExpirable = false,
         multiplier = 0.9, -- 10% damage reduction
         color = Color3.fromRGB(220, 194, 1),
+        imageId = "rbxassetid://103968992174954",
     },
 }
 

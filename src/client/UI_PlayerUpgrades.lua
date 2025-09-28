@@ -261,7 +261,7 @@ local function onPerkBtnPressed(state: state.Replica, whichBtn: TextButton)
     hidePerkPanel()
 end
 
-local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: TextLabel, descr2Box: TextLabel)
+local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: TextLabel, descr2Box: TextLabel, imageLabel: ImageLabel)
     -- TODO: color coding?
     local entry = S.PlayerUpgradeNonPersistent[perkId]
     if not entry then
@@ -301,6 +301,9 @@ local function fillPerkInfo(playerState: state.Replica, perkId: id, descr1Box: T
     end
     descr1Box.Text = string.upper(text1)
     descr2Box.Text = string.upper(text2)
+    if S.PlayerUpgradeNonPersistent[perkId].imageId then
+        imageLabel.Image = S.PlayerUpgradeNonPersistent[perkId].imageId
+    end
 end
 
 local m = {}
@@ -528,7 +531,6 @@ function m.FlickerShield(playerState: state.Replica, localCharacter)
     local _, aura = isAura(playerState, localCharacter, Id.PlayerUpgradeNonPersistent.SHIELD)
     if aura and not isFlickering then
         _maid.flickerShield = TaskPool.spawn(function()
-            -- TODO: SFX
             isFlickering = true
             aura.Color = Color3.fromRGB(255, 255, 255)
             local dur = 0.05
@@ -585,15 +587,14 @@ function m.OnPlayerRankUpdate(state: state.Replica)
     local perk1 = choice.X
     local perk2 = choice.Y
     if perk1 ~= 0 or perk2 ~= 0 then
-        -- TODO: change image
         if perk1 ~= 0 then
-            fillPerkInfo(state, perk1, PERK_1_SLOT_BG.PassDescription, PERK_1_SLOT_BG.PassDescription2)
+            fillPerkInfo(state, perk1, PERK_1_SLOT_BG.PassDescription, PERK_1_SLOT_BG.PassDescription2, PERK_1_SLOT_BG.ImageLabel)
             PERK_1_SLOT.Visible = true
         else
             PERK_1_SLOT.Visible = false
         end
         if perk2 ~= 0 then
-            fillPerkInfo(state, perk2, PERK_2_SLOT_BG.PassDescription, PERK_2_SLOT_BG.PassDescription2)
+            fillPerkInfo(state, perk2, PERK_2_SLOT_BG.PassDescription, PERK_2_SLOT_BG.PassDescription2, PERK_2_SLOT_BG.ImageLabel)
             PERK_2_SLOT.Visible = true
         else
             PERK_2_SLOT.Visible = false
