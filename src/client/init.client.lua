@@ -916,13 +916,36 @@ local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_si
             targetThickness = SharedConfig.BOOSTER_DEPTH
             isTargetKillable = true
         elseif Id.kind(targetRefId) == Id.Kind.Enemy then
-            -- targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
             targetThickness = target.Size.Z
             isTargetKillable = true
         elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
             targetThickness = target.Size.Z
             isTargetKillable = true
+        elseif Id.kind(targetRefId) == Id.Kind.Clone then
+            targetThickness = target.Size.Z
+            -- check the owner of the clone
+            local cloneOwnerId = WORLD:get(target.Name, W.PlayerId)
+            local isOwnClone = cloneOwnerId == LOCAL_PLAYER.UserId
+            -- check is PVP is on
+            local isPvPModeOn = WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value)
+            if not isPvPModeOn or isOwnClone then
+                return nil, false, 0, 0
+            end
         end
+    elseif target and target.Parent and target.Parent:FindFirstChildWhichIsA("Humanoid") then
+        -- target is a player
+        -- check if it's not the local player
+        if target.Parent == LOCAL_CHARACTER then
+            return nil, false, 0, 0
+        end
+        -- check is PVP is on
+        local isPvPModeOn = WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value)
+        if not isPvPModeOn then
+            return nil, false, 0, 0
+        end
+        targetRefId = target.Parent.Name
+        targetThickness = target.Size.Z
+        isTargetKillable = true
     end
     return target, isTargetKillable, targetThickness, targetRefId
 end
@@ -1130,7 +1153,12 @@ RunService.Heartbeat:Connect(function(dt)
                 target_pos = target.Position
             elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
                 target_pos = WORLD:get(target.Name, W.Position)
-                -- target_pos = target.Position
+            elseif targetRefId == target.Parent.Name then
+                -- target is a player
+                target_pos = target.Position
+            else
+                log:error("no refId or instance for the bullet target", targetRefId, target.ClassName)
+                return
             end
             hit_z = target_pos.Z + targetThickness + 1
             if weapon_id == Id.Weapon.ROCKET then
@@ -1141,13 +1169,31 @@ RunService.Heartbeat:Connect(function(dt)
         if target and isTargetKillable and hit_z and hit_z >= bullet.Position.Z then
             -- bullet collided with a bullet-killable target
             if owner == LOCAL_PLAYER then
-                if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy or Id.kind(targetRefId) == Id.Kind.Obstacle then
+                if
+                    Id.kind(targetRefId) == Id.Kind.Boost
+                    or Id.kind(targetRefId) == Id.Kind.Enemy
+                    or Id.kind(targetRefId) == Id.Kind.Obstacle
+                    or Id.kind(targetRefId) == Id.Kind.Clone
+                    or targetRefId == target.Parent.Name -- target is a player
+                then
+                    local firstTargetGuid = target.Name
                     if Id.kind(targetRefId) == Id.Kind.Obstacle then
                         Obstacles.OnCollisionWithObstacle(WORLD, target.Name)
                     elseif Id.kind(targetRefId) == Id.Kind.Enemy then
                         EnemiesClient.OnEnemyHit(WORLD, target.Name, targetRefId, 0, 0)
+                    elseif targetRefId == target.Parent.Name then
+                        -- target is a player
+                        local character = target.Parent
+                        assert(character:IsA("Model"))
+                        local isClone, playerId = Misc.CloneOrPlayer(WORLD, character)
+                        if isClone then
+                            firstTargetGuid = target.Name
+                        elseif playerId then
+                            local playerIdToString = tostring(playerId)
+                            firstTargetGuid = playerIdToString
+                        end
                     end
-                    local targetGuids = { target.Name }
+                    local targetGuids = { firstTargetGuid } :: { string }
                     if weapon_id == Id.Weapon.ROCKET then
                         -- animate the explosion
                         local explosionSize = assert(S.Weapon[weapon_id].explosionSize)
@@ -1159,15 +1205,23 @@ RunService.Heartbeat:Connect(function(dt)
                             for _, otherTarget in ipairs(otherTargets) do
                                 if otherTarget and WORLD:has(otherTarget.Name) then
                                     local otherTargetRefId = WORLD:get(otherTarget.Name, W.RefId)
-                                    if
-                                        Id.kind(otherTargetRefId) == Id.Kind.Boost
-                                        or Id.kind(otherTargetRefId) == Id.Kind.Enemy
-                                        or Id.kind(otherTargetRefId) == Id.Kind.Obstacle
-                                    then
+                                    if Id.kind(otherTargetRefId) == Id.Kind.Boost or Id.kind(otherTargetRefId) == Id.Kind.Enemy then
                                         table.insert(targetGuids, otherTarget.Name)
-                                        if Id.kind(targetRefId) == Id.Kind.Obstacle then
-                                            Obstacles.OnCollisionWithObstacle(WORLD, otherTarget.Name)
+                                    elseif Id.kind(otherTargetRefId) == Id.Kind.Clone then
+                                        local cloneOwnerId = WORLD:get(otherTarget.Name, W.PlayerId)
+                                        if cloneOwnerId ~= LOCAL_PLAYER.UserId then
+                                            table.insert(targetGuids, otherTarget.Name)
                                         end
+                                    elseif Id.kind(otherTargetRefId) == Id.Kind.Obstacle then
+                                        table.insert(targetGuids, otherTarget.Name)
+                                        Obstacles.OnCollisionWithObstacle(WORLD, otherTarget.Name)
+                                    end
+                                elseif otherTarget.Parent:FindFirstChildWhichIsA("Humanoid") then
+                                    -- target is a player (not a clone, clone is handled above)
+                                    local character = otherTarget.Parent
+                                    local playerId = Players:GetPlayerFromCharacter(character).UserId
+                                    if playerId and playerId ~= LOCAL_PLAYER.UserId then
+                                        table.insert(targetGuids, tostring(playerId))
                                     end
                                 end
                             end

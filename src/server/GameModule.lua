@@ -199,6 +199,11 @@ local function onPvpActivated(get_state: (player_id: int) -> PSS.PlayerState?, p
             continue
         end
         m.UnconstrainPlayer(player_state)
+
+        -- for all player parts, assign to "BulletCollidable" collision group
+        for _, part in Misc.GetAllPlayerParts(player_state) do
+            (part :: BasePart).CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME
+        end
     end
 
     -- spawn players on rectangle perimeter on the next ground unit
@@ -271,7 +276,7 @@ local function setBooster(worldState: state.Main, instance: BasePart, get_state:
     boosterGui.TextLabel.TextColor3 = col
 
     instance:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost], refID)
-    instance.CollisionGroup = "BulletCollidable"
+    instance.CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME --"BulletCollidable"
     -- add booster to world state
     local boosterGuid = WorldService.AddBooster(instance, refID, value, hp_w_mult, boostContentId)
     -- add booster to player states
@@ -311,26 +316,26 @@ local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?, waveNu
     local playersInSession = {}
     -- TODO: uncomment if anything is commented out
     if waveNumber == SharedConfig.FINAL_BOSS_WAVE_NUMBER then
-    local allPlayers = game.Players:GetPlayers()
-    local playersInSessionCount = 0
+        local allPlayers = game.Players:GetPlayers()
+        local playersInSessionCount = 0
 
-    if #allPlayers > 1 then
-        for _, player in ipairs(allPlayers) do
-            local thisPlayerState = get_state(player.UserId)
-            if thisPlayerState then
-                local playerFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-                if Id.flag_test(playerFlags, Id.PlayerF.READY) then
-                    table.insert(playersInSession, player)
-                    playersInSessionCount += 1
+        if #allPlayers > 1 then
+            for _, player in ipairs(allPlayers) do
+                local thisPlayerState = get_state(player.UserId)
+                if thisPlayerState then
+                    local playerFlags = thisPlayerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+                    if Id.flag_test(playerFlags, Id.PlayerF.READY) then
+                        table.insert(playersInSession, player)
+                        playersInSessionCount += 1
+                    end
                 end
             end
         end
-    end
-    -- TODO: PVP is currently disabled!
-    -- if playersInSessionCount > 1 then
-    -- isPvPTime = true
-    -- WorldService.SetPvPTimeOn()
-    -- end
+        -- TODO: PVP is currently disabled!
+        -- if playersInSessionCount > 1 then
+        -- isPvPTime = true
+        -- WorldService.SetPvPTimeOn()
+        -- end
     end
     return isPvPTime, playersInSession
 end

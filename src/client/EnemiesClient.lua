@@ -78,7 +78,7 @@ end
 local function spawnEnemy(worldState: state.Replica, enemyGuid: string, enemyRefId: id, enemyInstance: BasePart, enemyPos: Vector3)
     enemyInstance.CanCollide = false
     enemyInstance.Anchored = true
-    enemyInstance.CollisionGroup = "BulletCollidable"
+    enemyInstance.CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME
 
     enemyInstance.Parent = ENEMIES_FOLDER
     enemyInstance.CFrame = CFrame.new(enemyPos)

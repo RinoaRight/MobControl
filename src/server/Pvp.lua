@@ -35,6 +35,9 @@ local supervisor = require(shared.supervisor)
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+type int = number
+type GetState = (int) -> PSS.PlayerState?
+
 local m = {}
 function m.PlacePlayersOnRectanglePerimeter(activePlayers: {}, center: Vector3)
     -- Place n players evenly along the perimeter of a rectangle, all facing the center
@@ -97,6 +100,20 @@ function m.PlacePlayersOnRectanglePerimeter(activePlayers: {}, center: Vector3)
             edgeStart += edgeLen
         end
         currentDist += spacing
+    end
+end
+
+function m.OnPvpOff(get_state: GetState)
+    for _, player in game.Players:GetPlayers() do
+        local player_state = get_state(player.UserId)
+        if not player_state then
+            continue
+        end
+
+        -- for all player parts, reset the collision group to nil
+        for _, part in Misc.GetAllPlayerParts(player_state) do
+            (part :: BasePart).CollisionGroup = "Default"
+        end
     end
 end
 

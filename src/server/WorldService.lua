@@ -111,7 +111,7 @@ function m.ChangeWeapon(player_state, player_id, weapon_id)
 end
 
 -- num of clones, player hp, weapon instance, weapon id, boss hit throttle duration
-local _playerEntity = m.world:constructor(W.Value, W.HP, W.ServerInstance, W.WeaponId, W.TTE) 
+local _playerEntity = m.world:constructor(W.Value, W.HP, W.ServerInstance, W.WeaponId, W.TTE)
 function m.AddPlayer(state)
     local player_id = state.player_id
     if m.world:has(player_id) then
@@ -223,7 +223,7 @@ function m.SetPvPTimeOn()
         m.world:set(Id.WorldSpecs.PVP_TIME, W.Value, true)
     end
 end
-function m.SetPvPTimeOff()
+function m.SetPvPTimeOff(get_state: GetState)
     local value = m.world:get(Id.WorldSpecs.PVP_TIME, W.Value)
     if value == nil then
         _pvp_time(Id.WorldSpecs.PVP_TIME, false)
@@ -254,15 +254,14 @@ function m.AddClone(id: id, player_id: int)
 end
 
 function m.DamageClone(guid: guid, damage: number)
-    -- check for damage throttle
-    local tte = m.world:get(guid, W.TTE)
-    if tte > 0 then
-        return
-    end
-
     m.world:set(guid, W.TTE, SharedConfig.CLONE_DMG_THROTTLE)
     local hp = m.world:get(guid, W.HP)
     if hp then
+        -- check for damage throttle
+        local tte = m.world:get(guid, W.TTE)
+        if tte > 0 then
+            return hp
+        end
         if m.world:get(Id.WorldSpecs.HANDICAP, W.Value) == Id.Handicap.BOMBS then
             damage *= assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.ARMOR].multiplier)
         end
@@ -273,12 +272,26 @@ function m.DamageClone(guid: guid, damage: number)
             m.world:set(guid, W.HP, hp)
         end
     end
+    return hp
 end
 
 local _enemy = m.world:constructor(W.RefId, W.HP, W.Position, W.PlayerId, W.TTL, W.TTE, W.Bitset)
 function m.AddEnemyToState(id: id, pos)
+    local isBoss = id > Id.Enemy._BOSS
     local hp = S.Enemy[id].health
-    -- TODO: scale boss health based on number of players
+    -- if it's not PvP, scale boss health based on number of players.
+    local isPvP = m.world:get(Id.WorldSpecs.PVP_TIME, W.Value)
+    if not isPvP and isBoss then
+        local totalPlayers = game.Players:GetPlayers()
+        local playerInSession = 0
+        for _, player in totalPlayers do
+            local playerWeaponId = m.world:get(player.UserId, W.WeaponId)
+            if playerWeaponId and playerWeaponId ~= Id.Weapon._NONE then
+                playerInSession += 1
+            end
+        end
+        hp *= math.max(1, playerInSession * 1.5)
+    end
     if m.world:get(Id.WorldSpecs.HANDICAP, W.Value) == Id.Handicap.DOUBLE_HP then
         hp *= SharedConfig.HP_HANDICAP_MULT
     end
@@ -293,7 +306,7 @@ function m.AddEnemyToState(id: id, pos)
         local flags = m.world:get(guid, W.Bitset)
         m.world:set(guid, W.Bitset, Id.flag_or(flags, Id.EnemyF.IS_BOSS))
     end
-    
+
     return guid
 end
 

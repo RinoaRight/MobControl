@@ -414,6 +414,17 @@ m.AttachHitboxToPlayer = function(player_state)
     hitbox.Size = Vector3.new(width, 6, 4)
 end
 
+m.GetAllPlayerParts = function(player_state)
+    local parts = {}
+    local character = player_state.character
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            table.insert(parts, part)
+        end
+    end
+    return parts
+end
+
 m.PlaySound = function(sound_id: int, isLooped: bool?, volume: num?)
     local oldVolume = S.Sound[sound_id].Volume
     local audio = S.Sound[sound_id]
@@ -439,7 +450,7 @@ m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num,
         if not times then
             times = 1
         end
-        for i = 1, (times:: int) do
+        for i = 1, times :: int do
             aud:Play()
             task.wait(aud.TimeLength + 0.1)
             if i == times then

@@ -55,6 +55,7 @@ local workerMaid = disposer.new()
 local ClonesServer = require(server.ClonesServer)
 local Perks = require(server.DynamicPerks)
 local TweenService = game:GetService("TweenService")
+local PVP = require(server.Pvp)
 if game.PhysicsService then
     local phys = game.PhysicsService
     log:debug("PhysicsService:IsCollisionGroupRegistered('Clones')", phys.IsCollisionGroupRegistered, phys, "Clones")
@@ -220,7 +221,8 @@ end
 local function doCleanup(exception_player_id: num?)
     WorldService.SetGameSessionOff()
     WorldService.SetBossFightOff()
-    WorldService.SetPvPTimeOff()
+    WorldService.SetPvPTimeOff(get_state)
+    PVP.OnPvpOff(get_state)
     -- WorldService.ResetBoosterWaveCount()
     WorldService.ResetEnemyWaveCount()
     WorldService.ResetObstacleWaveCount()
@@ -493,6 +495,42 @@ local function onTargetHit(playerState: PSS.PlayerState, targetGuid: string, dmg
             local _ = playerState:UpdateSessionDamageStats(dmg)
             WorldService.world:set(targetGuid, W.HP, newHP)
         end
+    elseif Id.kind(targetRefId) == Id.Kind.Clone then
+        local cloneOwnerId = WorldService.world:get(targetGuid, W.PlayerId)
+        local cloneOwnerState = get_state(cloneOwnerId)
+        if cloneOwnerState then
+            local cloneOldHP = WorldService.world:get(targetGuid, W.HP)
+            local cloneNewHP = WorldService.DamageClone(targetGuid, dmg)
+            if cloneNewHP >= cloneOldHP then
+                -- clone wasn't damaged
+                return
+            end
+            if cloneNewHP <= 0 then
+                local _ = playerState:UpdateSessionDamageStats(cloneOldHP)
+                -- TODO: give reward for destroying clone
+                -- TODO: give XP for destroying clone
+            else
+                local _ = playerState:UpdateSessionDamageStats(dmg)
+            end
+        end
+    else
+        log:error("Target hit is of unknown kind", targetRefId, targetGuid, debug.traceback())
+    end
+end
+
+local function onPlayerHit(shooter_player_state: PSS.PlayerState, victim_player_state: PSS.PlayerState, dmg: num)
+    local oldHP = victim_player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP)
+    local newHP = victim_player_state:DeductHp(dmg)
+    if newHP >= oldHP then
+        -- player wasn't damaged
+        return
+    end
+    if newHP <= 0 then
+        local _ = shooter_player_state:UpdateSessionDamageStats(dmg)
+        -- TODO: give reward for destroying player
+        -- TODO: give XP for destroying player
+    else
+        local _ = shooter_player_state:UpdateSessionDamageStats(dmg)
     end
 end
 
@@ -539,21 +577,21 @@ on[Id.C2S.BULLET_SHOT] = function(player_state, bullet_guids: { uid }, bullet_we
 
     -- reset ammo if finite ammo handicap is on
     -- if current_weapon_id ~= Id.Weapon.BASIC then
-        local current_handicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value)
-        if current_handicap and current_handicap == Id.Handicap.FINITE_AMMO then
-            local current_ammo = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
-            if current_ammo and current_ammo > 0 then
-                current_ammo -= 1
-                if current_ammo == 0 then
-                    changeWeapon(player_state, Id.Weapon.BASIC)
-                else
-                    player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, current_ammo)
-                end
+    local current_handicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value)
+    if current_handicap and current_handicap == Id.Handicap.FINITE_AMMO then
+        local current_ammo = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers)
+        if current_ammo and current_ammo > 0 then
+            current_ammo -= 1
+            if current_ammo == 0 then
+                changeWeapon(player_state, Id.Weapon.BASIC)
             else
-                -- no ammo left, can't shoot
-                return
+                player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, current_ammo)
             end
+        else
+            -- no ammo left, can't shoot
+            return
         end
+    end
     -- end
 
     local playerRoot = player_state.root
@@ -625,9 +663,23 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
     end
 
     for _, targetGuid in ipairs(targetGuids) do
-        if WorldService.world:has(targetGuid) then
-            local targetRefId = WorldService.world:get(targetGuid, W.RefId)
-            local targetPos
+        local thisPlayerId = playerState.player_id
+        local numericGuid = tonumber(targetGuid)
+        local damagedPlayerId
+        if numericGuid then
+            for _, player in ipairs(Players:GetPlayers()) do
+                local playerId = player.UserId
+                if playerId == numericGuid and playerId ~= thisPlayerId then
+                    damagedPlayerId = playerId
+                    break
+                end
+            end
+        end
+
+        local targetPos
+        local targetRefId
+        if not numericGuid and WorldService.world:has(targetGuid) then
+            targetRefId = WorldService.world:get(targetGuid, W.RefId)
             local boosterServerInstance
 
             if Id.kind(targetRefId) == Id.Kind.Enemy then
@@ -637,48 +689,75 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
                 targetPos = boosterServerInstance.Position
             elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
                 targetPos = WorldService.world:get(targetGuid, W.Position)
+            elseif Id.kind(targetRefId) == Id.Kind.Clone then
+                local clonePlayerId = WorldService.world:get(targetGuid, W.PlayerId)
+                if clonePlayerId == playerState.player_id then
+                    -- can't hit own clone
+                    return
+                end
+                local cloneIndex = WorldService.world:get(targetGuid, W.Value)
+                local alreadyInCol = (cloneIndex - 1) % SharedConfig.CLONES_IN_A_ROW
+                local row = math.floor((cloneIndex - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
+                local playerRootPart = playerState.root :: BasePart
+                if not playerRootPart then
+                    return
+                end
+                local cloneCFrame = Misc.GetCloneCFrame(playerRootPart.CFrame, alreadyInCol, row)
+                targetPos = cloneCFrame.Position
             end
-
-            if not targetPos then
+        elseif damagedPlayerId then
+            -- it was a player that got hit
+            local damagedPlayerState = get_state(damagedPlayerId)
+            if damagedPlayerState then
+                local root = damagedPlayerState.root
+                if root then
+                    targetPos = root.Position
+                end
+            else
                 return
             end
+        end
 
-            local distance = (bulletStartPos - targetPos).Magnitude
-            if bulletWeaponId == Id.Weapon.ROCKET then
-                distance -= bulletWeaponDataEntry.explosionSize.Z
-            end
+        if not targetPos then
+            return
+        end
 
-            -- check for the range hacks
-            local range = SharedConfig.BULLET_BASE_DISTANCE
-            if bulletWeaponDataEntry.range then
-                range = bulletWeaponDataEntry.range
-            end
-            local tolerance = 20
-            if targetRefId == Id.Enemy.OCTOBOSS then
-                tolerance = 50
-            end
-            if range + tolerance < distance then
-                -- if math.abs(range - distance) > tolerance then
-                log:error("Weapon's range is smaller than the distance of the bullet", range, distance, targetPos, debug.traceback)
-                return
-            end
+        local distance = (bulletStartPos - targetPos).Magnitude
+        if bulletWeaponId == Id.Weapon.ROCKET then
+            distance -= bulletWeaponDataEntry.explosionSize.Z
+        end
 
-            -- check for persistent firepower upgrades
-            local firepowerBonus = 1
-            local firepowerIdPers = Misc.IsFirepowerUpgrade(playerState)
-            if firepowerIdPers then
-                firepowerBonus = assert(S.PlayerUpgradePersistent[firepowerIdPers].value)
-            end
+        -- check for the range hacks
+        local range = SharedConfig.BULLET_BASE_DISTANCE
+        if bulletWeaponDataEntry.range then
+            range = bulletWeaponDataEntry.range
+        end
+        local tolerance = 20
+        if targetRefId and targetRefId == Id.Enemy.OCTOBOSS then
+            tolerance = 50
+        end
+        if range + tolerance < distance then
+            -- if math.abs(range - distance) > tolerance then
+            log:error("Weapon's range is smaller than the distance of the bullet", range, distance, targetPos, debug.traceback)
+            return
+        end
 
-            -- check for non-persistent firepower upgrades
-            local firepowerNonPersFlags = playerState.state:get(Id.PlayerUpgradeNonPersistent.FIREPOWER, C.Bitset)
-            if Id.flag_test(firepowerNonPersFlags, Id.PlayerF.PERK_ACTIVE) then
-                local firepowerNonPersStage = playerState.state:get(Id.PlayerUpgradeNonPersistent.FIREPOWER, C.ValueNonPers)
-                local bonusDmgPercent =
-                    assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.FIREPOWER].multiplier * firepowerNonPersStage)
-                firepowerBonus += bonusDmgPercent
-            end
+        -- check for persistent firepower upgrades
+        local firepowerBonus = 1
+        local firepowerIdPers = Misc.IsFirepowerUpgrade(playerState)
+        if firepowerIdPers then
+            firepowerBonus = assert(S.PlayerUpgradePersistent[firepowerIdPers].value)
+        end
 
+        -- check for non-persistent firepower upgrades
+        local firepowerNonPersFlags = playerState.state:get(Id.PlayerUpgradeNonPersistent.FIREPOWER, C.Bitset)
+        if Id.flag_test(firepowerNonPersFlags, Id.PlayerF.PERK_ACTIVE) then
+            local firepowerNonPersStage = playerState.state:get(Id.PlayerUpgradeNonPersistent.FIREPOWER, C.ValueNonPers)
+            local bonusDmgPercent = assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.FIREPOWER].multiplier * firepowerNonPersStage)
+            firepowerBonus += bonusDmgPercent
+        end
+
+        if targetRefId then
             if Id.kind(targetRefId) == Id.Kind.Enemy then
                 -- local enemyHP = WorldService.world:get(targetGuid, W.HP)
                 local dmg = 0
@@ -692,11 +771,18 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
             elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
                 local dmg = math.floor(S.Weapon[bulletWeaponId].damage + firepowerBonus)
                 onTargetHit(playerState, targetGuid :: str, dmg)
-            else
-                return
+            elseif Id.kind(targetRefId) == Id.Kind.Clone then
+                local dmg = math.floor(S.Weapon[bulletWeaponId].damage + firepowerBonus)
+                onTargetHit(playerState, targetGuid :: str, dmg)
             end
-
-
+        elseif damagedPlayerId then
+            local damagedPlayerState = get_state(damagedPlayerId)
+            if damagedPlayerState then
+                local dmg = math.floor(S.Weapon[bulletWeaponId].damage + firepowerBonus)
+                onPlayerHit(playerState, damagedPlayerState, dmg)
+            end
+        else
+            return
         end
     end
 
