@@ -1189,8 +1189,7 @@ RunService.Heartbeat:Connect(function(dt)
                         if isClone then
                             firstTargetGuid = target.Name
                         elseif playerId then
-                            local playerIdToString = tostring(playerId)
-                            firstTargetGuid = playerIdToString
+                            firstTargetGuid = playerId
                         end
                     end
                     local targetGuids = { firstTargetGuid } :: { string }
@@ -1221,7 +1220,7 @@ RunService.Heartbeat:Connect(function(dt)
                                     local character = otherTarget.Parent
                                     local playerId = Players:GetPlayerFromCharacter(character).UserId
                                     if playerId and playerId ~= LOCAL_PLAYER.UserId then
-                                        table.insert(targetGuids, tostring(playerId))
+                                        table.insert(targetGuids, playerId)
                                     end
                                 end
                             end

@@ -92,8 +92,13 @@ local function playTween(worldState, enemyGuid: string, tween: Tween)
     end
 end
 
-local function animateOctobossJump(worldState, enemyGuid: string, part: BasePart, humanoidRootPart: BasePart)
-    assert(part and part:IsA("BasePart"), "Invalid part")
+local function animateOctobossJump(worldState, enemyGuid: string, enemyInstance: BasePart, humanoidRootPart: BasePart)
+    local vfxName = "groundCrack"
+    local previousVFX = enemyInstance:FindFirstChild(vfxName)
+    if previousVFX then
+        previousVFX:Destroy()
+    end
+    assert(enemyInstance and enemyInstance:IsA("BasePart"), "Invalid part")
     local height = 18
     local animationDur = assert(S.Enemy[Id.Enemy.OCTOBOSS].animationDur)
     local durationDown = 0.3
@@ -102,38 +107,38 @@ local function animateOctobossJump(worldState, enemyGuid: string, part: BasePart
     local spinDuration = durationUp / spinNum
     local turnDuration = spinDuration / 3
 
-    local originalPosition = part.Position
-    local originalCFrame = part.CFrame
+    local originalPosition = enemyInstance.Position
+    local originalCFrame = enemyInstance.CFrame
     local heightPerTurn = height / spinNum / 3
-    local y = Misc.DefineObjectY(part)
+    local y = Misc.DefineObjectY(enemyInstance)
 
     local baseRotation = originalCFrame - originalCFrame.Position -- Extract just the rotation part
 
-    local spin1 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+    local spin1 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
         CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn, 0)) * baseRotation * CFrame.Angles(0, math.rad(120), 0),
     })
-    local spin2 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+    local spin2 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
         CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 2, 0)) * baseRotation * CFrame.Angles(0, math.rad(240), 0),
     })
-    local spin3 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+    local spin3 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
         CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 3, 0)) * baseRotation * CFrame.Angles(0, math.rad(360), 0),
     })
-    local spin4 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+    local spin4 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
         CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 4, 0)) * baseRotation * CFrame.Angles(0, math.rad(120), 0),
     })
-    local spin5 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+    local spin5 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
         CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 5, 0)) * baseRotation * CFrame.Angles(0, math.rad(240), 0),
     })
-    local spin6 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+    local spin6 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
         CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 6, 0)) * baseRotation * CFrame.Angles(0, math.rad(360), 0),
     })
-    local spin7 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+    local spin7 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
         CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 7, 0)) * baseRotation * CFrame.Angles(0, math.rad(120), 0),
     })
-    local spin8 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+    local spin8 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
         CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 8, 0)) * baseRotation * CFrame.Angles(0, math.rad(240), 0),
     })
-    local spin9 = TweenService:Create(part, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+    local spin9 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
         CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 9, 0)) * baseRotation * CFrame.Angles(0, math.rad(360), 0),
     })
 
@@ -166,21 +171,20 @@ local function animateOctobossJump(worldState, enemyGuid: string, part: BasePart
         playTween(worldState, enemyGuid, spin9)
     end)
     spin9.Completed:Connect(function()
-        -- TODO: VFX and SFX
         if worldState:has(enemyGuid) then -- check if the enemy is still in the world
             local newPos = worldState:get(enemyGuid, W.Position) :: Vector3
             local finalPos = Vector3.new(newPos.X, y, newPos.Z)
 
             -- Use a proxy to tween CFrame
             local proxy = Instance.new("CFrameValue")
-            proxy.Value = part.CFrame
+            proxy.Value = enemyInstance.CFrame
 
             proxy:GetPropertyChangedSignal("Value"):Connect(function()
                 -- edit look vector to face the player
                 local humPos = humanoidRootPart.Position
-                local lookAt = Vector3.new(humPos.X, part.Position.Y, humPos.Z)
+                local lookAt = Vector3.new(humPos.X, enemyInstance.Position.Y, humPos.Z)
                 local newCframe = CFrame.new(proxy.Value.Position, lookAt) * CFrame.Angles(0, math.pi, 0)
-                part.CFrame = newCframe
+                enemyInstance.CFrame = newCframe
             end)
 
             local tweenCFRame = TweenService:Create(proxy, TweenInfo.new(durationDown, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {
@@ -191,7 +195,14 @@ local function animateOctobossJump(worldState, enemyGuid: string, part: BasePart
             tweenCFRame.Completed:Connect(function()
                 -- play impact sound
                 local localizedThump = S.Sound[Id.Sound.STOMP_LOCALIZED]
-                Misc.SoundLocalizedAudio(localizedThump, part.Position, 0)
+                Misc.SoundLocalizedAudio(localizedThump, enemyInstance.Position, 0)
+
+                -- spawn VFX
+                local cFrame = CFrame.new(newPos + Vector3.new(0, 0.1, 0))
+                local VFXInstance = Misc.SpawnVFX(Id.VFX.GROUND_CRACK, enemyInstance, cFrame)
+                if VFXInstance then
+                    VFXInstance.Name = vfxName
+                end
 
                 proxy:Destroy()
                 if worldState:has(enemyGuid) then -- check if the enemy is still in the world

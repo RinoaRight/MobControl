@@ -719,6 +719,7 @@ Id.VFX = enum.with_id "Id.VFX" {
     _NONE                 = iota(Id.Kind.VFX, 0),
     EXPLOSION             = iota'',
     INVINCIBILITY_AURA    = iota'',
+    GROUND_CRACK          = iota'',
 }
 KIND_TO_ENUM[Id.Kind.VFX] = Id.VFX
 export type VFX = typeof(Id.VFX)

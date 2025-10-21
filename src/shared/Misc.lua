@@ -53,6 +53,45 @@ m.DefineObjectY = function(enemyInstance: BasePart)
     return y
 end
 
+m.SpawnVFX = function(vfxId: int, parent: Instance, cFrame: CFrame)
+    local vfxTemplate = S.VFX[vfxId]
+    local vfxInstance
+    if not vfxTemplate then
+        warn("VFX template not found for id:", vfxId)
+        return vfxInstance
+    end
+    vfxInstance = vfxTemplate:Clone() :: Model
+    vfxInstance.Parent = parent
+    local primaryPart = vfxInstance.PrimaryPart :: BasePart
+    primaryPart.CFrame = cFrame
+
+    local allEffects = vfxInstance:GetDescendants()
+    for _, effect in ipairs(allEffects) do
+        if effect:IsA("ParticleEmitter") then
+            local howMany = effect:GetAttribute("EmitCount") :: int
+            local delay = effect:GetAttribute("EmitDelay") :: num
+            if not howMany then
+                howMany = 1
+            end
+            if not delay then
+                delay = 0
+            end
+            if delay > 0 then
+                effect.Enabled = false
+                TaskPool.spawn(function()
+                    task.wait(delay)
+                    effect:Emit(howMany)
+                end)
+            end
+            if howMany > 0 then
+                effect.Enabled = false
+                effect:Emit(howMany)
+            end
+        end
+    end
+    return vfxInstance
+end
+
 m.ShowAnnouncement = function(text, announcementGui, fontFace: Enum.Font?, color: Color3?)
     local textBox = assert(announcementGui:WaitForChild("ContainerFrame").Message) :: TextLabel
     if fontFace then

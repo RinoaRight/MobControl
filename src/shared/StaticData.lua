@@ -526,6 +526,7 @@ m.Sound = {
 
 m.VFX = {
     [Id.VFX.INVINCIBILITY_AURA] = assert(VFX_ROOT:WaitForChild("InvinvibilityAuraTemplate")),
+    [Id.VFX.GROUND_CRACK] = assert(VFX_ROOT:WaitForChild("GroundCrack")),
 }
 
 return m

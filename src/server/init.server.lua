@@ -664,12 +664,12 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
 
     for _, targetGuid in ipairs(targetGuids) do
         local thisPlayerId = playerState.player_id
-        local numericGuid = tonumber(targetGuid)
+        local isNumericGuid = type(targetGuid) == "number"
         local damagedPlayerId
-        if numericGuid then
+        if isNumericGuid then
             for _, player in ipairs(Players:GetPlayers()) do
                 local playerId = player.UserId
-                if playerId == numericGuid and playerId ~= thisPlayerId then
+                if playerId == targetGuid and playerId ~= thisPlayerId then
                     damagedPlayerId = playerId
                     break
                 end
@@ -678,7 +678,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
 
         local targetPos
         local targetRefId
-        if not numericGuid and WorldService.world:has(targetGuid) then
+        if not isNumericGuid and WorldService.world:has(targetGuid) then
             targetRefId = WorldService.world:get(targetGuid, W.RefId)
             local boosterServerInstance
 
