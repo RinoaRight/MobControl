@@ -49,42 +49,46 @@ Id.__index = Id
 -----------------------------
 -- stylua: ignore
 local Kind = table.freeze {
-    NONE            = enum.iota(idk.MIN_KIND, 1, idk.MAX_KIND),
-    Struct          = enum.iota'',
-    ServerError     = enum.iota'',
-    Boost           = enum.iota'',
-    Achievement     = enum.iota'',
-    Animation       = enum.iota'',
-    Product         = enum.iota'',
-    Pass            = enum.iota'',
-    PassF           = enum.iota'',
-    PlayerF         = enum.iota'',
-    WorldF          = enum.iota'',
-    EnemyF          = enum.iota'',
-    PlayerUpgrade   = enum.iota'',
-    Countable       = enum.iota'',
-    Clone           = enum.iota'',
-    Weapon          = enum.iota'',
-    Enemy           = enum.iota'',
-    EnemyFlying     = enum.iota'',
-    Obstacle        = enum.iota'',
-    PlayerSpecs     = enum.iota'',
-    WorldSpecs      = enum.iota'',
-    TimedEvent      = enum.iota'',
-    Sound           = enum.iota'',
-    VFX             = enum.iota'',
-    STMState        = enum.iota'',
+    NONE                         = enum.iota(idk.MIN_KIND, 1, idk.MAX_KIND),
+    Struct                       = enum.iota'',
+    ServerError                  = enum.iota'',
+    Boost                        = enum.iota'',
+    Bomb                         = enum.iota'',
+    Achievement                  = enum.iota'',
+    Animation                    = enum.iota'',
+    Product                      = enum.iota'',
+    Pass                         = enum.iota'',
+    PassF                        = enum.iota'',
+    PlayerF                      = enum.iota'',
+    WorldF                       = enum.iota'',
+    EnemyF                       = enum.iota'',
+    PlayerUpgradePersistent      = enum.iota'',
+    PlayerUpgradeNonPersistent   = enum.iota'',
+    CountablePersistent          = enum.iota'',
+    CountableNonPersistent       = enum.iota'',
+    Clone                        = enum.iota'',
+    Weapon                       = enum.iota'',
+    Enemy                        = enum.iota'',
+    EnemyFlying                  = enum.iota'',
+    Obstacle                     = enum.iota'',
+    PlayerSpecs                  = enum.iota'',
+    WorldSpecs                   = enum.iota'',
+    Handicap                     = enum.iota'',
+    TimedEvent                   = enum.iota'',
+    Sound                        = enum.iota'',
+    VFX                          = enum.iota'',
+    STMState                     = enum.iota'',
     -- protocol:
-    S2S             = enum.iota(110, 1, idk.MAX_KIND),
-    S2C             = enum.iota'',
-    S2CC            = enum.iota'',
-    C2S             = enum.iota'',
-    C2C             = enum.iota'',
-    US2SS           = enum.iota'', -- unreliable broadcast
-    RS2SS           = enum.iota'', -- reliable broadcast
+    S2S                          = enum.iota(110, 1, idk.MAX_KIND),
+    S2C                          = enum.iota'',
+    S2CC                         = enum.iota'',
+    C2S                          = enum.iota'',
+    C2C                          = enum.iota'',
+    US2SS                        = enum.iota'', -- unreliable broadcast
+    RS2SS                        = enum.iota'', -- reliable broadcast
     -- states:
-    Quest           = "Quest",
-    TestF           = enum.iota''
+    Quest                        = "Quest",
+    TestF                        = enum.iota''
 }
 Id.Kind = Kind
 
@@ -383,7 +387,7 @@ export type Struct = typeof(Id.Struct)
 -- Boost
 -----------------------------
 Id.Boost = enum.with_id "Id.Boost" {
-    NONE                = iota(Id.Kind.Boost, 0),
+    _NONE                = iota(Id.Kind.Boost, 0),
     ADD_CLONE           = iota'',
     -- BULLET_SPEED_MULT   = iota'',
     CHANGE_WEAPON       = iota'',
@@ -394,10 +398,10 @@ export type Boost = typeof(Id.Boost)
 
 -- stylua: ignore
 -----------------------------
--- PlayerUpgrade
+-- PlayerUpgradePersistent
 -----------------------------
-Id.PlayerUpgrade = enum.with_id "Id.PlayerUpgrade" {
-    NONE               = iota(Id.Kind.PlayerUpgrade, 0),
+Id.PlayerUpgradePersistent = enum.with_id "Id.PlayerUpgradePersistent" {
+    _NONE               = iota(Id.Kind.PlayerUpgradePersistent, 0),
     FIREPOWER_1        = iota'',
     FIREPOWER_2        = iota'',
     FIREPOWER_3        = iota'',
@@ -411,17 +415,38 @@ Id.PlayerUpgrade = enum.with_id "Id.PlayerUpgrade" {
     INIT_CLONE_1       = iota'',
     INIT_CLONE_2       = iota'',
     INIT_CLONE_3       = iota'',
+    XP_MULT              = iota'',
 }
--- TODO: add all-players upgrades? weapon unlocks? drones?
-KIND_TO_ENUM[Id.Kind.PlayerUpgrade] = Id.PlayerUpgrade
-export type PlayerUpgrade = typeof(Id.PlayerUpgrade)
+KIND_TO_ENUM[Id.Kind.PlayerUpgradePersistent] = Id.PlayerUpgradePersistent
+export type PlayerUpgradePersistent = typeof(Id.PlayerUpgradePersistent)
+
+-- stylua: ignore
+-----------------------------
+-- PlayerUpgradeNonPersistent
+-----------------------------
+Id.PlayerUpgradeNonPersistent = enum.with_id "Id.PlayerUpgradeNonPersistent" {
+    _NONE                 = iota(Id.Kind.PlayerUpgradeNonPersistent, 0),
+    INVINCIBILITY        = iota'',
+    FIREPOWER            = iota'',
+    SHIELD               = iota'',
+    -- DRONES               = iota'',
+    BULLET_SPEED_MULT    = iota'',
+    CLONE_FACTORY        = iota'',
+    SHIELD_RECHARGE      = iota'',
+    ARMOR                = iota'',
+    SHIELD_DAMAGE        = iota'',
+    SHIELD_COOLDOWN_MULT = iota'',
+}
+-- TODO: add all-players upgrades? weapon unlocks? drones? ->> definitely drones, we need something anti-bomb
+KIND_TO_ENUM[Id.Kind.PlayerUpgradeNonPersistent] = Id.PlayerUpgradeNonPersistent
+export type PlayerUpgradeNonPersistent = typeof(Id.PlayerUpgradeNonPersistent)
 
 -- stylua: ignore
 -----------------------------
 -- Pass
 -----------------------------
 Id.Pass = enum.with_id "Id.Pass" {
-    NONE = iota(Id.Kind.Pass, 0),
+    _NONE = iota(Id.Kind.Pass, 0),
 }
 KIND_TO_ENUM[Id.Kind.Pass] = Id.Pass
 export type Pass = typeof(Id.Pass)
@@ -445,13 +470,16 @@ export type PassF = typeof(Id.PassF)
 -- PlayerF
 -----------------------------
 Id.PlayerF = enum.with_id "Id.PlayerF" {
-    NONE               = flag(Id.Kind.PlayerF),
-    _PERSISTENT        = flag'', 
-    OTHER_BULLETS_ON   = flag'',
-    OTHER_CLONES_ON    = flag'',
-    _NON_PERSISTENT    = flag'', 
-    READY              = flag'',
-    BOOSTER_TOUCHED    = flag'',
+    _NONE                 = flag(Id.Kind.PlayerF),
+    _PERSISTENT          = flag'', 
+    OTHER_BULLETS_ON     = flag'',
+    OTHER_CLONES_ON      = flag'',
+    _NON_PERSISTENT      = flag'', 
+    READY                = flag'',
+    BOOSTER_TOUCHED      = flag'',
+    PERK_ACQUIRED        = flag'',
+    PERK_ACTIVE          = flag'',
+    BOSS_ULT_APPLIED   = flag'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerF] = Id.PlayerF
 export type PlayerF = typeof(Id.PlayerF)
@@ -470,6 +498,8 @@ warn("flags", Id.pp(flags), Id.flag_test(flags, Id.PlayerF.BOUGHT))
 Id.EnemyF = enum.with_id "Id.EnemyF" {
     NONE                     = flag(Id.Kind.EnemyF),
     SEEK_ACTIVATED           = flag'',
+    IS_BOSS                  = flag'',
+    PERFORM_SPECIAL_ATTACK   = flag'',
 }
 KIND_TO_ENUM[Id.Kind.EnemyF] = Id.EnemyF
 export type EnemyF = typeof(Id.EnemyF)
@@ -479,8 +509,8 @@ export type EnemyF = typeof(Id.EnemyF)
 -- WorldF
 -----------------------------
 Id.WorldF = enum.with_id "Id.WorldF" {
-    NONE                     = flag(Id.Kind.WorldF),
-    -- SEEK_ACTIVATED           = flag'',
+    _NONE                     = flag(Id.Kind.WorldF),
+    -- PVP_TIME                  = flag'',
 }
 KIND_TO_ENUM[Id.Kind.WorldF] = Id.WorldF
 export type WorldF = typeof(Id.WorldF)
@@ -490,25 +520,33 @@ export type WorldF = typeof(Id.WorldF)
 -- Product
 -----------------------------
 Id.Product = enum.with_id "Id.Product" {
-    NONE = iota(Id.Kind.Product, 0),
+    _NONE = iota(Id.Kind.Product, 0),
 }
 KIND_TO_ENUM[Id.Kind.Product] = Id.Product
 export type Product = typeof(Id.Product)
 
 -- stylua: ignore
 -----------------------------
--- Countable
+-- CountablePersistent
 -----------------------------
-Id.Countable = enum.with_id "Id.Countable" {
-    _NONE = iota(Id.Kind.Countable, 0),
-    CLONE = iota'',
+Id.CountablePersistent = enum.with_id "Id.CountablePersistent" {
+    _NONE = iota(Id.Kind.CountablePersistent, 0),
     COIN = iota'',
-    TOKEN = iota'',
-    _PERSISTENT = iota'',
-    XP    = iota'',
 }
-KIND_TO_ENUM[Id.Kind.Countable] = Id.Countable
-export type Countable = typeof(Id.Countable)
+KIND_TO_ENUM[Id.Kind.CountablePersistent] = Id.CountablePersistent
+export type CountablePersistent = typeof(Id.CountablePersistent)
+
+-- stylua: ignore
+-----------------------------
+-- CountableNonPersistent
+-----------------------------
+Id.CountableNonPersistent = enum.with_id "Id.CountableNonPersistent" {
+    _NONE = iota(Id.Kind.CountableNonPersistent, 0),
+    CLONE = iota'',
+    -- XP    = iota'',
+}
+KIND_TO_ENUM[Id.Kind.CountableNonPersistent] = Id.CountableNonPersistent
+export type CountableNonPersistent = typeof(Id.CountableNonPersistent)
 
 -- stylua: ignore
 -----------------------------
@@ -556,7 +594,10 @@ export type Weapon = typeof(Id.Weapon)
 Id.Enemy = enum.with_id "Id.Enemy" {
     _NONE      = iota(Id.Kind.Enemy, 0),
     BASIC      = iota'',
+    CONEHEAD   = iota'',
+    ZOMBUCKET  = iota'',
     CRAZOMBIE  = iota'',
+    _BOSS      = iota'',
     OCTOBOSS   = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Enemy] = Id.Enemy
@@ -578,14 +619,28 @@ export type EnemyFlying = typeof(Id.EnemyFlying)
 -- Obstacle
 -----------------------------
 Id.Obstacle = enum.with_id "Id.Obstacle" {
-    _NONE      = iota(Id.Kind.Obstacle, 0),
-    GRAVE      = iota'',
+    _NONE        = iota(Id.Kind.Obstacle, 0),
+    GRAVE        = iota'',
+    GRAVE_MED    = iota'',
+    GRAVE_LARGE  = iota'',
+    CROSS        = iota'',
+    CELTIC_CROSS = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Obstacle] = Id.Obstacle
 export type Obstacle = typeof(Id.Obstacle)
 
 -- stylua: ignore
 -----------------------------
+-- Bomb
+-----------------------------
+Id.Bomb = enum.with_id "Id.Bomb" {
+    _NONE = iota(Id.Kind.Bomb, 0),
+    ZOMBALLOON_BOMB = iota'',
+}
+KIND_TO_ENUM[Id.Kind.Bomb] = Id.Bomb
+export type Bomb = typeof(Id.Bomb)
+
+-- stylua: ignore
 -- Timed event
 -----------------------------
 Id.TimedEvent = enum.with_id "Id.TimedEvent" {
@@ -600,9 +655,10 @@ export type TimedEvent = typeof(Id.TimedEvent)
 -- Animation
 -----------------------------
 Id.Animation = enum.with_id "Id.Animation" {
-    _NONE   = iota(Id.Kind.Animation, 0),
-    DANCE   = iota'',
-    HOLD    = iota'',
+    _NONE     = iota(Id.Kind.Animation, 0),
+    DANCE     = iota'',
+    HOLD      = iota'',
+    RIFLE_AIM = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Animation] = Id.Animation
 export type Animation = typeof(Id.Animation)
@@ -612,20 +668,45 @@ export type Animation = typeof(Id.Animation)
 -- Sound
 -----------------------------
 Id.Sound = enum.with_id "Id.Sound" {
-    _NONE                 = iota(Id.Kind.Sound, 0),
-    BELL                  = iota'',
-    CLICK                 = iota'',
-    COIN_DROP             = iota'',
-    CREAK_METAL           = iota'',
-    ERROR                 = iota'',
-    FIRE_PISTOL           = iota'',
-    FIRE_PISTOL_LOCALIZED = iota'',
-    RELOAD                = iota'',
-    SCREAM                = iota'',
-    SCREAM_LOCALIZED_HIGH = iota'',
-    SCREAM_LOCALIZED_REG  = iota'',
-    THUMP                 = iota'',
-    THUMP_LOCALIZED       = iota'',
+    _NONE                     = iota(Id.Kind.Sound, 0),
+    ARMOR_HIT                 = iota'',
+    BELL                      = iota'',
+    BELL_SUCCESS              = iota'',
+    CLICK                     = iota'',
+    COIN_DROP                 = iota'',
+    CREAK_METAL               = iota'',
+    CRYSTAL_DING              = iota'',
+    ENERGY_SHIELD_HIT         = iota'',
+    ENERGY_SWEEP              = iota'',
+    ERROR                     = iota'',
+    EXPLOSION_SHORT           = iota'',
+    EXPLOSION_SHORT_LOCALIZED = iota'',
+    FANFARE_1                 = iota'',
+    FANFARE_2                 = iota'',
+    FIRE_PISTOL               = iota'',
+    FIRE_PISTOL_LOCALIZED     = iota'',
+    HISS                      = iota'',
+    HURT                      = iota'',
+    IMPACT                    = iota'',
+    IMPACT_LOCALIZED          = iota'',
+    METAL_BUCKET              = iota'',
+    METAL_BUCKET_LOCALIZED    = iota'',
+    POP                       = iota'',
+    POP_LOW                   = iota'',
+    POP_LOW_LOCALIZED         = iota'',
+    RELOAD_CLICK              = iota'',
+    RELOAD_CLICK_LOCALIZED    = iota'',
+    RELOAD_PISTOL             = iota'',
+    SCREAM                    = iota'',
+    SCREAM_HIGH               = iota'',
+    SCREAM_LOCALIZED_HIGH     = iota'',
+    SCREAM_LOCALIZED_REG      = iota'',
+    SCREAM_SQUEAK             = iota'',
+    STOMP_LOCALIZED           = iota'',
+    THUMP                     = iota'',
+    THUMP_LOCALIZED           = iota'',
+    WEAK_BULLET               = iota'',
+    WHEEL_SPIN                = iota'',
 }
 KIND_TO_ENUM[Id.Kind.Sound] = Id.Sound
 export type Sound = typeof(Id.Sound)
@@ -637,6 +718,8 @@ export type Sound = typeof(Id.Sound)
 Id.VFX = enum.with_id "Id.VFX" {
     _NONE                 = iota(Id.Kind.VFX, 0),
     EXPLOSION             = iota'',
+    INVINCIBILITY_AURA    = iota'',
+    GROUND_CRACK          = iota'',
 }
 KIND_TO_ENUM[Id.Kind.VFX] = Id.VFX
 export type VFX = typeof(Id.VFX)
@@ -648,8 +731,11 @@ export type VFX = typeof(Id.VFX)
 Id.PlayerSpecs = enum.with_id "Id.PlayerSpecs" {
     _NONE                = iota(Id.Kind.PlayerSpecs, 0),
     GAME_SESSION_PARAMS  = iota'',
+    ORIENTATION         = iota'',
+    XP_PROGRESS          = iota'',
     SESSION_DAMAGE       = iota'',
     SESSION_ENEMY_KILLS  = iota'',
+    DAMAGE_THROTTLE      = iota'',
 }
 KIND_TO_ENUM[Id.Kind.PlayerSpecs] = Id.PlayerSpecs
 export type PlayerStats = typeof(Id.PlayerSpecs)
@@ -665,16 +751,35 @@ Id.WorldSpecs = enum.with_id "Id.WorldSpecs" {
     OBSTACLE_WAVE_COUNT          = iota'', -- number
     ENEMY_WAVE_COUNT             = iota'', -- number
     BOSS_FIGHT_ON                = iota'', -- bool
+    PVP_TIME                     = iota'', -- bool
+    HANDICAP                     = iota'', -- id
 }
 KIND_TO_ENUM[Id.Kind.WorldSpecs] = Id.WorldSpecs
 export type WorldSpecs = typeof(Id.WorldSpecs)
 
 -- stylua: ignore
 -----------------------------
+-- Handicap
+-----------------------------
+Id.Handicap = enum.with_id "Id.Handicap" {
+    _NONE                        = iota(Id.Kind.Handicap, 0),
+    BOMBS                        = iota'', -- double bombs + armor to clones
+    DOUBLE_HP                    = iota'', -- to enemies and players
+    GRAVES                       = iota'',
+    FINITE_AMMO                  = iota'',
+    HP_DRAIN                     = iota'', -- + start with armor
+    PISTOLS_ONLY                 = iota'',
+    -- TODO: merging clones
+}
+KIND_TO_ENUM[Id.Kind.Handicap] = Id.Handicap
+export type Handicap = typeof(Id.Handicap)
+
+-- stylua: ignore
+-----------------------------
 -- ServerError
 -----------------------------
 Id.ServerError = enum.with_id "Id.ServerError" {
-    NONE       = iota(Id.Kind.ServerError, 0),
+    _NONE       = iota(Id.Kind.ServerError, 0),
     NOT_ENOUGH = iota''
 }
 KIND_TO_ENUM[Id.Kind.ServerError] = Id.ServerError
@@ -714,13 +819,13 @@ export type STMState = typeof(Id.STMState)
 -- S2S
 -----------------------------
 Id.S2S = enum.with_id "Id.S2S" {
+    -- NOTE: has to pass player_id as a first argument
     _NONE                     = iota(Id.Kind.S2S, 0),
     PASS_GRANTED              = iota'',
     PURCHASE_FINISHED         = iota'',
-    CHANGE_WEAPON             = iota'', -- weapon_id
-    PLAYER_DIED               = iota'', -- int (player damage)?, cause_id\uid?
-    -- FINAL_BOSS_KILLED         = iota'',
-    -- STOP_GAME_SESSION         = iota'',
+    CHANGE_WEAPON             = iota'', -- player_id,weapon_id
+    PLAYER_DIED               = iota'', -- player_id, int (player damage), cause_id\uid?
+    SHIELD_DAMAGE_SERVER      = iota'', -- player_id, target_guid, damage
 }
 KIND_TO_ENUM[Id.Kind.S2S] = Id.S2S
 export type S2S = typeof(Id.S2S)
@@ -732,7 +837,7 @@ export type S2S = typeof(Id.S2S)
 Id.C2C = enum.with_id "Id.C2C" {
     _NONE               = iota(Id.Kind.C2C, 0),
     NEW_BOOSTER_ADDED   = iota'', -- world_state, player_state, booster_guid
-    NEW_ENEMY_ADDED     = iota'', -- world_state, player_state, enemy_guid
+    -- NEW_ENEMY_ADDED     = iota'', -- world_state, player_state, enemy_guid, is_boss
     SHOW_CLONES_TOGGLED = iota'', -- bool
     SHOW_POPUP_CLIENT   = iota'', -- {params}
 }
@@ -746,13 +851,13 @@ export type C2C = typeof(Id.C2C)
 Id.C2S = enum.with_id "Id.C2S" {
     _NONE                             = iota(Id.Kind.C2S, 0),
     BULLET_SHOT                       = iota'', -- {bullet_guids}, bullet_weapon_id
-    BUY_PLAYER_UPGRADE                = iota'', -- upgrade_id           
+    BUY_PLAYER_UPGRADE_PERS           = iota'', -- upgrade_id           
+    REQUEST_PLAYER_UPGRADE_NON_PERS   = iota'', -- upgrade_id    
+    -- PLAYER_OR_CLONE_HIT               = iota'', -- player_id, bullet_guid, isClone      
     TARGET_HIT                        = iota'', -- {enemy_guids}, bullet_guid
     TOGGLE_PLAYER_FLAG                = iota'', -- bool, flag_id
-    PLAYER_COLLIDED_W_BOOSTER         = iota'', -- booster_guid, triggerer_guid (or player_id)
-    PLAYER_COLLIDED_W_OBSTACLE        = iota'', -- obstacle_guid, triggerer_guid (or player_id)
-    PLAYER_HIT_BY_BOMB                = iota'', -- triggerer_guid (or player_id)
-    -- PLAYER_HIT_BY_OWN_ROCKET          = iota'', -- triggerer_guid (or player_id)
+    PERK_SELECTED                     = iota'', -- 1 or 2
+    PLAYER_INTENDED_POS               = iota'', -- pos, lookVector, timestamp
     PLAYER_READY_TO_START             = iota'',               
 }
 KIND_TO_ENUM[Id.Kind.C2S] = Id.C2S
@@ -763,14 +868,18 @@ export type C2S = typeof(Id.C2S)
 -- S2C
 -----------------------------
 Id.S2C = enum.with_id "Id.S2C" {
-    _NONE             = iota(Id.Kind.S2C, 0),
-    UPDATE_STATE      = iota'',
-    BOOSTER_DESTROYED = iota'', -- boost_ref_id, value, boost_content_id
-    INIT_WORLD        = iota'',
-    UPDATE_WORLD      = iota'',
-    PLAYER_DAMAGED    = iota'', -- int (player damage), cause_id\uid?
-    PLAYER_DIED       = iota'', -- int (player damage), cause_id\uid?
-    SHOW_POPUP_SERVER = iota'', -- event_id
+    _NONE                 = iota(Id.Kind.S2C, 0),
+    UPDATE_STATE          = iota'',
+    BOMB_HIT              = iota'', -- bomb_guid, pos
+    BOOSTER_DESTROYED     = iota'', -- boost_ref_id, value, boost_content_id
+    GAMES_SESSION_ENDED   = iota'', -- NOTE: never broadcasted, used only as a cause_id
+    INIT_WORLD            = iota'',
+    UPDATE_WORLD          = iota'',
+    ENEMY_DEAD            = iota'', -- enemy_guid
+    PLAYER_DAMAGED        = iota'', -- int (player damage), cause_id\uid?
+    PLAYER_DIED           = iota'', -- int (player damage), cause_id\uid?
+    SHIELD_DAMAGE         = iota'', -- int (shield damage)
+    SHOW_POPUP_SERVER     = iota'', -- event_id
 }
 KIND_TO_ENUM[Id.Kind.S2C] = Id.S2C
 export type S2C = typeof(Id.S2C)
@@ -780,10 +889,12 @@ export type S2C = typeof(Id.S2C)
 -- S2CC
 -----------------------------
 Id.S2CC = enum.with_id "Id.S2CC" {
-    _NONE                   = iota(Id.Kind.S2CC, 0),
+    _NONE                      = iota(Id.Kind.S2CC, 0),
+    BOSS_KILLED_BY_PLAYER      = iota'', 
     PLAYER_STARTED_SESSION     = iota'', -- player_id, player_hp
     PLAYER_STOPPED_SESSION     = iota'', -- player_id
     PLAYER_CHANGED_WEAPON      = iota'', -- player_id, weapon_id
+    SESSION_HANDICAP_MODIFIED  = iota'', -- handicap_id
 }
 KIND_TO_ENUM[Id.Kind.S2CC] = Id.S2CC
 export type S2CC = typeof(Id.S2CC)

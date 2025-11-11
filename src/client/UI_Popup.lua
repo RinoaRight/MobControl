@@ -36,7 +36,7 @@ local _flag = En.flag
 local Disposer = require(shared.disposer)
 local Queue = require(shared.queue)
 local Signal = require(shared.signal)
-local SFX = require(script.Parent.SFX)
+local Misc = require(shared.Misc)
 
 type Queue<A> = Queue.Queue<A>
 
@@ -84,7 +84,7 @@ end
 
 local function hide_panel()
     local self: InternalPopup = m :: any
-    SFX:PLAY_SOUND(Id.Sound.CLICK)
+    Misc:PlaySound(Id.Sound.CLICK)
     self._maid:Destroy()
     self._panel.Enabled = false
     show_cursor(false)

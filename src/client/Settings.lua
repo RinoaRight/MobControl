@@ -21,7 +21,6 @@ local Disposer = require(shared.disposer)
 local Signal = require(shared.signal)
 local Id = require(shared.Id)
 local S = require(shared.StaticData)
-local SFX = require(script.Parent.SFX)
 local SharedConfig = require(shared.SharedConfig)
 local C = SharedConfig.PlayerState.CId
 local SharedUtils = require(shared.util)
@@ -82,7 +81,7 @@ local function updateOnOffButton(btn, isToTurnOn)
 end
 
 local function onMenuBtnPressed(playerState, btn: any)
-    SFX.PLAY_SOUND(Id.Sound.CLICK)
+    Misc.PlaySound(Id.Sound.CLICK)
     local currentFlags = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
     if not currentFlags then
         return
@@ -196,7 +195,7 @@ function m.Init(state: state.Replica, playerGui: StarterGui, settingsBtnGUI: Scr
     end)
 
     _maid.gearBtn = SharedUtils.ConnectThrottled(GEAR_BUTTON.Activated, 0.5, function()
-        SFX.PLAY_SOUND(Id.Sound.CLICK)
+        Misc.PlaySound(Id.Sound.CLICK)
         onEnter(state, playerGui)
     end)
 end

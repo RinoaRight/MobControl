@@ -35,48 +35,81 @@ local GROUND_UNITS_FOLDER = assert(workspace.GroundUnits)
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local Misc = require(shared.Misc)
-local Sounds = require(script.Parent.SFX)
 local S = require(shared.StaticData)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Util = require(shared.util)
+local TweenService = game:GetService("TweenService")
+local TaskPool = require(shared.TaskPool)
+local NumFormat = require(shared.num_format)
+local PlayerUpgrades = require(script.Parent.UI_PlayerUpgrades)
+
+local maid = disposer.new()
 
 local COIN_TEXTBOX
 local COIN_IMG
+local RANK_TEXT_BOX
+local RANK_PROGRESS_BAR
+local AMMO_FRAME
+local AMMO_PROGRESS_BAR
 
 local _maid = disposer.new()
 
 local DEFAULT_SCALE_MONEY_TEXTBOX = UDim2.fromScale(1, 1)
-local DEFAULT_SCALE_MONEY_IMG = UDim2.fromScale(.7, .7)
+local DEFAULT_SCALE_MONEY_IMG = UDim2.fromScale(0.7, 0.7)
 local TARGET_SCALE = UDim2.fromScale(DEFAULT_SCALE_MONEY_TEXTBOX.X.Scale, DEFAULT_SCALE_MONEY_TEXTBOX.Y.Scale * 1.5)
+
+local RANK_PROGRESS_BAR_INIT_SIZE = UDim2.fromScale(1, 1)
+local RANK_TEXT_INIT_SIZE = UDim2.fromScale(1, 0.7)
+local RANK_TEXT_TARGET_SIZE = UDim2.fromScale(1, 1)
+local COLOR_RANK_CHANGED = Color3.fromHex("35d876")
+local COLOR_RANK_REGULAR = Color3.fromHex("e3c100")
+
+
 
 local m = {}
 m.__index = m
 
-m.Init = function(playerState: state.Replica, guiPanel)
-    local coinFrame = assert(guiPanel:WaitForChild("MoneyFrame"))
+m.Init = function(playerState: state.Replica, mainGuiPanel)
+    local coinFrame = assert(mainGuiPanel:WaitForChild("MoneyFrame"))
     COIN_TEXTBOX = assert(coinFrame.BG.TextLabel)
     COIN_IMG = assert(coinFrame.MoneyIcon)
-    local coinsValue = playerState:get(Id.Countable.COIN, C.Value)
+    local coinsValue = playerState:get(Id.CountablePersistent.COIN, C.ValuePers)
     COIN_TEXTBOX.Text = NumFormat.format_ectos(coinsValue)
 
-    for _, refId in Id.Countable:ids() do
-        local currentValue = playerState:get(refId, C.Value)
+    local xpFrame = assert(mainGuiPanel:WaitForChild("RankFrame"))
+    RANK_TEXT_BOX = assert(xpFrame.TextLabel)
+    RANK_PROGRESS_BAR = assert(xpFrame.InsideBarBGFrame.InsideBarSliderFrame)
+
+    AMMO_FRAME = assert(mainGuiPanel:WaitForChild("AmmoFrame"))
+    AMMO_FRAME.Visible = false
+    AMMO_PROGRESS_BAR = assert(AMMO_FRAME.InsideBarBGFrame.InsideBarSliderFrame)
+    AMMO_PROGRESS_BAR.Size = UDim2.fromScale(1, 1)
+
+    for _, refId in Id.CountablePersistent:ids() do
+        local currentValue = playerState:get(refId, C.ValuePers) or 0
         playerState:set(refId, C.ValueView, currentValue)
     end
+    for _, refId in Id.CountableNonPersistent:ids() do
+        local currentValue = playerState:get(refId, C.ValueNonPers) or 0
+        playerState:set(refId, C.ValueView, currentValue)
+    end
+
 end
 
 m.OnStateUpdate = function(playerState: state.Replica)
-    for _, refId in Id.Countable:ids() do
+    -- coins
+    for _, refId in Id.CountablePersistent:ids() do
         local valueView = playerState:get(refId, C.ValueView)
-        local value = playerState:get(refId, C.Value)
+        local value = playerState:get(refId, C.ValuePers)
 
         if value == valueView then
             continue
         elseif value > valueView then
-            if refId == Id.Countable.COIN then
-                Sounds.PLAY_SOUND(Id.Sound.COIN_DROP)
+            if refId == Id.CountablePersistent.COIN then
+                Misc.PlaySound(Id.Sound.COIN_DROP)
             end
         elseif value < valueView then
-            Sounds.PLAY_SOUND(Id.Sound.BELL)
+            Misc.PlaySound(Id.Sound.BELL)
         end
 
         -- flicker textbox's scale
@@ -97,5 +130,39 @@ m.OnStateUpdate = function(playerState: state.Replica)
 
         playerState:set(refId, C.ValueView, value)
     end
+
+    -- xp
+    local currentRank = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank)
+    -- print("LLLLLLLLL", currentRank)
+    local currentXP = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers)
+    local xpToNextRank = SharedConfig.PLAYER_RANK_XP_REQUIRED + currentRank * SharedConfig.PLAYER_RANK_XP_INCREMENT
+    local currentXpInPercent = currentXP / xpToNextRank
+
+    local rankValueView = playerState:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueView) or 0
+    if currentRank > rankValueView then
+        PlayerUpgrades.OnPlayerRankUpdate(playerState)
+    end
+    playerState:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueView, currentRank)
+    -- clamp min value to avoid visual artifacts
+    local currentProgressBarValue = math.max(currentXpInPercent, 0.05)
+    RANK_PROGRESS_BAR.Size = UDim2.fromScale(currentProgressBarValue, RANK_PROGRESS_BAR_INIT_SIZE.Y.Scale)
+
+    -- ammo
+    local currentWeaponId = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
+    if currentWeaponId and currentWeaponId ~= Id.Weapon._NONE then
+        local maxAmmo = S.Weapon[currentWeaponId].magazineSize
+        local currentAmmo = playerState:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers) or maxAmmo
+        local ammoInPercent = currentAmmo / maxAmmo
+        -- clamp min value to avoid visual artifacts
+        local currentAmmoBarValue = math.max(ammoInPercent, 0.05)
+        AMMO_PROGRESS_BAR.Size = UDim2.fromScale(currentAmmoBarValue, AMMO_PROGRESS_BAR.Size.Y.Scale)
+    end
 end
+
+m.ToggleAmmoFrame = function(isToShow: bool)
+    if AMMO_FRAME then
+        AMMO_FRAME.Visible = isToShow
+    end
+end
+
 return m

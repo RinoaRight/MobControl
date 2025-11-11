@@ -45,19 +45,22 @@ local disposer = require(script.Parent.disposer)
 
 m.BULLET_BASE_DISTANCE = 240 -- == distance, in units (always positive)
 m.PLAYER_BASE_HP = 100
+m.HP_HANDICAP_MULT = 2
 m.CONTROL_DISTANCE_TO_TARGET = 1 -- == distance, in units (always positive)
 m.BULLET_RAYCAST_START_MULT = 2
-m.BOSS_WAVE_NUMBER = 15
-m.MOVEMENT_LINEAR_VELOCITY_REG = 30
-m.MOVEMENT_LINEAR_VELOCITY_BOSS = 20
+m.FINAL_BOSS_WAVE_NUMBER = 2--0 -- NOTE: even number
+m.MOVEMENT_LINEAR_VELOCITY_REG = 0 --30
+m.MOVEMENT_LINEAR_VELOCITY_BOSS = 0 --20
 m.BOOSTERS_IN_UNIT = 12
 m.MAX_PLAYERS_IN_SESSION = m.BOOSTERS_IN_UNIT
 m.ENEMY_WAVE_DELAY = 7
 m.REGULAR_ENEMY_HITBOX_RADIUS = 2
 m.BOOSTER_DEPTH = 10 -- units
 m.CLONES_IN_A_ROW = 5
-m.INTERCLONES_DISTANCE = 5
-m.ROCKET_SELF_HARM_MULT = .2
+m.CLONE_DMG_THROTTLE = 1
+m.INTERCLONES_DISTANCE = 6
+m.ROCKET_SELF_HARM_MULT = 0.2
+m.OBSTACLES_HANDICAP_MULT = 2
 m.DEFAULT_HP_GUI_TEXT = " "
 m.CLONES_FOLDER_NAME = "Clones"
 m.CLONES_DUMMY_FOLDER_NAME = "CloneDummies"
@@ -65,22 +68,48 @@ m.PLAYER_HITBOX_NAME = "Hitbox"
 m.PLAYER_ALIGN_CONSTR_NAME = "PlayerAlignConstraint"
 m.CLONE_ATTACHMENT_NAME = "CloneGuideAtt"
 m.RUN_ANIMATION_NAME = "RunAnim"
-m.BULLET_ATTRIBUTE_NAME = "BulletOwner"
 m.BULLET_COLLIDABLE_COLLISION_GROUP_NAME = "BulletCollidable"
 m.OBSTACLE_FOLDER_NAME = "Obstacles"
 m.FLYERS_FOLDER_NAME = "EnemiesFlying"
+m.GROUND_UNIT_NAME = "GroundUnit"
+m.INVINCIBILITY_AURA_NAME = "InvincibilityAura"
+m.SHIELD_AURA_NAME = "ShieldAura"
+m.ARMOR_AURA_NAME = "ArmorAura"
+m.POISON_BELT_NAME_CLIENT = "PoisonBeltClient"
+m.POISON_BELT_NAME_SERVER = "PoisonBeltServer"
+m.POISON_BELT_MAX_Y = 10
+m.POISON_BELT_WIDTH = 100
+m.POISON_BELT_TIME_1 = 90
+m.POISON_BELT_TIME_2 = 60
+m.POISON_BELT_SIZE_1 = 250
+m.POISON_BELT_SIZE_2 = 30
+m.POISON_BELT_DAMAGE_THROTTLE = 0.5
+m.POISON_BELT_DAMAGE = 5
+m.HP_DRAIN_PERIOD = 5.0 -- seconds
+m.HP_DRAIN_AMOUNT = 1 -- ignores armor and shield
 m.DEFAULT_WEAPON_ID = Id.Weapon.BASIC
 m.DISTANCE_FROM_MID_TO_BOOSTER = 50
 m.DEFAULT_PLAYER_ID = -100
 m.ENEMY_SIGHT_RADIUS = 100
 m.STARTING_CLONE_AMOUNT = 0
+m.AURA_DESTROY_DURATION = 1.6
+m.MOVEMENT_SPEED = 30 -- units per sec
+m.MOVEMENT_SPEED_BOSS = 6
+m.PLAYER_OFFSET_FROM_DRIVER = 15
+-- TODO: revert to 30 (or less?)
+m.PLAYER_RANK_XP_REQUIRED = 5 --30
+m.PLAYER_DEFAULT_WALK_SPEED = 16
+m.PLAYER_RANK_XP_INCREMENT = m.PLAYER_RANK_XP_REQUIRED / 10
 m.COLLISION_PROXIMITY_TO_OBSTACLE = 1.5
+m.FIRST_BOMB_DELAY = 8.0
 m.DRIVING_BOX_STARTING_POS = Vector3.new(0, 50, 255)
 m.GRAVE_SIZE_MULT = 1.5
 m.GRAVE_Z_DISTRIBUTION_RANDOMNESS = Vector3.new(10, 20)
+m.BULLET_ATTRIBUTE_NAME = "BulletOwner"
 m.ATTRIBUTES_NAMES = {
     [Id.Kind.Boost] = "BOOST",
     [Id.Kind.Clone] = "PLAYER_ID",
+    [Id.Kind.VFX] = "VFX",
 }
 
 -----------------------------
@@ -97,6 +126,7 @@ m.World = World
 -- WorldCid
 -----------------------------
 -- stylua: ignore
+-- NOTE: world is not written down into save file, so it's not persistent
 World.CId = En.with_id("World.CId") {
     RefId          = iota(1),  -- id (of self)
     Value          = iota'',   -- number
@@ -106,14 +136,16 @@ World.CId = En.with_id("World.CId") {
     ServerInstance = iota'',   -- Instance
     PlayerId       = iota'',   -- number
     WeaponId       = iota'',   -- id
+    OwnerGuid      = iota'',   -- uid
     TTL            = iota'',   -- epoch
+    TTE            = iota'',   -- sec (*1)
     Bitset         = iota'',   -- flag
     Total          = iota'',   -- number
     -- non-replicated
     ClientInstance = iota'',   -- Instance, not replicated    
-    ClientFlags    = iota'', -- bool
-    ClientTTE      = iota'', -- sec (*1)
-    ValueView      = iota'', -- number
+    ClientFlags    = iota'',   -- bool
+    ClientTTE      = iota'',   -- sec (*1)
+    ValueView      = iota'',   -- number
 }
 export type WorldCId = typeof(World.CId)
 local W = World.CId
@@ -123,7 +155,8 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(W)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PlayerId, W.WeaponId, W.TTL, W.Bitset)
+        :set_replication_flag(W.RefId, W.Value, W.HP, W.BoostContentId, W.Position, W.PlayerId)
+        :set_replication_flag(W.WeaponId, W.OwnerGuid, W.TTL, W.TTE, W.Bitset)
         :set_destructor(W.ServerInstance, disposer.dispose)
         :build_with_replica()
 
@@ -153,10 +186,13 @@ PlayerState.CId = En.with_id("PlayerState.Cid") {
     TTE                  = iota'', -- sec (*1)
     -- values
     ValuePers            = iota'', -- number
-    Value                = iota'', -- number
+    ValueNonPers         = iota'', -- number
+    PlayerRank           = iota'', -- number
     Total                = iota'', -- number
     Bitset               = iota'', -- flag
     BitsetNonPers        = iota'', -- flag
+    V3                   = iota'', -- Vector3
+    HP                   = iota'', -- number
     Instance             = iota'', -- Instance(client)
     WorldGui             = iota'', -- any
     -- client-only
@@ -175,8 +211,8 @@ do
     local main_config, repl = state.ConfigBuilder.create()
         :set_component_names(C)
         :set_pretty_printer(Id.pp)
-        :set_replication_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset, C.BitsetNonPers)
-        -- :set_persistent_flag(C.RefId, C.TTL, C.TTE, C.Value, C.Total, C.Bitset)
+        :set_replication_flag(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Total, C.Bitset, C.BitsetNonPers)
+        :set_replication_flag(C.ValuePers, C.PlayerRank, C.V3, C.HP)
         :set_persistent_flag(C.ValuePers, C.Total, C.Bitset)
         :build_with_replica()
 

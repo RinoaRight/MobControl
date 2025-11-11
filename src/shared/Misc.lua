@@ -30,7 +30,7 @@ local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local W = SharedConfig.World.CId
 local C = SharedConfig.PlayerState.CId
-local state = require(shared.state)
+local TaskPool = require(shared.TaskPool)
 
 local m = {}
 m.__index = m
@@ -39,6 +39,84 @@ local blacklist = {} :: { Instance }
 
 m.AddInstanceToRaycastFilter = function(instance)
     table.insert(blacklist, instance)
+    -- if math.random() < 0.01 then
+    --     local count = 0
+    --     for _, instance in blacklist do
+    --         count += 1
+    --     end
+    --     warn("~coolisions~ blacklist ", #blacklist, count)
+    -- end
+end
+
+m.DefineObjectY = function(enemyInstance: BasePart)
+    local y = enemyInstance.Size.Y / 2
+    return y
+end
+
+m.SpawnVFX = function(vfxId: int, parent: Instance, cFrame: CFrame)
+    local vfxTemplate = S.VFX[vfxId]
+    local vfxInstance
+    if not vfxTemplate then
+        warn("VFX template not found for id:", vfxId)
+        return vfxInstance
+    end
+    vfxInstance = vfxTemplate:Clone() :: Model
+    vfxInstance.Parent = parent
+    local primaryPart = vfxInstance.PrimaryPart :: BasePart
+    primaryPart.CFrame = cFrame
+
+    local allEffects = vfxInstance:GetDescendants()
+    for _, effect in ipairs(allEffects) do
+        if effect:IsA("ParticleEmitter") then
+            local howMany = effect:GetAttribute("EmitCount") :: int
+            local delay = effect:GetAttribute("EmitDelay") :: num
+            if not howMany then
+                howMany = 1
+            end
+            if not delay then
+                delay = 0
+            end
+            if delay > 0 then
+                effect.Enabled = false
+                TaskPool.spawn(function()
+                    task.wait(delay)
+                    effect:Emit(howMany)
+                end)
+            end
+            if howMany > 0 then
+                effect.Enabled = false
+                effect:Emit(howMany)
+            end
+        end
+    end
+    return vfxInstance
+end
+
+m.ShowAnnouncement = function(text, announcementGui, fontFace: Enum.Font?, color: Color3?)
+    local textBox = assert(announcementGui:WaitForChild("ContainerFrame").Message) :: TextLabel
+    if fontFace then
+        textBox.FontFace = Font.fromEnum(fontFace)
+    end
+    textBox.Text = text
+    if color then
+        textBox.TextColor3 = color
+    end
+    announcementGui.Enabled = true
+    Taskpool.defer(function()
+        local t = 0.5
+        local tweenInfo = TweenInfo.new(t)
+        local origSize = UDim2.fromScale(1, 1)
+        local targetSize = UDim2.fromScale(1, 1.3)
+        local tween1 = TweenService:Create(textBox, tweenInfo, { Size = targetSize })
+        local tween2 = TweenService:Create(textBox, tweenInfo, { Size = origSize })
+        for i = 1, 4 do
+            tween1:Play()
+            task.wait(t)
+            tween2:Play()
+            task.wait(t)
+        end
+        announcementGui.Enabled = false
+    end)
 end
 
 local function playFlickerAnim(textBox, mult, value, isToDestroy)
@@ -90,11 +168,16 @@ end
 m.PlayCharacterAnim = function(character: Model, animId: str, isLooped: bool?)
     local humanoid = assert(character:WaitForChild("Humanoid"))
     local animator = humanoid:FindFirstChild("Animator") :: Animator
+    local isWeaponAnim = animId == S.Animation[Id.Animation.HOLD] or animId == S.Animation[Id.Animation.RIFLE_AIM]
     local activeAnimTrack
     for _, animTrack in ipairs(animator:GetPlayingAnimationTracks()) do
+        local thisAnimId = animTrack.Animation.AnimationId
+        if isWeaponAnim and (thisAnimId == S.Animation[Id.Animation.HOLD] or thisAnimId == S.Animation[Id.Animation.RIFLE_AIM]) then
+            -- if this is a weapon animation, stop all other weapon animations
+            animTrack:Stop()
+        end
         if animTrack.Animation.AnimationId == animId then
             activeAnimTrack = animTrack
-            break
         end
     end
 
@@ -156,32 +239,112 @@ m.ShowCollidableHP = function(worldState, targetGuids, killables, weapon_id, gui
     end
 end
 
+m.SpawnExplosion = function(pos: Vector3, explosionSize: Vector3)
+    local explosionInstance = Instance.new("Explosion")
+    explosionInstance.Position = pos
+    explosionInstance.BlastRadius = explosionSize.X * 3 --explosionSize.X / 2
+    explosionInstance.BlastPressure = 0
+    explosionInstance.ExplosionType = Enum.ExplosionType.NoCraters
+    explosionInstance.DestroyJointRadiusPercent = 0
+    explosionInstance.Parent = workspace
+end
+
+local blockcastParams = RaycastParams.new()
+blockcastParams.FilterDescendantsInstances = blacklist
 m.IsBulletCollidableToHit = function(bulletCFrame: CFrame, bulletRange: num, bulletSize: Vector3)
-    local blockcastParams = RaycastParams.new()
-    blockcastParams.FilterDescendantsInstances = blacklist
-    local rayDirection = Vector3.new(0, 0, -bulletRange)
+    local rayDirection = bulletCFrame.LookVector * bulletRange
     local blockcastResult = workspace:Blockcast(bulletCFrame, bulletSize, rayDirection, blockcastParams)
-    -- if "debug" then
-    --     local ray = Instance.new("Part")
-    --     ray.CanCollide = false
-    --     ray.Parent = workspace
-    --     ray.Anchored = true
-    --     ray.Size = Vector3.new(0.1, 0.1, 2 * rayDirection.Magnitude)
-    --     ray.CFrame = CFrame.new(pos, pos + rayDirection)
-    --     Debris:AddItem(ray, 3)
-    -- end
     local target = nil
     local distance
     local blockcastInstance
     if blockcastResult then
         blockcastInstance = blockcastResult.Instance
-        -- if blockcastInstance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.Boost]) then
         if blockcastInstance.CollisionGroup == SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME then
             target = blockcastInstance
             distance = (blockcastResult.Position - bulletCFrame.Position).Magnitude
         end
     end
     return target, distance
+end
+
+m.GetPoisonBeltStartingPosition = function(driverPos: Vector3)
+    local beltHeight = SharedConfig.POISON_BELT_MAX_Y
+    local beltPos = Vector3.new(driverPos.X, -beltHeight / 2 + 0.1, driverPos.Z - 50)
+    return beltPos
+end
+
+m.AnimatePoisonBelt = function(poisonBeltInstance: BasePart, poisonBelt: BasePart)
+    local beltOrigin = poisonBelt.Position
+    local normalizedOrigin = Vector3.new(beltOrigin.X, 0, beltOrigin.Z)
+    local partFront = assert(poisonBelt:FindFirstChild("PartFront")) :: BasePart
+    local partBack = assert(poisonBelt:FindFirstChild("PartBack")) :: BasePart
+    local partLeft = assert(poisonBelt:FindFirstChild("PartLeft")) :: BasePart
+    local partRight = assert(poisonBelt:FindFirstChild("PartRight")) :: BasePart
+    for _, part in { partFront, partBack, partLeft, partRight } do
+        part.Transparency = 1
+    end
+    local offset = 230
+    local y = 9
+    partFront.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z - offset)
+    partBack.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z + offset)
+    partLeft.Position = Vector3.new(normalizedOrigin.X - offset, y, normalizedOrigin.Z)
+    partRight.Position = Vector3.new(normalizedOrigin.X + offset, y, normalizedOrigin.Z)
+    local beltWidth = SharedConfig.POISON_BELT_WIDTH
+    for _, part in { partFront, partBack, partLeft, partRight } do
+        part.Size = Vector3.new(part.Size.X, part.Size.Y, beltWidth)
+    end
+    local partHalfWidth = partFront.Size.Z / 2
+    local originalSizeFront = partFront.Size
+    local targetSize1 = SharedConfig.POISON_BELT_SIZE_1
+    local time1 = SharedConfig.POISON_BELT_TIME_1
+    local size1 = Vector3.new(targetSize1, poisonBelt.Size.Y, targetSize1)
+    local tweenInfoShrink1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenShrink1 = TweenService:Create(poisonBelt, tweenInfoShrink1, { Size = size1 })
+    local targetSize2 = SharedConfig.POISON_BELT_SIZE_2
+    local size2 = Vector3.new(targetSize2, poisonBelt.Size.Y, targetSize2)
+    local time2 = SharedConfig.POISON_BELT_TIME_2
+    local tweenInfoShrink2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenShrink2 = TweenService:Create(poisonBelt, tweenInfoShrink2, { Size = size2 })
+    local destinationFront1 = normalizedOrigin + Vector3.new(0, 0, -targetSize1 / 2 + partHalfWidth)
+    local destinationBack1 = normalizedOrigin + Vector3.new(0, 0, targetSize1 / 2 - partHalfWidth)
+    local destinationLeft1 = normalizedOrigin + Vector3.new(-targetSize1 / 2 + partHalfWidth, 0, 0)
+    local destinationRight1 = normalizedOrigin + Vector3.new(targetSize1 / 2 - partHalfWidth, 0, 0)
+    local destinationFront2 = normalizedOrigin + Vector3.new(0, 0, -targetSize2 / 2 + partHalfWidth)
+    local destinationBack2 = normalizedOrigin + Vector3.new(0, 0, targetSize2 / 2 - partHalfWidth)
+    local destinationLeft2 = normalizedOrigin + Vector3.new(-targetSize2 / 2 + partHalfWidth, 0, 0)
+    local destinationRight2 = normalizedOrigin + Vector3.new(targetSize2 / 2 - partHalfWidth, 0, 0)
+    local sizePart1 = Vector3.new(targetSize1, originalSizeFront.Y, originalSizeFront.Z)
+    local sizePart2 = Vector3.new(targetSize2, originalSizeFront.Y, originalSizeFront.Z)
+    local tweenInfoMoveFront1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveFront1 = TweenService:Create(partFront, tweenInfoMoveFront1, { Position = destinationFront1, Size = sizePart1 })
+    local tweenInfoMoveBack1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveBack1 = TweenService:Create(partBack, tweenInfoMoveBack1, { Position = destinationBack1, Size = sizePart1 })
+    local tweenInfoMoveLeft1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveLeft1 = TweenService:Create(partLeft, tweenInfoMoveLeft1, { Position = destinationLeft1, Size = sizePart1 })
+    local tweenInfoMoveRight1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveRight1 = TweenService:Create(partRight, tweenInfoMoveRight1, { Position = destinationRight1, Size = sizePart1 })
+    local tweenInfoMoveFront2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveFront2 = TweenService:Create(partFront, tweenInfoMoveFront2, { Position = destinationFront2, Size = sizePart2 })
+    local tweenInfoMoveBack2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveBack2 = TweenService:Create(partBack, tweenInfoMoveBack2, { Position = destinationBack2, Size = sizePart2 })
+    local tweenInfoMoveLeft2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveLeft2 = TweenService:Create(partLeft, tweenInfoMoveLeft2, { Position = destinationLeft2, Size = sizePart2 })
+    local tweenInfoMoveRight2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveRight2 = TweenService:Create(partRight, tweenInfoMoveRight2, { Position = destinationRight2, Size = sizePart2 })
+    TaskPool.spawn(function()
+        tweenShrink1:Play()
+        tweenMoveFront1:Play()
+        tweenMoveBack1:Play()
+        tweenMoveLeft1:Play()
+        tweenMoveRight1:Play()
+        tweenShrink1.Completed:Connect(function()
+            tweenShrink2:Play()
+            tweenMoveFront2:Play()
+            tweenMoveBack2:Play()
+            tweenMoveLeft2:Play()
+            tweenMoveRight2:Play()
+        end)
+    end)
 end
 
 local partsInRadiusParams = OverlapParams.new()
@@ -209,42 +372,63 @@ m.CloneOrPlayer = function(world_state, character: Model)
     return isClone, playerId
 end
 
-m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
+-- m.GetClonePos = function(pos: Vector3, alreadyInCol: int, row: int)
+--     local dist = SharedConfig.INTERCLONES_DISTANCE
+--     local new_pos = Vector3.new(pos.X, pos.Y, pos.Z + dist)
+--     local x = 0
+--     local z = dist
+
+--     if alreadyInCol == 1 then
+--         x = -dist
+--     elseif alreadyInCol == 2 then
+--         x = dist
+--     elseif alreadyInCol == 3 then
+--         x = -dist * 2
+--     elseif alreadyInCol == 4 then
+--         x = dist * 2
+--     end
+--     new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z + z * row)
+--     return new_pos
+-- end
+
+m.GetCloneCFrame = function(cFrame: CFrame, alreadyInCol: int, row: int)
     local dist = SharedConfig.INTERCLONES_DISTANCE
-    local new_pos = Vector3.new(pos.X, pos.Y, pos.Z + dist)
-    local x = 0
-    local z = dist
+
+    local sideOffset = 0
+    local behindOffset = dist * row
 
     if alreadyInCol == 1 then
-        x = -dist
+        sideOffset = -dist
     elseif alreadyInCol == 2 then
-        x = dist
+        sideOffset = dist
     elseif alreadyInCol == 3 then
-        x = -dist * 2
+        sideOffset = -dist * 2
     elseif alreadyInCol == 4 then
-        x = dist * 2
+        sideOffset = dist * 2
     end
-    new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z + z * row)
-    return new_pos
+
+    local offset = -cFrame.LookVector * behindOffset + cFrame.RightVector * sideOffset
+
+    return CFrame.new(cFrame.Position + offset, cFrame.Position + cFrame.LookVector)
 end
 
-m.GetCloneDummyPos = function(pos: Vector3, alreadyInCol: int, row: int)
-    local dist = SharedConfig.INTERCLONES_DISTANCE
-    local new_pos = Vector3.new(pos.X, pos.Y, pos.Z)
-    local x = 0
+-- m.GetCloneDummyPos = function(pos: Vector3, alreadyInCol: int, row: int)
+--     local dist = SharedConfig.INTERCLONES_DISTANCE
+--     local new_pos = Vector3.new(pos.X, pos.Y, pos.Z)
+--     local x = 0
 
-    if alreadyInCol == 1 then
-        x = -dist
-    elseif alreadyInCol == 2 then
-        x = dist
-    elseif alreadyInCol == 3 then
-        x = -dist * 2
-    elseif alreadyInCol == 4 then
-        x = dist * 2
-    end
-    new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z)
-    return new_pos
-end
+--     if alreadyInCol == 1 then
+--         x = -dist
+--     elseif alreadyInCol == 2 then
+--         x = dist
+--     elseif alreadyInCol == 3 then
+--         x = -dist * 2
+--     elseif alreadyInCol == 4 then
+--         x = dist * 2
+--     end
+--     new_pos = Vector3.new(new_pos.X + x, new_pos.Y, new_pos.Z)
+--     return new_pos
+-- end
 
 -- attach hitbox to the player == clones formation width
 m.AttachHitboxToPlayer = function(player_state)
@@ -269,7 +453,31 @@ m.AttachHitboxToPlayer = function(player_state)
     hitbox.Size = Vector3.new(width, 6, 4)
 end
 
-m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num)
+m.GetAllPlayerParts = function(player_state)
+    local parts = {}
+    local character = player_state.character
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            table.insert(parts, part)
+        end
+    end
+    return parts
+end
+
+m.PlaySound = function(sound_id: int, isLooped: bool?, volume: num?)
+    local oldVolume = S.Sound[sound_id].Volume
+    local audio = S.Sound[sound_id]
+    if audio then
+        audio.Looped = isLooped or false
+        audio.Volume = volume or oldVolume
+        audio:Play()
+        audio.Ended:Connect(function()
+            audio.Volume = oldVolume
+        end)
+    end
+end
+
+m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num, times: int?)
     Taskpool.defer(function()
         local audioEmitter = audioEmitterTemplate:Clone()
         audioEmitter.Parent = game.Workspace
@@ -278,10 +486,16 @@ m.SoundLocalizedAudio = function(audioEmitterTemplate, pos: Vector3, delay: num)
 
         task.wait(delay)
 
-        aud:Play()
-        aud.Ended:Connect(function()
-            audioEmitter:Destroy()
-        end)
+        if not times then
+            times = 1
+        end
+        for i = 1, times :: int do
+            aud:Play()
+            task.wait(aud.TimeLength + 0.1)
+            if i == times then
+                audioEmitter:Destroy()
+            end
+        end
     end)
 end
 
@@ -301,7 +515,12 @@ m.EquipWeaponModel = function(char, weapon_id: int)
     end
     weapon_instance.Parent = weldingSpot
     weapon_instance.Name = S.Weapon[weapon_id].name
-    local newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), math.rad(180), 0)
+    local newCF
+    if weapon_id == Id.Weapon.BASIC or weapon_id == Id.Weapon.SPRAYGUN then
+        newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), math.rad(180), 0)
+    else
+        newCF = weldingSpot.CFrame * CFrame.new(0, -0.2, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+    end
     weapon_instance.PrimaryPart:PivotTo(newCF)
     w.Part0 = weldingSpot
     w.Part1 = weapon_instance.PrimaryPart
@@ -393,7 +612,7 @@ function m.OnUIElementClickedDo(input, playerGui: StarterGui, ui_element: GuiObj
 end
 
 function m.IsEnoughFunds(playerState, itemPrice: num, currencyId: int)
-    local playerFunds = playerState:get(currencyId, C.Value)
+    local playerFunds = playerState:get(currencyId, C.ValuePers)
     if playerFunds >= itemPrice then
         return true
     end
@@ -404,9 +623,9 @@ function m.IsUpgradePreviousTier(upgradeId: int)
     -- TODO: other multi-tiered upgrades
     local previousTierId
     if
-        upgradeId <= Id.PlayerUpgrade.FIREPOWER_5 and upgradeId > Id.PlayerUpgrade.FIREPOWER_1
-        or upgradeId <= Id.PlayerUpgrade.HITPOINTS_5 and upgradeId > Id.PlayerUpgrade.HITPOINTS_1
-        or upgradeId <= Id.PlayerUpgrade.INIT_CLONE_3 and upgradeId > Id.PlayerUpgrade.INIT_CLONE_2
+        (upgradeId <= Id.PlayerUpgradePersistent.FIREPOWER_5 and upgradeId > Id.PlayerUpgradePersistent.FIREPOWER_1)
+        or (upgradeId <= Id.PlayerUpgradePersistent.HITPOINTS_5 and upgradeId > Id.PlayerUpgradePersistent.HITPOINTS_1)
+        or (upgradeId <= Id.PlayerUpgradePersistent.INIT_CLONE_3 and upgradeId > Id.PlayerUpgradePersistent.INIT_CLONE_2)
     then
         previousTierId = upgradeId - 1
     end
@@ -417,9 +636,9 @@ function m.IsUpgradeNextTier(upgradeId: int)
     -- TODO: other multi-tiered upgrades
     local nextTierId
     if
-        upgradeId < Id.PlayerUpgrade.FIREPOWER_5 and upgradeId >= Id.PlayerUpgrade.FIREPOWER_1
-        or upgradeId < Id.PlayerUpgrade.HITPOINTS_5 and upgradeId >= Id.PlayerUpgrade.HITPOINTS_1
-        or upgradeId < Id.PlayerUpgrade.INIT_CLONE_3 and upgradeId >= Id.PlayerUpgrade.INIT_CLONE_1
+        (upgradeId < Id.PlayerUpgradePersistent.FIREPOWER_5 and upgradeId >= Id.PlayerUpgradePersistent.FIREPOWER_1)
+        or (upgradeId < Id.PlayerUpgradePersistent.HITPOINTS_5 and upgradeId >= Id.PlayerUpgradePersistent.HITPOINTS_1)
+        or (upgradeId < Id.PlayerUpgradePersistent.INIT_CLONE_3 and upgradeId >= Id.PlayerUpgradePersistent.INIT_CLONE_1)
     then
         nextTierId = upgradeId + 1
     end
@@ -428,8 +647,10 @@ end
 
 function m.IsFirepowerUpgrade(playerState): int | nil
     local id
-    for i = Id.PlayerUpgrade.FIREPOWER_1, Id.PlayerUpgrade.FIREPOWER_5 do
-        if playerState.state:get(i, C.Value) then
+    for i = Id.PlayerUpgradePersistent.FIREPOWER_1, Id.PlayerUpgradePersistent.FIREPOWER_5 do
+        local flags = playerState.state:get(i, C.Bitset)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
+        if isActive then
             id = i
         end
     end
@@ -438,8 +659,10 @@ end
 
 function m.IsHpUpgrade(playerState): int | nil
     local id
-    for i = Id.PlayerUpgrade.HITPOINTS_1, Id.PlayerUpgrade.HITPOINTS_5 do
-        if playerState:get(i, C.Value) then
+    for i = Id.PlayerUpgradePersistent.HITPOINTS_1, Id.PlayerUpgradePersistent.HITPOINTS_5 do
+        local flags = playerState.state:get(i, C.Bitset)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
+        if isActive then
             id = i
         end
     end
@@ -448,8 +671,10 @@ end
 
 function m.IsCloneUpgrade(playerState): int | nil
     local id
-    for i = Id.PlayerUpgrade.INIT_CLONE_1, Id.PlayerUpgrade.INIT_CLONE_3 do
-        if playerState.state:get(i, C.Value) then
+    for i = Id.PlayerUpgradePersistent.INIT_CLONE_1, Id.PlayerUpgradePersistent.INIT_CLONE_3 do
+        local flags = playerState.state:get(i, C.Bitset)
+        local isActive = Id.flag_test(flags, Id.PlayerF.PERK_ACQUIRED)
+        if isActive then
             id = i
         end
     end

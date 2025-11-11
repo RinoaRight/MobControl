@@ -33,6 +33,7 @@ local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local shared = ReplicatedStorage.shared
 local Array = require(shared.array)
 local Id = require(shared.Id)
+type flag = Id.flag
 local S = require(shared.StaticData)
 
 local logger = require(shared.logger)
@@ -69,20 +70,24 @@ local UIPlayerUpgrades = require(script.UI_PlayerUpgrades)
 local NumFormat = require(shared.num_format)
 local Popup = require(script.UI_Popup)
 local TaskPool = require(shared.TaskPool)
-local SFX = require(script.SFX)
 local Settings = require(script.Settings)
+local EnemiesFlying = require(script.EnemiesFlyingClient)
+local PlayerUtils = require(script.PlayerUtils)
+local Handicaps = require(script.Handicaps)
 
 local ENV_READY = "READY"
 local ENV_FIRE_SERVER = "FIRE_SERVER"
 local ENV_WORLD_READY = "WORLD_READY"
 
 local ENEMIES_FOLDER = assert(workspace:WaitForChild("Enemies"))
+local ENEMY_FLYERS_FOLDER = assert(workspace:WaitForChild("EnemiesFlying"))
 
 local ACTIVE_BULLETS_REPOSITORY = assert(workspace:WaitForChild("Bullets"))
--- Misc.AddInstanceToRaycastFilter(ACTIVE_BULLETS_REPOSITORY) 
-local INACTIVE_BULLETS_REPOSITORY = assert(ReplicatedStorage:WaitForChild("Bullets"))
+-- Misc.AddInstanceToRaycastFilter(ACTIVE_BULLETS_REPOSITORY)
+local INACTIVE_BULLETS_REPOSITORY = assert(ReplicatedStorage:WaitForChild("BulletsPool"))
 local activeBulletsDataTable = {} :: { table }
 local NIL_TABLE = table.freeze { "NIL" }
+
 -----------------------------
 -- States
 -----------------------------
@@ -94,6 +99,52 @@ local W = SharedConfig.World.CId
 WORLD:env(ENV_WORLD_READY, false)
 -----------------------------
 
+-- device detection
+local isPC = UserInputService.TouchEnabled == false
+local isMobileDevice = UserInputService.TouchEnabled == true and UserInputService.KeyboardEnabled == false
+local isTouchingScreen = false
+-- detect if the user is touching the screen (for mobile devices)
+UserInputService.TouchStarted:Connect(function()
+    isTouchingScreen = true
+end)
+UserInputService.TouchEnded:Connect(function()
+    isTouchingScreen = false
+end)
+local isPressingEKey = false
+local isPressingQKey = false
+-- subscribe to user input
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then
+        return
+    end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == Enum.KeyCode.Q then
+            isPressingEKey = true
+            UIPlayerUpgrades.OnEQPressed(PLAYER_STATE, Enum.KeyCode.Q)
+        elseif input.KeyCode == Enum.KeyCode.E then
+            isPressingQKey = true
+            UIPlayerUpgrades.OnEQPressed(PLAYER_STATE, Enum.KeyCode.E)
+        end
+    end
+end)
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if gameProcessed then
+        return
+    end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == Enum.KeyCode.E then
+            isPressingEKey = false
+        elseif input.KeyCode == Enum.KeyCode.Q then
+            isPressingQKey = false
+        end
+    end
+end)
+
+local MAIN_CAMERA = workspace.CurrentCamera :: Camera
+-- local SHOULDER_OFFSET = Vector3.new(2, 1.5, 6)
+local SHOULDER_OFFSET = Vector3.new(3, 1.5, 12)
+-- MAIN_CAMERA.CameraType = Enum.CameraType.Scriptable
+
 local Players = game:GetService("Players")
 local LOCAL_PLAYER = Players.LocalPlayer
 repeat
@@ -103,6 +154,11 @@ local LOCAL_CHARACTER = LOCAL_PLAYER.Character
 local LOCAL_HUMANOID = LOCAL_PLAYER.Character:WaitForChild("Humanoid")
 local LOCAL_HUMANOID_ROOT_PART = assert(LOCAL_PLAYER.Character:WaitForChild("HumanoidRootPart"))
 local LOCAL_HUMANOID_HEAD = assert(LOCAL_PLAYER.Character:WaitForChild("Head"))
+-- for _, child in LOCAL_PLAYER.Character:GetDescendants() do
+--     if child:IsA("BasePart") then
+--         Misc.AddInstanceToRaycastFilter(child)
+--     end
+-- end
 
 local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
@@ -116,9 +172,15 @@ local TOKEN_SHOP_GUI = assert(PLAYER_GUI:WaitForChild("TokenShopGUI"))
 local MAIN_GUI = assert(PLAYER_GUI:WaitForChild("MainGUI"))
 local SETTINGS_BTN_PANEL = assert(MAIN_GUI.GearPanel)
 local TOP_RIGHT_PANEL = assert(MAIN_GUI:WaitForChild("TopRightPanel"))
+-- local HANDICAP_TEXT_BOX = assert(TOP_RIGHT_PANEL:WaitForChild("HandicapFrame"):WaitForChild("TextLabel"))
+
+local ANNOUNCEMENT_GUI = assert(PLAYER_GUI:WaitForChild("AnnouncementGUI"))
 
 local COLLIDABLES_HP_GUI_NAME = "CollidableHpGui"
 local COLLIDABLES_HP_GUI_TEMPLATE = assert(PLAYER_GUI:WaitForChild(COLLIDABLES_HP_GUI_NAME)) :: BillboardGui
+
+local PERK_SELECTION_GUI = assert(PLAYER_GUI:WaitForChild("PerkSelectionGUI"))
+-- local HANDICAP_ANIM_GUI = assert(PLAYER_GUI:WaitForChild("HandicapGUI"))
 
 -- forward declarations
 local playRunAnimTrack
@@ -140,21 +202,39 @@ local function setPlayerToClientState(player_id, weapon_id)
 end
 
 local function handleGunHoldingAnimation(character, weapon_id: int)
-    local animId = S.Animation[Id.Animation.HOLD]
-    local activeHoldAnimTrack = Misc.PlayCharacterAnim(character, animId, false)
+    local activeHoldAnimTrack
 
-    if weapon_id == Id.Weapon._NONE and activeHoldAnimTrack then
+    if weapon_id == Id.Weapon.BASIC or weapon_id == Id.Weapon.SMG then
+        local animId = S.Animation[Id.Animation.HOLD]
+        activeHoldAnimTrack = Misc.PlayCharacterAnim(character, animId, false)
+    else
+        local animId = S.Animation[Id.Animation.RIFLE_AIM]
+        activeHoldAnimTrack = Misc.PlayCharacterAnim(character, animId, false)
+        activeHoldAnimTrack.TimePosition = activeHoldAnimTrack.Length - 0.8
+        activeHoldAnimTrack:AdjustSpeed(0)
+    end
+
+    -- if weapon got unequipped, stop active weapon animation
+    if weapon_id == Id.Weapon._NONE then
         activeHoldAnimTrack:Stop()
     end
 end
 
 local function onStateUpdate(playerState: state.Replica)
     UICounters.OnStateUpdate(playerState)
+    UIPlayerUpgrades.OnStateUpdate(playerState, WORLD, LOCAL_CHARACTER)
 end
 
 local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
+    if deducted_hp <= 0 then
+        return
+    end
     Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, deducted_hp)
-    SFX.PLAY_SOUND(Id.Sound.SCREAM)
+    local soundId = Id.Sound.SCREAM
+    if cause == Id.Handicap.HP_DRAIN then
+        soundId = Id.Sound.SCREAM_SQUEAK
+    end
+    Misc.PlaySound(soundId)
     if cause then
         local causeRefId
         if type(cause) == "string" then
@@ -171,9 +251,12 @@ local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
             causeRefId = cause
         end
         if Id.kind(causeRefId) == Id.Kind.Obstacle then
-            -- TODO: change mesh of the obstacle
             local obstacleGuid = assert(cause :: uid)
             Obstacles.OnCollisionWithObstacle(WORLD, obstacleGuid)
+        elseif causeRefId == Id.WorldSpecs.BOSS_FIGHT_ON then
+            if not S.Sound[Id.Sound.HISS].Playing then
+                Misc.PlaySound(Id.Sound.HISS)
+            end
         end
     end
 end
@@ -209,20 +292,18 @@ on[Id.S2C.BOOSTER_DESTROYED] = function(state: state.Replica, boost_ref_id: id, 
     end
 end
 
-on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause: id?)
-    if deducted_hp then
+on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int, cause: id?)
+    UIPlayerUpgrades.OnPlayerDead(state, LOCAL_CHARACTER)
+    MAIN_CAMERA.CameraType = Enum.CameraType.Custom
+    if cause ~= Id.S2C.GAMES_SESSION_ENDED then
         -- player died because they were damaged, otherwise it's the session finished
-        onPlayerDamaged(deducted_hp, cause)
+        onPlayerDamaged(-deducted_hp, cause)
     end
 
     LOCAL_HUMANOID.JumpPower = 50
-    -- NOTE: moved to server
-    -- local attachement = LOCAL_HUMANOID_ROOT_PART:FindFirstChild(SharedConfig.CLONE_ATTACHMENT_NAME)
-    -- if attachement then
-    --     attachement:Destroy()
-    -- end
     for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
         if v.Name == SharedConfig.RUN_ANIMATION_NAME then
+            v.Looped = false
             v:Stop()
         end
     end
@@ -232,6 +313,8 @@ on[Id.S2C.PLAYER_DIED] = function(state: state.Replica, deducted_hp: int?, cause
     if clonesFolder then
         clonesFolder:Destroy()
     end
+
+    UICounters.ToggleAmmoFrame(false)
 end
 
 on[Id.S2C.SHOW_POPUP_SERVER] = function(state: state.Replica, event_id: id)
@@ -240,16 +323,34 @@ on[Id.S2C.SHOW_POPUP_SERVER] = function(state: state.Replica, event_id: id)
             text = "Max number of players reached =(\nWait for the next round!",
             ok = function() end,
         })
-    elseif event_id == Id.C2S.BUY_PLAYER_UPGRADE then
+    elseif event_id == Id.C2S.BUY_PLAYER_UPGRADE_PERS then
         Signal.Broadcast(Id.C2C.SHOW_POPUP_CLIENT, {
             text = "You can't buy this upgrade :(\n\n",
+            ok = function() end,
+        })
+    elseif event_id == Id.C2S.REQUEST_PLAYER_UPGRADE_NON_PERS then
+        Signal.Broadcast(Id.C2C.SHOW_POPUP_CLIENT, {
+            text = "This perk is maxed out :(\n\n",
             ok = function() end,
         })
     end
 end
 
+on[Id.S2C.SHIELD_DAMAGE] = function(state: state.Replica, damage: int)
+    UIPlayerUpgrades.FlickerShield(PLAYER_STATE, LOCAL_CHARACTER)
+end
+
+on[Id.S2C.BOMB_HIT] = function(state: state.Replica, bomb_guid: id, pos: Vector3)
+    Misc.PlaySound(Id.Sound.EXPLOSION_SHORT)
+end
+
 -- Server Broadcasts
 local on_cc = {} :: { [id]: (...any) -> () }
+
+on_cc[Id.S2CC.SESSION_HANDICAP_MODIFIED] = function(currentHandicapId: id)
+    -- show current session handicap
+    Handicaps.OnHandicapModified(PLAYER_STATE, MAIN_GUI, currentHandicapId)
+end
 
 on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
     local weapon_id = SharedConfig.DEFAULT_WEAPON_ID
@@ -268,18 +369,10 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
         -- disable jumping
         LOCAL_HUMANOID.JumpPower = 0
 
-        -- NOTE: moved to server
-        -- create attachement for clones
-        -- local playerAtt = Instance.new("Attachment") :: Attachment
-        -- playerAtt.Name = SharedConfig.CLONE_ATTACHMENT_NAME
-        -- playerAtt.CFrame = (LOCAL_HUMANOID_ROOT_PART :: Part).CFrame
-        -- playerAtt.Parent = LOCAL_HUMANOID_ROOT_PART
-
         -- start running animation
         startRunAnim(LOCAL_CHARACTER)
 
         Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, player_hp)
-        return
     else
         local player = Players:GetPlayerByUserId(player_id)
         local character = player.Character or player:WaitForChild("Character", 10)
@@ -291,11 +384,17 @@ on_cc[Id.S2CC.PLAYER_STARTED_SESSION] = function(player_id: id, player_hp: int)
     end
 
     setPlayerToClientState(player_id, weapon_id)
+
+    local activeHandicapId = WORLD:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+    -- if the handicap has been already defined, show the ammo bar, otherwise it will be shown on [Id.S2CC.SESSION_HANDICAP_MODIFIED]
+    if activeHandicapId and activeHandicapId == Id.Handicap.FINITE_AMMO then
+        UICounters.ToggleAmmoFrame(true)
+    end
 end
 
 on_cc[Id.S2CC.PLAYER_STOPPED_SESSION] = function(player_id: id)
     if player_id == LOCAL_PLAYER.UserId then
-        -- the logic is already done in on[Id.S2C.PLAYER_DIED]
+        -- NOTE: the logic is already done in on[Id.S2C.PLAYER_DIED]
         return
     else
         local player = Players:GetPlayerByUserId(player_id)
@@ -341,12 +440,13 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
     local clonesFolder = playerChar:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
     if clonesFolder then
         local clones = clonesFolder:GetChildren()
-        if clones and #clones > 1 then
+        if clones and #clones > 0 then
             for i, clone in ipairs(clones) do
                 -- handle weapon instance for clones
                 handleGunHoldingAnimation(clone, weapon_id)
                 local gunHand = clone:FindFirstChild("RightHand")
                 local weaponInstance = gunHand:FindFirstChildWhichIsA("Model")
+
                 if weapon_id == Id.Weapon._NONE then
                     -- player has removed weapon, remove it for clones as well
                     if weaponInstance then
@@ -368,11 +468,14 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
     end
 
     -- SFX and initial bullet TTE
-    if player_id == LOCAL_PLAYER.UserId then
-        if weapon_id ~= Id.Weapon._NONE then
-            SFX.PLAY_SOUND(Id.Sound.RELOAD)
-        end
-    else
+    -- if player_id == LOCAL_PLAYER.UserId then
+    --     if weapon_id ~= Id.Weapon._NONE then
+    --         SFX.PLAY_SOUND(Id.Sound.RELOAD_PISTOL)
+    --     end
+    -- else
+
+    -- set initial TTE for other players' weapons
+    if player_id ~= LOCAL_PLAYER.UserId then
         local tte = S.Weapon[Id.Weapon.BASIC].cooldown
         if weapon_id ~= Id.Weapon._NONE then
             tte = S.Weapon[weapon_id].cooldown
@@ -388,6 +491,13 @@ on_cc[Id.S2CC.PLAYER_CHANGED_WEAPON] = function(player_id: id, weapon_id: id)
     end
 end
 
+on_cc[Id.S2CC.BOSS_KILLED_BY_PLAYER] = function()
+    Misc.PlaySound(Id.Sound.FANFARE_1)
+    local font = Enum.Font.FredokaOne
+    local color = Color3.fromHex("00ff00")
+    Misc.ShowAnnouncement("Boss defeated!", ANNOUNCEMENT_GUI, font, color)
+end
+
 -----------------------------
 -- Handshake
 -----------------------------
@@ -397,7 +507,7 @@ local load = function(fire: FireServer, snapshot)
     PLAYER_STATE:init(snapshot)
     PLAYER_STATE:env(ENV_FIRE_SERVER, fire)
     PLAYER_STATE:env(ENV_READY, true)
-    log:debug("~~~", PLAYER_STATE:format_state("*"))
+    log:info("~~~> client\n", PLAYER_STATE:format_state("*"))
     RemoteClient.ConnectToBroadcast(on_cc)
     for _, id in Id.C2S:ids() do
         maid:Add(Signal.Connect(id, function(...)
@@ -407,7 +517,8 @@ local load = function(fire: FireServer, snapshot)
     Settings.Init(state, PLAYER_GUI, SETTINGS_BTN_PANEL, SETTINGS_MENU_GUI)
     Popup:Init(POPUP_GUI)
     UICounters.Init(state, TOP_RIGHT_PANEL)
-    UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, LOCAL_HUMANOID_ROOT_PART)
+    UIPlayerUpgrades.Init(PLAYER_STATE, WORLD, TOKEN_SHOP_GUI, PERK_SELECTION_GUI, LOCAL_HUMANOID_ROOT_PART, isMobileDevice)
+    Handicaps.Init(WORLD, PLAYER_STATE, MAIN_GUI)
 
     MAIN_GUI.Enabled = true
 
@@ -416,12 +527,38 @@ end
 
 local fire_server, disposable, state, us2cc = RemoteClient.Handshake(load, on)
 
+-----------------------------
+-- Supervisor
+-----------------------------
+-- local throttleSupervisor = supervisor.create()
+-- throttleSupervisor:start(function()
+--     -- if boss fight is on, check for poison belt overlap
+--     if not WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) then
+--         return
+--     end
+--     local parts = workspace:GetPartBoundsInBox(LOCAL_HUMANOID_ROOT_PART.CFrame, LOCAL_HUMANOID_ROOT_PART.Size)
+--     local isOverlapping = false
+--     for _, part in ipairs(parts) do
+--         if part.Parent.Name == SharedConfig.POISON_BELT_NAME_SERVER then
+--             isOverlapping = true
+--             break
+--         end
+--     end
+--     if isOverlapping then
+--         if not S.Sound[Id.Sound.HISS].Playing then
+--             SFX.PLAY_SOUND(Id.Sound.HISS, true)
+--         end
+--     else
+--         S.Sound[Id.Sound.HISS]:Stop()
+--     end
+-- end, 0.5)
+
 local DRIVING_BOX_INSTANCE = workspace:WaitForChild("DrivingBoxModel")
 repeat
     wait()
 until DRIVING_BOX_INSTANCE
 local DRIVING_BOX_BACK_PART = DRIVING_BOX_INSTANCE:FindFirstChild("DrivingBoxBackPart")
-Misc.AddInstanceToRaycastFilter(DRIVING_BOX_BACK_PART)
+-- Misc.AddInstanceToRaycastFilter(DRIVING_BOX_BACK_PART)
 local DRIVING_BOX_FRONT = DRIVING_BOX_INSTANCE.PartFront
 local LOCAL_PLAYER = game.Players.LocalPlayer
 local DRIVING_BOX_ATT = DRIVING_BOX_FRONT.Attachment
@@ -448,7 +585,8 @@ local function subscribeStartCollider()
     maid.StartCollider = SESSION_STARTER_COLLIDER.Touched:Connect(function(other)
         if other == LOCAL_HUMANOID_ROOT_PART then
             local isBossFightOn = WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
-            if not isBossFightOn then
+            local isPvPModeOn = WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value)
+            if not isBossFightOn and not isPvPModeOn then
                 -- interaction with the button is possible only when the boss fight is off
                 START_GUI.Enabled = true
                 maid.StartBtn = START_BTN.MouseButton1Click:Connect(function()
@@ -456,6 +594,12 @@ local function subscribeStartCollider()
                     fire_server(Id.C2S.PLAYER_READY_TO_START)
                     maid.StartBtn = nil
                 end)
+            else
+                -- show a message
+                Signal.Fire(Id.C2C.SHOW_POPUP_CLIENT, {
+                    text = "Wait for the next round!",
+                    ok = function() end,
+                })
             end
             maid.StartCollider = SESSION_STARTER_COLLIDER.TouchEnded:Connect(function(other)
                 if other == LOCAL_HUMANOID_ROOT_PART then
@@ -512,6 +656,8 @@ local function onShowClonesToggled(isTurnedOn)
     end
 end
 
+-- TODO: sights when player is in session, hide sights when player is not in session and make it dynamic. And change it for different weapons
+
 -- Initialization
 do
     TaskPool.spawn(function()
@@ -523,7 +669,7 @@ do
         local allPlayers = Players:GetPlayers()
         for _, player in ipairs(allPlayers) do
             if player == LOCAL_PLAYER then
-                -- initialization of the local player is set in on PLAYER_STARTED_SESSION
+                -- NOTE: initialization of the local player is set in on PLAYER_STARTED_SESSION
                 continue
             end
             local player_id = player.UserId
@@ -545,13 +691,50 @@ do
     end)
 end
 
-local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
+local function getBulletDirection(rootPart: BasePart, humanoid: Humanoid): Vector3
+    local moveDir = humanoid.MoveDirection
+    -- local z = rootPart.CFrame.LookVector.Z
+    local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z)
+    if not WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value) and not WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value) then
+        -- if boss fight or pvp is not on, then shoot straight ahead
+        -- z = -1
+        facing = Vector3.new(0, 0, -1)
+    end
+    -- local flatMove = Vector3.new(moveDir.X, 0, z)
+    -- local facing = Vector3.new(rootPart.CFrame.LookVector.X, 0, z)
+
+    -- if flatMove.Magnitude > 0.1 then
+    --     local crossMag = flatMove.Unit:Cross(facing.Unit).Magnitude
+    --     if crossMag < 0.5 then
+    --         -- Movement is mostly forward (less side motion)
+    --         return flatMove.Unit
+    --     end
+    -- end
+
+    -- Fallback to facing direction
+    return facing.Unit
+end
+
+local function defineBulletCframe(rootPart: BasePart, bulletInstance: BasePart, weapon_id: id, humanoid: Humanoid)
+    local direction = getBulletDirection(rootPart, humanoid)
+    local bulletInstanceSize = Vector3.new(1, 1, 1)
+    if S.Weapon[weapon_id].bulletInstanceSize then
+        bulletInstanceSize = S.Weapon[weapon_id].bulletInstanceSize
+    end
+    local barrelLength = S.Weapon[weapon_id].barrelLength or 2
+    local displacement = direction * (bulletInstanceSize.Z / 2 + barrelLength + SharedConfig.BULLET_RAYCAST_START_MULT)
+    local targetPos = Vector3.new(rootPart.Position.X + 1.2, rootPart.Position.Y, rootPart.Position.Z) + displacement
+    local newCFrame = CFrame.new(targetPos, targetPos + direction)
+    return newCFrame
+end
+
+local function spawnBullet(player, rootPart: BasePart, weapon_id: id, rotation: CFrame?)
     local bullet
     local pos
     if INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet") then
         bullet = INACTIVE_BULLETS_REPOSITORY:FindFirstChild("Bullet")
     else
-        bullet = Instance.new("Part")
+        bullet = ReplicatedStorage.Bullet:Clone() :: BasePart
     end
     local guid = roflake.uida()
     bullet.Name = guid
@@ -561,40 +744,57 @@ local function spawnBullet(player, rootPart: BasePart, weapon_id: id)
     bullet.CanCollide = false
     bullet.Anchored = true
     bullet:SetAttribute(SharedConfig.BULLET_ATTRIBUTE_NAME, player.UserId)
-    local bulletSize = Vector3.new(1, 1, 1)
-    if S.Weapon[weapon_id].bulletSize then
-        bulletSize = S.Weapon[weapon_id].bulletSize
+
+    local bulletInstaceSize = Vector3.new(1, 1, 1)
+    if S.Weapon[weapon_id].bulletInstanceSize then
+        bulletInstaceSize = S.Weapon[weapon_id].bulletInstanceSize
     end
-    bullet.Size = bulletSize
+    bullet.Size = bulletInstaceSize
+    bullet.Color = Color3.fromHex("#ffffff")
 
     -- set bullet's position
-    local pos = rootPart.Position + rootPart.CFrame.LookVector * (bulletSize.Z / 2 + SharedConfig.BULLET_RAYCAST_START_MULT)
     bullet.Parent = ACTIVE_BULLETS_REPOSITORY
-    Misc.AddInstanceToRaycastFilter(bullet)
+    local speedPerkFlags = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT, C.Bitset)
+    local isSpeedPerkActive = Id.flag_test(speedPerkFlags, Id.PlayerF.PERK_ACTIVE)
     local speed = S.Weapon[weapon_id].baseSpeed + rootPart.AssemblyLinearVelocity.Magnitude
+    -- check for a bullet speed perk
+    if isSpeedPerkActive then
+        local mult = assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT].multiplier)
+        local stage = PLAYER_STATE:get(Id.PlayerUpgradeNonPersistent.BULLET_SPEED_MULT, C.ValueNonPers) or 1
+        speed *= 1 + mult * stage
+    end
     local range = SharedConfig.BULLET_BASE_DISTANCE
     if S.Weapon[weapon_id].range then
         range = S.Weapon[weapon_id].range
     end
     local bulletTTL = roflake.time() + range / speed
 
-    bullet.Position = pos
+    bullet.CFrame = defineBulletCframe(rootPart, bullet, weapon_id, LOCAL_HUMANOID)
+    if rotation then
+        -- spraygun bullets
+        bullet.CFrame = bullet.CFrame * rotation
+    end
+    pos = bullet.Position
+
+    -- NOTE: not an instance size, a hitbox size, for raycast below
+    local bulletSize = Vector3.new(1, 1, 1)
+    if S.Weapon[weapon_id].bulletSize then
+        bulletSize = S.Weapon[weapon_id].bulletSize
+    end
 
     table.insert(activeBulletsDataTable, {
         bullet = bullet,
         speed = speed,
         ttl = bulletTTL,
-        -- booster = targetToHit,
         owner = player,
         weapon_id = weapon_id,
-        rotation = CFrame.Angles(0, 0, 0),
         range = range,
         size = bulletSize,
     })
 
     local indexInTable = #activeBulletsDataTable
 
-    return pos, indexInTable, guid
+    return bullet, pos, indexInTable, guid
 end
 
 local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
@@ -602,8 +802,6 @@ local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
     local pos
     local guids = {}
     for i = 1, 5 do
-        local bulletPos, indexInTable, guid = spawnBullet(player, playerRootPart, weapon_id)
-        table.insert(guids, guid)
         local yRot = 0
         if i == 2 then
             yRot = 2
@@ -614,9 +812,8 @@ local function spawnSpraygunBullets(player, playerRootPart, weapon_id)
         elseif i == 5 then
             yRot = -4
         end
-        pos = bulletPos -- they are overwriting each other, but it doesnt' matter cuz they are the same
-        local rot = CFrame.Angles(0, math.rad(yRot), 0)
-        activeBulletsDataTable[indexInTable].rotation = rot
+        local bullet, _bulletPos, _indexInTable, guid = spawnBullet(player, playerRootPart, weapon_id, CFrame.Angles(0, math.rad(yRot), 0))
+        table.insert(guids, guid)
     end
     return pos, guids
 end
@@ -643,7 +840,7 @@ local function fireBullet(player)
         pos = startingPos
         table.move(newGuids, 1, #newGuids, #bulletGuids + 1, bulletGuids)
     else
-        local startingPos, _, newGuid = spawnBullet(player, playerRootPart, weapon_id)
+        local bullet, startingPos, _, newGuid = spawnBullet(player, playerRootPart, weapon_id)
         pos = startingPos
         table.insert(bulletGuids, newGuid)
     end
@@ -658,7 +855,7 @@ local function fireBullet(player)
                 pos = startingPos
                 table.move(newGuids, 1, #newGuids, #bulletGuids + 1, bulletGuids)
             else
-                local startingPos, _, newGuid = spawnBullet(player, rootPart, weapon_id)
+                local bulletInstance, startingPos, _, newGuid = spawnBullet(player, rootPart, weapon_id)
                 pos = startingPos
                 if player == LOCAL_PLAYER then
                     -- insert guids of clones' bullets to pass them to server to set to world state
@@ -675,7 +872,7 @@ local function fireBullet(player)
         -- reset tte server-side
         fire_server(Id.C2S.BULLET_SHOT, bulletGuids, weapon_id)
         -- TODO: change sound for each type of weapon
-        SFX.PLAY_SOUND(Id.Sound.FIRE_PISTOL)
+        -- SFX.PLAY_SOUND(Id.Sound.FIRE_PISTOL)
     else
         weapon_id = PLAYER_STATE:get(player.UserId, C.ClientWeaponId)
         -- TODO: change sound for each type of weapon
@@ -686,14 +883,26 @@ local function fireBullet(player)
         tte = S.Weapon[weapon_id].cooldown
     end
     PLAYER_STATE:set(player.UserId, C.ClientTTE, tte)
+
+    -- if current handicap == finite ammo and ammo count == 0, then play empty sound
+    local currentHandicap = WORLD:get(Id.WorldSpecs.HANDICAP, W.Value)
+    if currentHandicap == Id.Handicap.FINITE_AMMO then
+        local ammoCount = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers) or 0
+        if ammoCount == 1 then -- last bullet was just fired
+            local audioId = Id.Sound.RELOAD_CLICK
+            local audio = S.Sound[audioId]
+            TaskPool.spawn(function()
+                Misc.PlaySound(audioId)
+                task.wait(audio.TimeLength + 0.1)
+                Misc.PlaySound(audioId)
+            end)
+        end
+    end
 end
 
 local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_size)
     local bulletCFrame = bullet.CFrame
-    local bulletPos = bullet.Position
-    local targetPos = Vector3.new(bulletPos.X, bulletPos.Y, bulletPos.Z - bullet_size.Z)
-    local targetCFrame = CFrame.new(targetPos)
-    local target, _dist = Misc.IsBulletCollidableToHit(targetCFrame, raycast_length, bullet_size)
+    local target, _dist = Misc.IsBulletCollidableToHit(bulletCFrame, raycast_length, bullet_size)
     local targetThickness
     local targetRefId
     local isTargetKillable
@@ -707,15 +916,83 @@ local function getCollisionSpecifics(bullet: BasePart, raycast_length, bullet_si
             targetThickness = SharedConfig.BOOSTER_DEPTH
             isTargetKillable = true
         elseif Id.kind(targetRefId) == Id.Kind.Enemy then
-            -- targetThickness = SharedConfig.REGULAR_ENEMY_HITBOX_RADIUS
             targetThickness = target.Size.Z
             isTargetKillable = true
         elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
             targetThickness = target.Size.Z
             isTargetKillable = true
+        elseif Id.kind(targetRefId) == Id.Kind.Clone then
+            targetThickness = target.Size.Z
+            -- check the owner of the clone
+            local cloneOwnerId = WORLD:get(target.Name, W.PlayerId)
+            local isOwnClone = cloneOwnerId == LOCAL_PLAYER.UserId
+            -- check is PVP is on
+            local isPvPModeOn = WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value)
+            if not isPvPModeOn or isOwnClone then
+                return nil, false, 0, 0
+            end
         end
+    elseif target and target.Parent and target.Parent:FindFirstChildWhichIsA("Humanoid") then
+        -- target is a player
+        -- check if it's not the local player
+        if target.Parent == LOCAL_CHARACTER then
+            return nil, false, 0, 0
+        end
+        -- check is PVP is on
+        local isPvPModeOn = WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value)
+        if not isPvPModeOn then
+            return nil, false, 0, 0
+        end
+        targetRefId = target.Parent.Name
+        targetThickness = target.Size.Z
+        isTargetKillable = true
     end
     return target, isTargetKillable, targetThickness, targetRefId
+end
+
+-- local function applyShoulderOffset()
+--     if MAIN_CAMERA.CameraSubject and MAIN_CAMERA.CameraType == Enum.CameraType.Custom then
+--         local camCF = MAIN_CAMERA.CFrame
+
+--         -- Get right and up vectors from current camera orientation
+--         local right = camCF.RightVector
+--         local up = camCF.UpVector
+
+--         -- Calculate offset position (no back/forward)
+--         local offset = right * SHOULDER_OFFSET.X + up * SHOULDER_OFFSET.Y + camCF.LookVector * SHOULDER_OFFSET.Z
+
+--         MAIN_CAMERA.CFrame = camCF + offset
+--     end
+-- end
+
+-- RunService:BindToRenderStep("CameraShoulderOffset", Enum.RenderPriority.Camera.Value + 1, applyShoulderOffset)
+
+local function definePlayerOrientation()
+    local lookVector = Vector3.new(0, 0, -1)
+    if isTouchingScreen then
+        -- Orient towards mouse/touch world position
+        local mousePos
+        if UserInputService.TouchEnabled and #UserInputService:GetTouches() > 0 then
+            mousePos = UserInputService:GetTouches()[1].Position
+        else
+            mousePos = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+        end
+
+        local unitRay = MAIN_CAMERA:ScreenPointToRay(mousePos.X, mousePos.Y)
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterDescendantsInstances = { LOCAL_CHARACTER }
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+
+        local raycastResult = workspace:Raycast(unitRay.Origin, unitRay.Direction * 1000, raycastParams)
+        if raycastResult then
+            local lookPoint = raycastResult.Position
+            lookVector = (lookPoint - LOCAL_HUMANOID_ROOT_PART.Position) * Vector3.new(1, 0, 1)
+        end
+    else
+        -- Orient according to movement
+        lookVector = LOCAL_HUMANOID.MoveDirection
+    end
+    return lookVector
 end
 
 -- MAIN LOOP
@@ -725,22 +1002,19 @@ RunService.Heartbeat:Connect(function(dt)
         return
     end
 
-    -- -- update TTE for all currently shown damage GUIs
-    -- for targetGuid, tte in WORLD:select(W.ClientTTE) do
-    --     if tte <= 0 then
-    --         local refId = WORLD:get(targetGuid, W.RefId)
-    --         if Id.kind(refId) ~= Id.Kind.Enemy and Id.kind(refId) ~= Id.Kind.Obstacle then
-    --             continue
-    --         end
-    --         local target = WORLD:get(targetGuid, W.ClientInstance)
-    --         local hpGui = target:FindFirstChild(COLLIDABLES_HP_GUI_NAME) :: BillboardGui
-    --         if not hpGui then
-    --             continue
-    --         end
-    --         hpGui:Destroy()
-    --     end
-    --     WORLD:set(targetGuid, W.ClientTTE, tte - dt)
-    -- end
+    local gameSessionFlags
+    local isPlayerInSession
+    if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION_PARAMS) then
+        gameSessionFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+        isPlayerInSession = gameSessionFlags and Id.flag_test(gameSessionFlags, Id.PlayerF.READY)
+    end
+
+    if isPlayerInSession then
+        local intendedPos = PlayerUtils.GetPredictedPositionWithVelocity(dt)
+        -- TODO: do we need this orientation thingie? Currently it is not used for anything
+        local lookVector = definePlayerOrientation()
+        us2cc:FireServer(Id.C2S.PLAYER_INTENDED_POS, intendedPos, lookVector, roflake.time())
+    end
 
     -- move clones
     local clonesRootParts = {}
@@ -783,22 +1057,35 @@ RunService.Heartbeat:Connect(function(dt)
 
             local alreadyInCol = (i - 1) % SharedConfig.CLONES_IN_A_ROW
             local row = math.floor((i - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
-            local clonePos = Misc.GetClonePos(pos, alreadyInCol, row)
-            local cloneTarget = CFrame.lookAlong(clonePos, playerRootPart.CFrame.LookVector, Vector3.yAxis)
+            local cloneCFrame = Misc.GetCloneCFrame(playerRootPart.CFrame, alreadyInCol, row)
+            local playerLook = playerRootPart.CFrame.LookVector
+            -- local cloneTargetCFrame = CFrame.lookAlong(cloneCFrame.Position, playerLook, Vector3.yAxis)
+            -- if boss fight is on, clone orientation == playerLook, else it's straight ahead along the z axis
+            local cloneTargetCFrame
+            local isBossFight = WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
+            local isPvPModeOn = WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value)
+            if isBossFight or isPvPModeOn then
+                cloneTargetCFrame = CFrame.lookAlong(cloneCFrame.Position, playerLook, Vector3.yAxis)
+            else
+                cloneTargetCFrame = CFrame.new(cloneCFrame.Position, cloneCFrame.Position + Vector3.new(0, 0, -1))
+            end
             table.insert(clonesRootParts, cloneRootPart)
-            table.insert(clonesTargets, cloneTarget)
+            table.insert(clonesTargets, cloneTargetCFrame)
             workspace:BulkMoveTo(clonesRootParts, clonesTargets, Enum.BulkMoveMode.FireCFrameChanged)
         end
     end
 
-    -- move enemies
+    -- move enemies and bombs
     local enemies = {}
     local enemyTargets = {}
-    for enemyGuid, refId, _hp, newPos, _playerId, _bitset in WORLD:select(W.RefId, W.HP, W.Position, W.PlayerId, W.Bitset) do
+    for guid, refId, newPos, tte in WORLD:select(W.RefId, W.Position, W.TTE) do
         if Id.kind(refId) == Id.Kind.Enemy then
-            -- local enemyInstance = ENEMIES_FOLDER:FindFirstChild(enemyGuid)
-            local enemyInstance = WORLD:get(enemyGuid, W.ClientInstance)
+            local enemyInstance = WORLD:get(guid, W.ClientInstance)
             if not enemyInstance then
+                continue
+            end
+            -- check if animation is not in progress already, if not, move the enemy
+            if WORLD:get(guid, W.ClientFlags) then
                 continue
             end
             local currentPos: Vector3 = enemyInstance.Position
@@ -812,11 +1099,23 @@ RunService.Heartbeat:Connect(function(dt)
                 local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
                 lookAt = playerRoot.Position
             end
-            local y = enemyInstance.Size.Y - enemyInstance.Size.Y / 2 + 1
-            newPos = Vector3.new(newPos.X, y, newPos.Z) -- lock Y axis
-            lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis
+            local y = Misc.DefineObjectY(enemyInstance)
+            newPos = Vector3.new(newPos.X, y, newPos.Z) -- lock Y axis for pos
+            lookAt = Vector3.new(lookAt.X, newPos.Y, lookAt.Z) -- lock Y axis for look
             local newCframe = CFrame.new(newPos, lookAt) * CFrame.Angles(0, math.pi, 0)
             table.insert(enemyTargets, newCframe)
+        elseif Id.kind(refId) == Id.Kind.Bomb then
+            local bombInstance = WORLD:get(guid, W.ClientInstance)
+            if not bombInstance then
+                continue
+            end
+            bombInstance.Position = newPos
+            -- spawn explosion if the bomb is below the player root
+            if newPos.Y < playerRootPart.Position.Y and not WORLD:get(guid, W.ClientFlags) then
+                local explosionSize = assert(S.Weapon[Id.Weapon.ROCKET].explosionSize)
+                Misc.SpawnExplosion(newPos, explosionSize)
+                WORLD:set(guid, W.ClientFlags, true)
+            end
         end
     end
     if #enemies > 0 then
@@ -830,21 +1129,20 @@ RunService.Heartbeat:Connect(function(dt)
     for i, bulletData in ipairs(activeBulletsDataTable) do
         -- check for collisions
         local bullet = bulletData.bullet :: Part
-        -- local booster = bulletData.booster
         local owner = bulletData.owner
         local ttl = bulletData.ttl
-        local rot = bulletData.rotation
         local weapon_id = bulletData.weapon_id
         local speed = bulletData.speed
         local start_pos = bulletData.start_pos
         local bullet_range = bulletData.range
-        local bullet_size = bulletData.size
-
-        local newBulletCframe = CFrame.new(bullet.Position + (bullet.CFrame.LookVector * speed * dt)) * rot
+        -- enlarge Y axis to check for collisions with obstacles  (graves) when they are partly destroyed already
+        local sizeTolerance = 2
+        local raycast_size = Vector3.new(bulletData.size.X + sizeTolerance, 5, bulletData.size.Z + sizeTolerance)
+        local newBulletCframe = bullet.CFrame + bullet.CFrame.LookVector * (speed * dt)
 
         -- check for collisions
-        local raycast_length = bullet_size.Z / 2 + (speed * dt)
-        local target, isTargetKillable, targetThickness, targetRefId = getCollisionSpecifics(bullet, raycast_length, bullet_size)
+        local raycast_length = raycast_size.Z / 2 + (speed * dt)
+        local target, isTargetKillable, targetThickness, targetRefId = getCollisionSpecifics(bullet, raycast_length, raycast_size)
 
         local hit_z
         if target and isTargetKillable then
@@ -854,7 +1152,13 @@ RunService.Heartbeat:Connect(function(dt)
             elseif Id.kind(targetRefId) == Id.Kind.Boost then
                 target_pos = target.Position
             elseif Id.kind(targetRefId) == Id.Kind.Obstacle then
+                target_pos = WORLD:get(target.Name, W.Position)
+            elseif targetRefId == target.Parent.Name then
+                -- target is a player
                 target_pos = target.Position
+            else
+                log:error("no refId or instance for the bullet target", targetRefId, target.ClassName)
+                return
             end
             hit_z = target_pos.Z + targetThickness + 1
             if weapon_id == Id.Weapon.ROCKET then
@@ -865,25 +1169,34 @@ RunService.Heartbeat:Connect(function(dt)
         if target and isTargetKillable and hit_z and hit_z >= bullet.Position.Z then
             -- bullet collided with a bullet-killable target
             if owner == LOCAL_PLAYER then
-                if Id.kind(targetRefId) == Id.Kind.Boost or Id.kind(targetRefId) == Id.Kind.Enemy or Id.kind(targetRefId) == Id.Kind.Obstacle then
+                if
+                    Id.kind(targetRefId) == Id.Kind.Boost
+                    or Id.kind(targetRefId) == Id.Kind.Enemy
+                    or Id.kind(targetRefId) == Id.Kind.Obstacle
+                    or Id.kind(targetRefId) == Id.Kind.Clone
+                    or targetRefId == target.Parent.Name -- target is a player
+                then
+                    local firstTargetGuid = target.Name
                     if Id.kind(targetRefId) == Id.Kind.Obstacle then
-                        -- TODO:not every collision with obtsacle registers (clone bullets?)
                         Obstacles.OnCollisionWithObstacle(WORLD, target.Name)
+                    elseif Id.kind(targetRefId) == Id.Kind.Enemy then
+                        EnemiesClient.OnEnemyHit(WORLD, target.Name, targetRefId, 0, 0)
+                    elseif targetRefId == target.Parent.Name then
+                        -- target is a player
+                        local character = target.Parent
+                        assert(character:IsA("Model"))
+                        local isClone, playerId = Misc.CloneOrPlayer(WORLD, character)
+                        if isClone then
+                            firstTargetGuid = target.Name
+                        elseif playerId then
+                            firstTargetGuid = playerId
+                        end
                     end
-                    local targetGuids = { target.Name }
-                    -- local killables = { target }
+                    local targetGuids = { firstTargetGuid } :: { string }
                     if weapon_id == Id.Weapon.ROCKET then
                         -- animate the explosion
                         local explosionSize = assert(S.Weapon[weapon_id].explosionSize)
-                        -- if S.VFX[Id.VFX.EXPLOSION] then
-                        local explosionInstance = Instance.new("Explosion")
-                        -- local explosionInstance = S.VFX[Id.VFX.EXPLOSION]:Clone()
-                        explosionInstance.Position = target.Position
-                        explosionInstance.BlastRadius = explosionSize.X * 3 --explosionSize.X / 2
-                        explosionInstance.BlastPressure = 0
-                        explosionInstance.ExplosionType = Enum.ExplosionType.NoCraters
-                        explosionInstance.DestroyJointRadiusPercent = 0
-                        explosionInstance.Parent = workspace
+                        Misc.SpawnExplosion(target.Position, explosionSize)
 
                         -- check if there other targets hit by the explosion
                         local otherTargets = Misc.GetBulletCollidablesInRadius(target.CFrame, explosionSize)
@@ -891,22 +1204,28 @@ RunService.Heartbeat:Connect(function(dt)
                             for _, otherTarget in ipairs(otherTargets) do
                                 if otherTarget and WORLD:has(otherTarget.Name) then
                                     local otherTargetRefId = WORLD:get(otherTarget.Name, W.RefId)
-                                    if
-                                        Id.kind(otherTargetRefId) == Id.Kind.Boost
-                                        or Id.kind(otherTargetRefId) == Id.Kind.Enemy
-                                        or Id.kind(otherTargetRefId) == Id.Kind.Obstacle
-                                    then
+                                    if Id.kind(otherTargetRefId) == Id.Kind.Boost or Id.kind(otherTargetRefId) == Id.Kind.Enemy then
                                         table.insert(targetGuids, otherTarget.Name)
-                                        -- table.insert(killables, otherTarget)
-                                        if Id.kind(targetRefId) == Id.Kind.Obstacle then
-                                            Obstacles.OnCollisionWithObstacle(WORLD, otherTarget.Name)
+                                    elseif Id.kind(otherTargetRefId) == Id.Kind.Clone then
+                                        local cloneOwnerId = WORLD:get(otherTarget.Name, W.PlayerId)
+                                        if cloneOwnerId ~= LOCAL_PLAYER.UserId then
+                                            table.insert(targetGuids, otherTarget.Name)
                                         end
+                                    elseif Id.kind(otherTargetRefId) == Id.Kind.Obstacle then
+                                        table.insert(targetGuids, otherTarget.Name)
+                                        Obstacles.OnCollisionWithObstacle(WORLD, otherTarget.Name)
+                                    end
+                                elseif otherTarget.Parent:FindFirstChildWhichIsA("Humanoid") then
+                                    -- target is a player (not a clone, clone is handled above)
+                                    local character = otherTarget.Parent
+                                    local playerId = Players:GetPlayerFromCharacter(character).UserId
+                                    if playerId and playerId ~= LOCAL_PLAYER.UserId then
+                                        table.insert(targetGuids, playerId)
                                     end
                                 end
                             end
                         end
                     end
-                    -- showCollidableHP(targetGuids, killables, weapon_id)
                     fire_server(Id.C2S.TARGET_HIT, targetGuids, bullet.Name)
                 end
             end
@@ -933,54 +1252,62 @@ RunService.Heartbeat:Connect(function(dt)
 
     workspace:BulkMoveTo(activeBullets, bulletsTargetCFrames, Enum.BulkMoveMode.FireCFrameChanged)
 
-    -- fire bullets for the local player
-    if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION_PARAMS) then
-        local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-        if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
-            local weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
-            if not weaponId or weaponId == Id.Weapon._NONE then
-                return
-            end
-            local shot_tte = PLAYER_STATE:get(LOCAL_PLAYER.UserId, C.ClientTTE) :: num
-            if shot_tte then
-                shot_tte -= dt
-                if shot_tte <= 0 then
-                    if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-                        fireBullet(LOCAL_PLAYER)
-                    end
-                else
-                    PLAYER_STATE:set(LOCAL_PLAYER.UserId, C.ClientTTE, math.max(shot_tte, 0))
+    -- fire bullets for the local player + move camera
+    -- local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    if isPlayerInSession then
+        -- move camera
+        -- local lookCF = LOCAL_HUMANOID_HEAD.CFrame
+        -- local _, y, _ = LOCAL_HUMANOID_HEAD.CFrame:ToEulerAnglesYXZ()
+        -- local pos = LOCAL_HUMANOID_HEAD.Position
+        -- local yawCFrame = CFrame.new(pos) * CFrame.Angles(0, y, 0)
+        -- -- Calculate camera position: offset is in local space (right, up, back)
+        -- local cameraPosition = (yawCFrame * CFrame.new(SHOULDER_OFFSET)).Position
+        -- -- Look horizontally forward, lock at player's Y-level (no vertical tilt)
+        -- local lookAt = pos + yawCFrame.LookVector * 100
+        -- MAIN_CAMERA.CFrame = CFrame.new(cameraPosition, Vector3.new(lookAt.X, cameraPosition.Y, lookAt.Z))
+
+        -- fire bullets
+        local weaponId = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId)
+        if not weaponId or weaponId == Id.Weapon._NONE then
+            return
+        end
+        local shot_tte = PLAYER_STATE:get(LOCAL_PLAYER.UserId, C.ClientTTE) :: num
+        if shot_tte then
+            shot_tte -= dt
+            if shot_tte <= 0 then
+                if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or isTouchingScreen then
+                    fireBullet(LOCAL_PLAYER)
                 end
+            else
+                PLAYER_STATE:set(LOCAL_PLAYER.UserId, C.ClientTTE, math.max(shot_tte, 0))
             end
         end
     end
 
     -- fake bullets' animation for other players (if the options to others' bullets is on)
-    local currentFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-    if currentFlags then
-        local bulletsFlag = Id.flag_test(currentFlags, Id.PlayerF.OTHER_BULLETS_ON)
-        if bulletsFlag then
-            for _, player in ipairs(players) do
-                if player == LOCAL_PLAYER then
-                    continue
-                end
-                if not WORLD:env(ENV_WORLD_READY) then
-                    log:warn("WORLD is not ready yet")
-                    continue
-                end
-                local playerId = player.UserId
-                if PLAYER_STATE:has(playerId) then
-                    local weapon_id = PLAYER_STATE:get(playerId, C.ClientWeaponId)
-                    if weapon_id and weapon_id ~= Id.Weapon._NONE then
-                        -- player is inside the game session, fire bullets
-                        local shot_tte = PLAYER_STATE:get(playerId, C.ClientTTE)
-                        if shot_tte then
-                            shot_tte -= dt
-                            if shot_tte <= 0 then
-                                fireBullet(player)
-                            else
-                                PLAYER_STATE:set(playerId, C.ClientTTE, math.max(shot_tte, 0))
-                            end
+
+    local bulletsFlag = Id.flag_test(gameSessionFlags, Id.PlayerF.OTHER_BULLETS_ON)
+    if bulletsFlag then
+        for _, player in ipairs(players) do
+            if player == LOCAL_PLAYER then
+                continue
+            end
+            if not WORLD:env(ENV_WORLD_READY) then
+                log:warn("WORLD is not ready yet")
+                continue
+            end
+            local playerId = player.UserId
+            if PLAYER_STATE:has(playerId) then
+                local weapon_id = PLAYER_STATE:get(playerId, C.ClientWeaponId)
+                if weapon_id and weapon_id ~= Id.Weapon._NONE then
+                    -- player is inside the game session, fire bullets
+                    local shot_tte = PLAYER_STATE:get(playerId, C.ClientTTE)
+                    if shot_tte then
+                        shot_tte -= dt
+                        if shot_tte <= 0 then
+                            fireBullet(player)
+                        else
+                            PLAYER_STATE:set(playerId, C.ClientTTE, math.max(shot_tte, 0))
                         end
                     end
                 end
@@ -988,30 +1315,6 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 end)
-
-local ACTIVE_RUN_ANIM_TRACK
-local infrequentLoop = supervisor.create(1, "client-infrequent")
-infrequentLoop:start(function(dt)
-    -- player character animation check
-    local isRunAnimActive
-    local nonPersFlags = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Bitset)
-    if nonPersFlags and Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
-        for _, v in ipairs(LOCAL_HUMANOID:GetPlayingAnimationTracks()) do
-            if v.Name == SharedConfig.RUN_ANIMATION_NAME then
-                isRunAnimActive = true
-                break
-            end
-        end
-        if not isRunAnimActive then
-            if not ACTIVE_RUN_ANIM_TRACK then
-                -- animation track not loaded yet
-                ACTIVE_RUN_ANIM_TRACK = startRunAnim(LOCAL_CHARACTER)
-            else
-                playRunAnimTrack(ACTIVE_RUN_ANIM_TRACK)
-            end
-        end
-    end
-end, 1, "test")
 
 WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
     -- log:trace("~~~>", guid, newValue)
@@ -1025,8 +1328,19 @@ WORLD:set_on_attach(W.RefId, function(guid: guid, newValue: num)
         WORLD:set(guid, W.ClientInstance, nil)
         local obstacleGuid = guid :: string
         Obstacles.onObstacleAdded(WORLD, obstacleGuid, LOCAL_HUMANOID_ROOT_PART)
-    elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) and WORLD:get(guid, W.Bitset) then
-        Signal.Broadcast(Id.C2C.NEW_ENEMY_ADDED, WORLD, PLAYER_STATE, guid)
+    elseif Id.kind(newValue) == Id.Kind.Enemy and WORLD:get(guid, W.PlayerId) then
+        local flags = WORLD:get(guid, W.Bitset)
+        local isBoss = Id.flag_test(flags, Id.EnemyF.IS_BOSS)
+        EnemiesClient.OnEnemyAdded(WORLD, PLAYER_STATE, guid :: string, isBoss, DRIVING_BOX_BACK_PART, LOCAL_HUMANOID_ROOT_PART)
+        if isBoss then
+            local font = Enum.Font.Creepster
+            local color = Color3.fromHex("ff5500")
+            Misc.ShowAnnouncement("BOSS INCOMING! POISON GAS RELEASED", ANNOUNCEMENT_GUI, font, color)
+        end
+    elseif Id.kind(newValue) == Id.Kind.EnemyFlying and WORLD:get(guid, W.PlayerId) then
+        EnemiesFlying.OnFlyerAdded(WORLD, PLAYER_STATE, guid :: string, LOCAL_HUMANOID_ROOT_PART)
+    elseif Id.kind(newValue) == Id.Kind.Bomb and WORLD:get(guid, W.OwnerGuid) then
+        EnemiesFlying.OnBombActivated(WORLD, guid :: string)
     elseif Id.kind(newValue) == Id.Kind.Clone and WORLD:get(guid, W.PlayerId) then
         -- create clones if any new clones appeared (if the option for others' clones is turned off, for local player only)
         local playerId = WORLD:get(guid, W.PlayerId)
@@ -1061,15 +1375,12 @@ end)
 
 WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
     if Id.kind(oldValue) == Id.Kind.Clone then
-        -- remove clone instance
-        local cloneInstance = workspace:FindFirstChild(guid, true)
-        if cloneInstance then
-            cloneInstance:Destroy()
+        -- if the player is in the game session, play a scream sound
+        local nonPersF = PLAYER_STATE:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+        local isReady = Id.flag_test(nonPersF, Id.PlayerF.READY)
+        if isReady then
+            Misc.PlaySound(Id.Sound.SCREAM_HIGH)
         end
-    -- elseif Id.kind(oldValue) == Id.Kind.Boost then
-    --     local instanceGuid = guid :: string
-    --     PLAYER_STATE:delete(instanceGuid)
-    --     Boosters.CancelBoosterSubscription(instanceGuid)
     elseif Id.kind(oldValue) == Id.Kind.Obstacle then
         local instanceGuid = guid :: string
         Obstacles.CleanupClientObstacle(WORLD, instanceGuid)
@@ -1078,7 +1389,65 @@ WORLD:set_on_detach(W.RefId, function(guid: guid, oldValue: num)
         if clientInstance then
             clientInstance:Destroy()
         end
+        if oldValue == Id.Enemy.OCTOBOSS then
+            -- TODO: others bosses (we cannot check IS_BOSS flag, 'cuz the entity is already deleted)
+            EnemiesClient.OnBossDestroyed(WORLD, guid :: string)
+        end
+    elseif Id.kind(oldValue) == Id.Kind.EnemyFlying then
+        local clientInstance = ENEMY_FLYERS_FOLDER:FindFirstChild(guid)
+        if clientInstance then
+            clientInstance:Destroy()
+        end
+        EnemiesFlying.CleanupClientFlyer(WORLD, guid :: string)
+    elseif Id.kind(oldValue) == Id.Kind.Bomb then
+        local clientInstance = ENEMY_FLYERS_FOLDER:FindFirstChild(guid, true)
+        if clientInstance then
+            clientInstance:Destroy()
+        end
     end
 end)
 
-PLAYER_STATE:set_on_modify(C.TTE, function(guid: guid, newValue: num, oldValue: num) end)
+WORLD:set_on_modify(W.TTE, function(guid: guid, newValue: num, oldValue: num)
+    local refId = WORLD:get(guid, W.RefId)
+    if Id.kind(refId) == Id.Kind.Enemy then
+        if newValue > oldValue and newValue > 0 then -- tte has just been reset
+            EnemiesClient.OnTTEReset(WORLD, guid :: string, refId, LOCAL_HUMANOID_ROOT_PART)
+        end
+    end
+end)
+
+WORLD:set_on_modify(W.HP, function(guid: guid, newValue: num, oldValue: num)
+    local refId = WORLD:get(guid, W.RefId)
+    if Id.kind(refId) == Id.Kind.Enemy then
+        if newValue < oldValue and newValue > 0 then
+            EnemiesClient.OnEnemyHpDecreased(WORLD, guid :: string, refId, newValue, oldValue)
+        end
+    elseif Id.kind(refId) == Id.Kind.Clone then
+        if newValue < oldValue and newValue > 0 then
+            Misc.PlaySound(Id.Sound.ENERGY_SHIELD_HIT)
+        end
+    end
+end)
+
+PLAYER_STATE:set_on_attach(C.RefId, function(guid: guid, newValue: num)
+    if Id.kind(newValue) == Id.Kind.PlayerUpgradeNonPersistent then
+        -- set the flag for when the aura is being destroyed
+        PLAYER_STATE:set(guid, C.ClientFlags, false)
+    end
+end)
+
+PLAYER_STATE:set_on_modify(C.Bitset, function(guid: guid, newValue: flag, oldValue: flag)
+    if type(guid) == "number" then
+        if Id.kind(guid) == Id.Kind.PlayerUpgradeNonPersistent then
+            UIPlayerUpgrades.OnModifyBitset(PLAYER_STATE, LOCAL_CHARACTER, guid, newValue, oldValue)
+        end
+    end
+end)
+
+PLAYER_STATE:set_on_modify(C.HP, function(guid: guid, newValue: flag, oldValue: flag)
+    if type(guid) == "number" then
+        if Id.kind(guid) == Id.Kind.PlayerUpgradeNonPersistent then
+            UIPlayerUpgrades.OnModifyHP(PLAYER_STATE, LOCAL_CHARACTER, guid, newValue, oldValue)
+        end
+    end
+end)

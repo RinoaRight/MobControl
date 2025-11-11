@@ -30,6 +30,34 @@ local state = require(shared.state)
 local Misc = require(shared.Misc)
 local SharedConfig = require(shared.SharedConfig)
 local W = SharedConfig.World.CId
+local S = require(shared.StaticData)
+
+local createAura = function(character: Model, perk_id: int, player_id)
+    -- create a new aura
+    local aura = S.VFX[Id.VFX.INVINCIBILITY_AURA]:Clone()
+    local color = assert(S.PlayerUpgradeNonPersistent[perk_id].color)
+    local name
+    if perk_id == Id.PlayerUpgradeNonPersistent.INVINCIBILITY then
+        name = SharedConfig.INVINCIBILITY_AURA_NAME
+    elseif perk_id == Id.PlayerUpgradeNonPersistent.SHIELD then
+        name = SharedConfig.SHIELD_AURA_NAME
+        Misc.PlaySound(Id.Sound.ENERGY_SWEEP)
+    elseif perk_id == Id.PlayerUpgradeNonPersistent.ARMOR then
+        name = SharedConfig.ARMOR_AURA_NAME
+        aura.Transparency = 0.85
+    end
+    aura.Color = color
+    aura.Name = name
+
+    aura.Parent = character
+    local upperTorso = assert(character:FindFirstChild("UpperTorso")) :: BasePart
+    local constraint = Instance.new("WeldConstraint")
+    constraint.Parent = aura
+    constraint.Part0 = upperTorso
+    constraint.Part1 = aura
+    aura.Position = upperTorso.Position
+    aura:SetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.VFX], player_id)
+end
 
 local m = {}
 
@@ -69,13 +97,21 @@ function m.CreateCloneInstance(worldState, playerId: int, cloneGuid: num | str)
         local humanoid = cloneInstance:WaitForChild("Humanoid") :: Humanoid
         humanoid.DisplayName = " "
         cloneInstance.Name = cloneGuid
-        
+
         worldState:set(cloneGuid, W.ClientInstance, cloneInstance)
 
         for _, instance in cloneInstance:GetDescendants() do
             if instance:IsA("BasePart") then
                 instance.CollisionGroup = "DriverNonCollidable"
+                -- remove aura from the clone (if any)
+                if instance:GetAttribute(SharedConfig.ATTRIBUTES_NAMES[Id.Kind.VFX]) then
+                    instance:Destroy()
+                end
             end
+        end
+
+        if worldState:get(Id.WorldSpecs.HANDICAP, W.Value) == Id.Handicap.BOMBS then
+            createAura(cloneInstance, Id.PlayerUpgradeNonPersistent.ARMOR, playerId)
         end
 
         cloneInstance.Parent = folder
@@ -89,8 +125,7 @@ function m.CreateCloneInstance(worldState, playerId: int, cloneGuid: num | str)
 
         local vacantRow = math.floor((existingClonesNum - 1) / SharedConfig.CLONES_IN_A_ROW) + 1
         local alreadyInCol = existingClonesNum % SharedConfig.CLONES_IN_A_ROW
-        cloneRootPart.CFrame = CFrame.new(Misc.GetClonePos(humanoidRootPart.Position, alreadyInCol, vacantRow))
-        Misc.AddInstanceToRaycastFilter(cloneInstance)
+        cloneRootPart.CFrame = Misc.GetCloneCFrame(humanoidRootPart.CFrame, alreadyInCol, vacantRow)
     end)
 
     return cloneInstance

@@ -46,10 +46,28 @@ local Rand = require(shared.rand)
 local BASE_HP_MULT = 0.1
 local workerMaid = disposer.new()
 
+local function getShieldDamage(player_state: PSS.PlayerState)
+    local shieldDamage = 0
+    local shieldFlags = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
+    local shieldDmgFlags = player_state.state:get(Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE, C.Bitset)
+    local isShieldDmg = Id.flag_test(shieldFlags, Id.PlayerF.PERK_ACTIVE) and Id.flag_test(shieldDmgFlags, Id.PlayerF.PERK_ACTIVE)
+    if isShieldDmg then
+        shieldDamage = assert(S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.SHIELD_DAMAGE].damage)
+    end
+    return isShieldDmg, shieldDamage
+end
+
 local m = {}
 
--- TODO: others
 m.BOOSTER_DATA_TABLE = {
+    {
+        boost_gacha = { [Id.Boost.ADD_CLONE] = 65, [Id.Boost.CHANGE_WEAPON] = 35 },
+        weapon_gacha = { [Id.Weapon.SMG] = 55, [Id.Weapon.SPRAYGUN] = 40, [Id.Weapon.ROCKET] = 5 },
+    },
+    {
+        boost_gacha = { [Id.Boost.ADD_CLONE] = 65, [Id.Boost.CHANGE_WEAPON] = 35 },
+        weapon_gacha = { [Id.Weapon.SMG] = 55, [Id.Weapon.SPRAYGUN] = 40, [Id.Weapon.ROCKET] = 5 },
+    },
     {
         boost_gacha = { [Id.Boost.ADD_CLONE] = 65, [Id.Boost.CHANGE_WEAPON] = 35 },
         weapon_gacha = { [Id.Weapon.SMG] = 55, [Id.Weapon.SPRAYGUN] = 40, [Id.Weapon.ROCKET] = 5 },
@@ -119,13 +137,21 @@ m.SubscribeBooster = function(worldState: state.Main, get_state: (int) -> PSS.Pl
             end
             for _, cloneId in ipairs(cloneGuidsToKill) do
                 WorldService.RemoveEntity(cloneId)
-                Misc.SoundLocalizedAudio(S.Sound[Id.Sound.SCREAM_LOCALIZED_HIGH], triggerer.Position, 0)
             end
         else
             -- player collided with the booster for the first time, set the flag for the check above and do the logic
             playerState.state:set(boosterGuid, C.BitsetNonPers, Id.flag_or(flags, Id.PlayerF.BOOSTER_TOUCHED))
-            local hp = WorldService.world:get(boosterGuid, W.HP)
-            playerState:DeductHp(hp)
+            local isShieldDmg, shieldDamage = getShieldDamage(playerState)
+            -- apply shield damage, if there is still a booster afterwards, apply damage to the player
+            if isShieldDmg then
+                Signal.Fire(Id.S2S.SHIELD_DAMAGE_SERVER, playerState.player_id, boosterGuid, shieldDamage)
+            end
+            if worldState:has(boosterGuid) then
+                local boosterHp = WorldService.world:get(boosterGuid, W.HP)
+                if boosterHp > 0 then
+                    playerState:DeductHp(boosterHp - shieldDamage)
+                end
+            end
         end
     end)
 end
@@ -142,6 +168,10 @@ function m.SetBoosterValue(worldState: state.Main)
     -- define booster id
     local boostGacha = m.BOOSTER_DATA_TABLE[wavesTotal].boost_gacha
     boosterRefId = Rand.weighted_choice(boostGacha)
+    local currentHandicap = worldState:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+    if currentHandicap == Id.Handicap.PISTOLS_ONLY and boosterRefId == Id.Boost.CHANGE_WEAPON then
+        boosterRefId = Id.Boost.ADD_CLONE
+    end
     if boosterRefId == Id.Boost.CHANGE_WEAPON then
         -- define weapon id
         local weaponGacha = m.BOOSTER_DATA_TABLE[wavesTotal].weapon_gacha
@@ -158,6 +188,22 @@ function m.GetCurrentBoosterHpMult(worldState: state.Main)
     end
     local mult = 1 + BASE_HP_MULT * currentBoosterWaveNum
     return mult
+end
+
+function m.GiveBoosterBonus(playerState: PSS.PlayerState, boost_ref_id: id, boost_content_id: id, value: int)
+    if boost_ref_id == Id.Boost.ADD_CLONE then
+        for i = 1, value do
+            local playerId = playerState.player_id
+            local _cloneGuid = WorldService.AddClone(Id.Clone.REGULAR, playerId)
+        end
+    elseif boost_ref_id == Id.Boost.CHANGE_WEAPON then
+        Signal.Fire(Id.S2S.CHANGE_WEAPON, playerState.player_id, boost_content_id)
+    elseif boost_ref_id == Id.Boost.FIRST_AID_KIT then
+        local currentHandicap = WorldService.world:get(Id.WorldSpecs.HANDICAP, W.Value) :: id
+        local old_hp, new_hp = playerState:AddHp(value, currentHandicap)
+        local hp_added = new_hp - old_hp
+        playerState:NotifyClient(Id.S2C.BOOSTER_DESTROYED, boost_ref_id, hp_added, boost_content_id)
+    end
 end
 
 function m.DeleteBooster(worldState: state.Main, instanceGuid: string, get_state: (int) -> PSS.PlayerState?)
@@ -181,4 +227,3 @@ function m.DeleteBooster(worldState: state.Main, instanceGuid: string, get_state
 end
 
 return m
--- TODO: clone booster hp should be dependent on the number of clones

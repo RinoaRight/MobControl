@@ -36,97 +36,80 @@ local LOCAL_PLAYER = game.Players.LocalPlayer
 local PlayerService = game:GetService("Players")
 local Misc = require(shared.Misc)
 local S = require(shared.StaticData)
+local Rand = require(shared.rand)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PLAYER_GUI = assert(LOCAL_PLAYER:WaitForChild("PlayerGui"))
 local START_GUI = PLAYER_GUI:WaitForChild("StartSessionGUI")
 local PLAYER_HP_GUI = assert(PLAYER_GUI.PlayerHpGui)
 local PLAYER_HP_TEXT_BOX = assert(PLAYER_HP_GUI.TextLabel)
-local SFX = require(script.Parent.SFX)
 local TaskPool = require(shared.TaskPool)
 local TweenService = game:GetService("TweenService")
 local _roflake = require(shared.roflake)
-local TARGET_SIGN_TEMPLATE = assert(ReplicatedStorage:WaitForChild("TargetSign"))
+local TARGET_SIGN_NAME = "TargetSign"
+local TARGET_SIGN_TEMPLATE = assert(ReplicatedStorage:WaitForChild(TARGET_SIGN_NAME))
 
-local function onPlayerCollisionWithBomb(worldState: state.Replica)
-    -- TODO:
-end
-
-local function subscribeBomb(worldState: state.Replica, bombInstance: BasePart)
-    local sub = bombInstance.Touched:Connect(function(triggerer)
-        if triggerer.Name ~= "Head" then
-            return
-        end
-        local character = triggerer.Parent
-        assert(character and character:IsA("Model")) -- sanity check
-
-        bombInstance:Destroy()
-
-        local triggererId
-        local isClone, playerId = Misc.CloneOrPlayer(worldState, character)
-        if playerId and playerId == LOCAL_PLAYER.UserId then
-            if isClone then
-                -- player's clone collided with the instance
-                Misc.DestroyClientClone(character)
-                triggererId = character.Name
-            else
-                -- player themselves collided with the instance for the first time
-                triggererId = LOCAL_PLAYER.UserId
-            end
-
-            -- handle client instance
-            onPlayerCollisionWithBomb(worldState)
-
-            -- signal to server
-            Signal.Fire(Id.C2S.PLAYER_HIT_BY_BOMB, triggererId)
-        end
-    end)
-
-    bombInstance.Destroying:Once(function()
-        sub:Disconnect()
-    end)
-end
-
-local function animateBomb(worldState: state.Replica, signPos: Vector3, flyer: BasePart)
+local function animateSign(worldState: state.Replica, signPos: Vector3, bomb: BasePart, ownerInstance: BasePart)
     TaskPool.spawn(function()
         -- animate target sign
         local targetInstance = TARGET_SIGN_TEMPLATE:Clone()
-        local imageLabel = targetInstance:WaitForChild("TargetGui"):WaitForChild("ImageLabel")
+        local targetGui = targetInstance:WaitForChild("TargetGui")
+        local imageLabel = assert(targetGui:WaitForChild("ImageLabel"))
+        local redImage = assert(targetGui:WaitForChild("Red"))
+        redImage.Visible = false
         imageLabel.ImageTransparency = 1
         local origSize = UDim2.fromScale(1, 1)
         local targetSize = UDim2.fromScale(0.7, 0.7)
         local Y = 0.5
         imageLabel.Size = origSize
         targetInstance.Position = Vector3.new(signPos.X, Y, signPos.Z)
-        targetInstance.Parent = flyer
+        targetInstance.Parent = bomb
+        -- local targetInstance = assert(ownerInstance:WaitForChild(TARGET_SIGN_NAME)) :: Part
+        -- local targetGui = targetInstance:WaitForChild("TargetGui") :: SurfaceGui
+        -- local imageLabel = assert(targetGui:WaitForChild("ImageLabel")) :: ImageLabel
+        -- local redImage = assert(targetGui:WaitForChild("Red")) :: ImageLabel
+        -- redImage.Visible = false
+        -- imageLabel.ImageTransparency = 1
+        -- local origSize = UDim2.fromScale(1, 1)
+        -- local targetSize = UDim2.fromScale(0.7, 0.7)
         local duration1 = 0.3
+        local times1 = 2
         local tweenInfo1 = TweenInfo.new(duration1, Enum.EasingStyle.Linear)
         local tween1 = TweenService:Create(imageLabel, tweenInfo1, { ImageTransparency = 0.2, Size = targetSize })
         local tween2 = TweenService:Create(imageLabel, tweenInfo1, { ImageTransparency = 0, Size = origSize })
-        for i = 1, 2 do
-            tween1:Play()
-            task.wait(duration1)
-            tween2:Play()
-            task.wait(duration1)
+        for i = 1, times1 do
+            if worldState:has(bomb.Name) then
+                tween1:Play()
+                task.wait(duration1)
+                tween2:Play()
+                task.wait(duration1)
+            end
         end
         local duration2 = 0.2
+        local times2 = 2
         local tweenInfo2 = TweenInfo.new(duration2, Enum.EasingStyle.Linear)
         local tween3 = TweenService:Create(imageLabel, tweenInfo2, { ImageTransparency = 0.2, Size = targetSize })
-        local tween4 = TweenService:Create(imageLabel, tweenInfo2, { ImageTransparency = 0, Size = origSize })
-        for i = 1, 2 do
-            tween3:Play()
-            task.wait(duration2)
-            tween4:Play()
-            task.wait(duration2)
+        local tween4 = TweenService:Create(imageLabel, tweenInfo2, { ImageTransparency = 0.1, Size = origSize })
+        for i = 1, times2 do
+            if worldState:has(bomb.Name) then
+                tween3:Play()
+                task.wait(duration2)
+                tween4:Play()
+                task.wait(duration2)
+            end
         end
         local duration3 = 0.1
+        local times3 = 8
         local tweenInfo3 = TweenInfo.new(duration3, Enum.EasingStyle.Linear)
         local tween5 = TweenService:Create(imageLabel, tweenInfo3, { ImageTransparency = 0.2, Size = targetSize })
-        local tween6 = TweenService:Create(imageLabel, tweenInfo3, { ImageTransparency = 0, Size = origSize })
-        for i = 1, 8 do
-            tween5:Play()
-            task.wait(duration3)
-            tween6:Play()
-            task.wait(duration3)
+        local tween6 = TweenService:Create(imageLabel, tweenInfo3, { ImageTransparency = 0.1, Size = origSize })
+        redImage.Visible = true
+        for i = 1, times3 do
+            if worldState:has(bomb.Name) then
+                tween5:Play()
+                task.wait(duration3)
+                tween6:Play()
+                task.wait(duration3)
+            end
         end
         -- local duration4 = 0.05
         -- local tweenInfo4 = TweenInfo.new(duration4, Enum.EasingStyle.Linear)
@@ -139,80 +122,84 @@ local function animateBomb(worldState: state.Replica, signPos: Vector3, flyer: B
         --     task.wait(duration4)
         -- end
         targetInstance:Destroy()
-
-        -- animate bomb
-        -- TODO: misslie SFX
-        local bomb = Instance.new("Part")
-        bomb.Shape = Enum.PartType.Ball
-        bomb.CanCollide = false
-        bomb.Anchored = false
-        bomb.Color = Color3.fromRGB(255, 0, 0)
-        bomb.Size = Vector3.new(1, 1, 1)
-        bomb.Parent = flyer
-        local flyerPos = flyer.Position
-        bomb.Position = Vector3.new(flyerPos.X, flyerPos.Y - 1, flyerPos.Z)
-        subscribeBomb(worldState, bomb)
     end)
 end
 
--- TESTING
--- flickerTargetSign(Vector3.new(-280, 5.1, 91))
--- local part = game.workspace:WaitForChild("Part")
--- flickerEnemy("Part", part)
+local function animateFlyer(worldState: state.Replica, flyer: BasePart, serverPos: Vector3, localRoot: BasePart)
+    if not flyer:IsA("BasePart") then
+        return
+    end
 
--- local function animateTargetSign(worldState: state.Replica, flyer: BasePart)
---     -- TODO: spawn bombs and subscribe them to collision with player, animate target sign
---     task.spawn(function()
---         -- spawn target sign
---         local targetSign = TARGET_SIGN_TEMPLATE:Clone()
---         targetSign.Parent = flyer
---         targetSign.Position = Vector3.new(flyer.Position.X, 0.01, flyer.Position.Z)
---         -- animate target sign
---         local currentSignSize = targetSign.Size
---         local targetSignSize = Vector3.new(currentSignSize.X * 1.5, currentSignSize.Y, currentSignSize.Z * 1.5)
---         local period = 0.5
---         local tweenSizeOut = TweenService:Create(targetSign, TweenInfo.new(period, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
---             Size = targetSignSize,
---         })
---         local tweenSizeIn = TweenService:Create(targetSign, TweenInfo.new(period, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
---             Size = currentSignSize,
---         })
---         for i = 0, 5 do
---             tweenSizeOut:Play()
---             task.wait(period)
---             tweenSizeIn:Play()
---             task.wait(period)
---         end
---     end)
--- end
-
-local function animateFlyer(worldState: state.Replica, flyer: BasePart, initPos: Vector3, targetPos: Vector3, localRoot: BasePart)
     workerMaid[flyer.Name] = TaskPool.spawn(function()
-        if not flyer:IsA("BasePart") then
-            return
-        end
+        -- flyer's tweens
+        local flyerRefId = worldState:get(flyer.Name, W.RefId)
+        local flyerHeight = S.EnemyFlying[flyerRefId].flyerHeight
+        local targetYOffset = 5
+        local targetPos1 = Vector3.new(serverPos.X, serverPos.Y + flyerHeight, serverPos.Z)
+        local targetPos2 = Vector3.new(targetPos1.X, targetPos1.Y - targetYOffset, targetPos1.Z)
 
-        local duration = 0.5
-        local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local tween1 = TweenService:Create(flyer, tweenInfo, {
-            Position = targetPos,
+        local duration1 = Rand.uniform(SharedConfig.FIRST_BOMB_DELAY - 2, SharedConfig.FIRST_BOMB_DELAY)
+        local tweenInfo1 = TweenInfo.new(duration1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween0 = TweenService:Create(flyer, tweenInfo1, { Position = targetPos1 })
+
+        tween0:Play()
+        task.wait(duration1)
+
+        local duration2 = Rand.uniform(1.1, 2.0)
+        local tweenInfo2 = TweenInfo.new(duration2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+        local tweenUp = TweenService:Create(flyer, tweenInfo2, {
+            Position = targetPos2,
         })
-        local tween2 = TweenService:Create(flyer, tweenInfo, {
-            Position = initPos,
+        local tweenDown = TweenService:Create(flyer, tweenInfo2, {
+            Position = targetPos1,
         })
+
+        -- target sign's tweens
+        -- local targetInstance = assert(TARGET_SIGN_TEMPLATE:Clone())
+        -- local targetGui = targetInstance:WaitForChild("TargetGui")
+        -- local imageLabel = assert(targetGui:WaitForChild("ImageLabel"))
+        -- local redImage = assert(targetGui:WaitForChild("Red"))
+        -- redImage.Visible = false
+        -- imageLabel.ImageTransparency = 1
+        -- local origSize = UDim2.fromScale(1, 1)
+        -- local targetSize = UDim2.fromScale(0.7, 0.7)
+        -- local Y = 0.5
+        -- imageLabel.Size = origSize
+        -- targetInstance.Position = Vector3.new(serverPos.X, Y, serverPos.Z)
+        -- targetInstance.Parent = flyer
+        -- local tweenInfoSign1 = TweenInfo.new(duration1, Enum.EasingStyle.Linear)
+        -- local tweenInfoSign2 = TweenInfo.new(duration2, Enum.EasingStyle.Linear)
+        -- local tweenSign1 = TweenService:Create(imageLabel, tweenInfoSign1, { ImageTransparency = 0.2, Size = targetSize })
+        -- local tweenSign2 = TweenService:Create(imageLabel, tweenInfoSign2, { ImageTransparency = 0, Size = origSize })
+
         while worldState:has(flyer.Name) do
-            tween1:Play()
-            task.wait(duration)
-            tween2:Play()
-            task.wait(duration)
+            local children = flyer:GetChildren()
+            local bomb
+            for _, child in ipairs(children) do
+                if child:IsA("Part") and child.Name ~= TARGET_SIGN_TEMPLATE then
+                    bomb = child
+                    break
+                end
+            end
+            tweenUp:Play()
+            -- if not bomb then
+                -- tweenSign1:Play()
+            -- end
+            task.wait(duration2)
+            tweenDown:Play()
+            -- if not bomb then
+                -- tweenSign2:Play()
+            -- end
+            task.wait(duration2)
         end
     end)
 end
 
 local m = {}
 
-m.onFlyerAdded = function(worldState: state.Replica, instanceGuid: str, localRoot: BasePart)
-    local flyerPos = worldState:get(instanceGuid, W.Position)
+m.OnFlyerAdded = function(worldState: state.Replica, playerState: state.Replica, instanceGuid: str, localRoot: BasePart)
+    local flyerPos = worldState:get(instanceGuid, W.Position) :: Vector3
     local refId = worldState:get(instanceGuid, W.RefId)
     local meshTemplate = S.EnemyFlying[refId].meshTemplate
     local flyerInstance = meshTemplate:Clone()
@@ -224,28 +211,37 @@ m.onFlyerAdded = function(worldState: state.Replica, instanceGuid: str, localRoo
         parentFolder.Name = SharedConfig.FLYERS_FOLDER_NAME
     end
     flyerInstance.Position = flyerPos
-    flyerInstance.CFrame = CFrame.new(flyerPos) * CFrame.Angles(0, math.pi, 0)
+    flyerInstance.CFrame = CFrame.new(flyerPos)
     flyerInstance.Parent = parentFolder
 
     worldState:set(instanceGuid, W.ClientInstance, flyerInstance)
 
-    local targetYOffset = 5
-    local targetPos = Vector3.new(flyerInstance.Position.X, flyerInstance.Position.Y - targetYOffset, flyerInstance.Position.Z)
-
-    animateFlyer(worldState, flyerInstance, flyerPos, targetPos, localRoot)
+    animateFlyer(worldState, flyerInstance, flyerPos, localRoot)
 end
 
-m.onBomActivated = function(worldState: state.Replica, instanceGuid: str)
-    -- TODO:
+m.OnBombActivated = function(worldState: state.Replica, bombGuid: str)
+    -- TODO: missile SFX
+    local bomb = Instance.new("Part")
+    bomb.Shape = Enum.PartType.Ball
+    bomb.Name = bombGuid
+    bomb.CanCollide = false
+    bomb.Anchored = false
+    bomb.Color = Color3.fromRGB(255, 0, 0)
+    bomb.Size = Vector3.new(10, 10, 10)
+    local ownerGuid = worldState:get(bombGuid, W.OwnerGuid)
+    local ownerInstance = worldState:get(ownerGuid, W.ClientInstance)
+    if not ownerInstance then
+        return
+    end
+    bomb.Parent = ownerInstance
+    local pos = worldState:get(bombGuid, W.Position)
+    bomb.Position = pos
+    worldState:set(bombGuid, W.ClientFlags, false) -- set "bomb exploded" flag to false
+    worldState:set(bombGuid, W.ClientInstance, bomb)
+    animateSign(worldState, pos, bomb, ownerInstance)
 end
 
 m.CleanupClientFlyer = function(worldState: state.Replica, instanceGuid: str)
-    if worldState:has(instanceGuid) then
-        local instance = worldState:get(instanceGuid, W.ClientInstance)
-        if instance then
-            instance:Destroy()
-        end
-    end
     if workerMaid[instanceGuid] then
         workerMaid[instanceGuid] = nil
     end

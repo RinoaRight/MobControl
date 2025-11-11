@@ -50,20 +50,28 @@ local GROUND_UNIT_LENGTH = GROUND_UNIT_TEMPLATE.Size.Z
 local GROUND_UNIT_LENGTH_HALF = GROUND_UNIT_LENGTH / 2
 local X_MARGIN = 40
 local SPAWN_SPACE_WIDTH = GROUND_UNIT_TEMPLATE.Size.X - X_MARGIN * 2
-local X_INTERVAL = 5
-local Z_INTERVAL = 20
+local X_INTERVAL = 40
+local Z_INTERVAL = 60
 local ENEMY_CELL_SIZE = Vector3.new(4, 6, 4)
 local DISTANCE_FROM_MID_TO_BOOSTER = SharedConfig.DISTANCE_FROM_MID_TO_BOOSTER
 local Y_OFFSET = 50
 local Z_DISTRIBUTION_RANDOMNESS = Vector2.new(10, 40)
 
+-- NOTE: Only even waves are handled
 local ENEMIES_DATA_TABLE = {
-    { count = 6, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
+    -- TODO: revert first value to 0
+    { count = 5, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
+    { count = 5, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
+    { count = 7, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
+    { count = 10, gacha = {[Id.EnemyFlying.ZOMBALLOON] = 1}},
 }
 local m = {}
 
 function m.AddEnemiesFlying(worldState: state.Main, groundUnit: BasePart, isFirstHalf: bool, waveNumber :int)
     local enemiesGuids = {}
+    if waveNumber > 0 and waveNumber % 2 == 0 then
+        return enemiesGuids
+    end
     if waveNumber > #ENEMIES_DATA_TABLE then
         waveNumber = #ENEMIES_DATA_TABLE
     end
@@ -71,7 +79,14 @@ function m.AddEnemiesFlying(worldState: state.Main, groundUnit: BasePart, isFirs
     if numberOfEnemies <= 0 then
         return enemiesGuids
     end
+
+    -- check for a double bombs handicap
+    if worldState:get(Id.WorldSpecs.HANDICAP, W.Value) == Id.Handicap.BOMBS then
+        numberOfEnemies = numberOfEnemies * 2
+    end
+
     local groundUnitPos = groundUnit.Position
+    local y = ENEMY_CELL_SIZE.Z - ENEMY_CELL_SIZE.Z / 2 + 1
     local z = groundUnitPos.Z
     if isFirstHalf then
         z = z - DISTANCE_FROM_MID_TO_BOOSTER
@@ -80,7 +95,7 @@ function m.AddEnemiesFlying(worldState: state.Main, groundUnit: BasePart, isFirs
     end
     local cell_w = ENEMY_CELL_SIZE.X + X_INTERVAL
     local cell_h = ENEMY_CELL_SIZE.Z + Z_INTERVAL
-    local origin = Vector3.new(groundUnitPos.X, Y_OFFSET, z)
+    local origin = Vector3.new(groundUnitPos.X, y, z)
     local cols = math.floor(SPAWN_SPACE_WIDTH / cell_w)
     local rows = 4
 
@@ -106,13 +121,14 @@ function m.AddEnemiesFlying(worldState: state.Main, groundUnit: BasePart, isFirs
             randomZ = -randomZ
         end
         local correctZ = enemyPos.Z + randomZ
-        enemyPos = Vector3.new(enemyPos.X, Y_OFFSET, correctZ)
+        -- enemyPos = Vector3.new(enemyPos.X, Y_OFFSET, correctZ)
+        enemyPos = Vector3.new(enemyPos.X, enemyPos.Y, correctZ)
 
         -- define enemy id
         local gacha = ENEMIES_DATA_TABLE[waveNumber].gacha
         local enemyId = Rand.weighted_choice(gacha)
 
-        local enemyGuid = WorldService.AddEnemyToState(enemyId, enemyPos)
+        local enemyGuid = WorldService.AddEnemyFlyingToState(enemyId, enemyPos)
         table.insert(enemiesGuids, enemyGuid)
     end
     return enemiesGuids

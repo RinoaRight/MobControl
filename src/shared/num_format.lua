@@ -184,6 +184,9 @@ m.format_damage = function(x)
     return format_number(x, false)
 end
 m.format_ectos = function(x)
+    if type(x) ~= "number" then
+        error(debug.traceback(`Expected number, got {type(x)} = '{x}'`))
+    end
     return format_number(x, false)
 end
 

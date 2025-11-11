@@ -33,6 +33,7 @@ local fmt = string.format
 
 --[[ stylua: ignore]] game = game or require("game")
 local shared = game.ReplicatedStorage.shared
+local server = game.ServerScriptService.server
 local enum = require(shared.enum)
 local _iota = enum.iota
 local Id = require(shared.Id)
@@ -95,19 +96,27 @@ export type PlayerState = {
     NotifyClient: (self: PlayerState, event_id: id, ...any) -> (),
     AddBooster: (self: PlayerState, instanceGuid: string) -> (),
     AddObstacle: (self: PlayerState, refId: id, pos: Vector3) -> uid,
-    AddCountable: (self: PlayerState, id: id, count: int) -> (),
-    AddHp: (self: PlayerState, amount: num) -> (num, num),
-    DeductCountable: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
+    AddCountableNonPersistent: (self: PlayerState, id: id, count: int) -> (),
+    AddCountablePersistent: (self: PlayerState, id: id, count: int) -> (),
+    AddHp: (self: PlayerState, amount: num, current_handicap: id) -> (num, num),
+    DeductCountableNonPersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
+    DeductCountablePersistent: (self: PlayerState, id: id, amount: int) -> (bool, id?, id?),
     ResetCountable: (self: PlayerState, id: id) -> (),
+    DeactivatePlayerUpgradeNonPers: (self: PlayerState, id: id) -> (),
+    ActivatePlayerUpgradeNonPers: (self: PlayerState, id: id) -> (),
     DeductHp: (self: PlayerState, amount: num, cause: id | uid?) -> num,
-    ChangeWeapon: (self: PlayerState, weapon_id: id) -> (),
+    ChangeWeapon: (self: PlayerState, weapon_id: id, current_handicap: id) -> (),
     GetCloneAmount: (self: PlayerState, id: id) -> int,
+    -- UpdatePlayerXP: (self: PlayerState, xp: int) -> (int, int),
+    ResetPlayerXP: (self: PlayerState) -> (),
     UpdateSessionDamageStats: (self: PlayerState, dmg: num) -> int,
     UpdateSessionEnemyKills: (self: PlayerState) -> int,
     nullary_local: (state.uid_or_gen) -> uid,
     nullary_transient: (state.uid_or_gen) -> uid,
     __index: any,
     __tostring: (self: PlayerState) -> str,
+    set_flag: (self: PlayerState, uid: state.uid, comp: state.cid, flag: Id.flag, val: bool) -> (),
+    test_flag: (self: PlayerState, uid: state.uid, comp: state.cid, flag: Id.flag) -> bool,
 }
 
 -- note: was warm_up cache
@@ -124,24 +133,30 @@ local function update_ids(main: state.Main)
         end
     end
 
-    local _countable = main:constructor(C.Value, C.Total)
-    merge(Id.Countable, function(id)
-        _countable(id, 0, 0)
+    local _countable_non_persistent = main:constructor(C.ValueNonPers, C.Total)
+    merge(Id.CountableNonPersistent, function(id)
+        _countable_non_persistent(id, 0, 0)
     end)
 
-    local _game_session_params = main:constructor(C.RefId, C.TTE, C.Value, C.Bitset, C.BitsetNonPers) -- weapon_id, weapon_tte, hp, pers_flags, non_pers_flags
-    merge(Id.PlayerSpecs, function(id)
-        _game_session_params(Id.PlayerSpecs.GAME_SESSION_PARAMS, Id.Weapon._NONE, 0, SharedConfig.PLAYER_BASE_HP, Id.PlayerF.NONE, Id.PlayerF.NONE)
-    end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
-
     local _countable_persistent = main:constructor(C.ValuePers, C.Total)
-    merge(Id.Countable, function(id)
+    merge(Id.CountablePersistent, function(id)
         _countable_persistent(id, 0, 0)
     end)
 
-    local _player_upgrade_non_persistent = main:constructor(C.Value)
-    merge(Id.PlayerUpgrade, function(id)
-        _player_upgrade_non_persistent(id, false)
+    -- weapon_id, intended_pos_time_stamp, weapon_tte, weapon_ammo, pers_flags, non_pers_flags, intended_pos, hp
+    local player_specs = main:constructor(C.RefId, C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.BitsetNonPers, C.V3, C.HP)
+    merge(Id.PlayerSpecs, function(id)
+        player_specs(id, Id.Weapon._NONE, 0, 0, 0, Id.PlayerF._NONE, Id.PlayerF._NONE, Vector3.new(0, 0, 0), SharedConfig.PLAYER_BASE_HP)
+    end, Id.PlayerSpecs.GAME_SESSION_PARAMS)
+
+    local _player_perk_non_persistent = main:constructor(C.TTL, C.TTE, C.ValueNonPers, C.Bitset, C.HP) -- ttl, stage number, flag, hp
+    merge(Id.PlayerUpgradeNonPersistent, function(id)
+        _player_perk_non_persistent(id, 0xffff_ffff, 0, 0, Id.PlayerF._NONE, 0)
+    end)
+
+    local _player_upgrade_persistent = main:constructor(C.Bitset) -- flag
+    merge(Id.PlayerUpgradePersistent, function(id)
+        _player_upgrade_persistent(id, Id.PlayerF._NONE)
     end)
 end
 
@@ -207,13 +222,30 @@ function m.load(player: Player, fire_client: Remote.FireClient): (PlayerState, a
         character = char,
         humanoid = char:WaitForChild("Humanoid", TIMEOUT) :: Humanoid,
         root = char:WaitForChild("HumanoidRootPart", TIMEOUT) :: BasePart,
+        intended_pos = Vector3.new(0, 0, 0),
         maid = disposer.new(),
         fire_client = fire_client,
         nullary_local = state:constructor("local", "transient"),
         nullary_transient = state:constructor("transient"),
     }, PlayerState)) :: any
     fill_state(player_state)
-    log:trace("~~~>\n", player_state, debug.traceback)
+    --- @todo: maybe not the best place for this US2CC subscription
+    player_state.maid:Add(Remote.Server.US2CC.OnServerEvent:Connect(function(player, event_id, intended_pos, look_vector, timestamp)
+        if player.UserId ~= player_state.player_id then
+            return
+        end
+        if event_id == Id.C2S.PLAYER_INTENDED_POS then
+            -- if new timestamp is older than the previous, the event is expired, disregard
+            local previous_timestamp = state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL)
+            if previous_timestamp > timestamp then
+                return
+            end
+            state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3, intended_pos)
+            state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTL, timestamp)
+            state:set(Id.PlayerSpecs.ORIENTATION, C.V3, look_vector)
+        end
+    end))
+    log:trace("~~~> server\n", player_state, debug.traceback)
     local snapshot = state:snapshot("discard-log")
     return player_state, snapshot
 end
@@ -245,27 +277,40 @@ function PlayerState.NotifyClient(self: PlayerState, event_id: id, ...: any): ()
     self.fire_client(event_id, nil, ...)
 end
 
-function PlayerState.AddCountable(self: PlayerState, countable_id: id, amount: int): ()
-    log:assert(Id.kind(countable_id) == Id.Kind.Countable, "not a countable id", countable_id)
+function PlayerState.AddCountableNonPersistent(self: PlayerState, countable_id: id, amount: int): ()
+    log:assert(Id.kind(countable_id) == Id.Kind.CountableNonPersistent, "not a countable id", countable_id)
     log:assert(type(amount) == "number", "count must be a number")
     if amount == 0 then
         return -- do nothing
     end
     log:assert(amount > 0, "count always positive number")
-    local current = self.state:get(countable_id, C.Value)
+    local current = self.state:get(countable_id, C.ValueNonPers)
     local total = self.state:get(countable_id, C.Total)
-    self.state:set(countable_id, C.Value, current + amount)
+    self.state:set(countable_id, C.ValueNonPers, current + amount)
     self.state:set(countable_id, C.Total, total + amount)
 end
 
-function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount: int): (bool, id?, id?)
-    log:assert(Id.kind(countable_id) == Id.Kind.Countable, "not a countable id", countable_id)
+function PlayerState.AddCountablePersistent(self: PlayerState, countable_id: id, amount: int): ()
+    log:assert(Id.kind(countable_id) == Id.Kind.CountablePersistent, "not a countable id", countable_id)
+    log:assert(type(amount) == "number", "count must be a number")
+    if amount == 0 then
+        return -- do nothing
+    end
+    log:assert(amount > 0, "count always positive number")
+    local current = self.state:get(countable_id, C.ValuePers)
+    local total = self.state:get(countable_id, C.Total)
+    self.state:set(countable_id, C.ValuePers, current + amount)
+    self.state:set(countable_id, C.Total, total + amount)
+end
+
+function PlayerState.DeductCountableNonPersistent(self: PlayerState, countable_id: id, amount: int): (bool, id?, id?)
+    log:assert(Id.kind(countable_id) == Id.Kind.CountablePersistent, "not a countable id", countable_id)
     log:assert(type(amount) == "number", "count must be a number")
     if amount == 0 then
         return true
     end
     log:assert(amount > 0, "count always positive number")
-    local current = self.state:get(countable_id, C.Value)
+    local current = self.state:get(countable_id, C.ValueNonPers)
     if current < amount then
         return false, Id.ServerError.NOT_ENOUGH, countable_id
     end
@@ -273,31 +318,131 @@ function PlayerState.DeductCountable(self: PlayerState, countable_id: id, amount
     return true
 end
 
+function PlayerState.DeductCountablePersistent(self: PlayerState, countable_id: id, amount: int): (bool, id?, id?)
+    log:assert(Id.kind(countable_id) == Id.Kind.CountablePersistent, "not a countable id", countable_id)
+    log:assert(type(amount) == "number", "count must be a number")
+    if amount == 0 then
+        return true
+    end
+    log:assert(amount > 0, "count always positive number")
+    local current = self.state:get(countable_id, C.ValuePers)
+    if current < amount then
+        return false, Id.ServerError.NOT_ENOUGH, countable_id
+    end
+    self.state:set(countable_id, C.ValuePers, current - amount)
+    return true
+end
+
 function PlayerState.ResetCountable(self: PlayerState, countable_id: id): ()
     self.state:set(countable_id, 0)
 end
 
-function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, weapon_id)
-    local tte = 0
-    if weapon_id ~= Id.Weapon._NONE then
-        tte = S.Weapon[weapon_id].cooldown
-    elseif not self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) then
-        self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, tte)
+function PlayerState.DeactivatePlayerUpgradeNonPers(self: PlayerState, upgrade_id: id): ()
+    -- all value are set back to default, except PERK_ACQUIRED flag and perk stage
+    -- they reset only when player is dead and all perks are unacquired
+    local flags = self.state:get(upgrade_id, C.Bitset)
+    self.state:set(upgrade_id, C.Bitset, Id.flag_set(flags, Id.PlayerF.PERK_ACTIVE, false))
+    self.state:set(upgrade_id, C.TTL, 0xffff_ffff)
+    self.state:set(upgrade_id, C.TTE, 0)
+    self.state:set(upgrade_id, C.HP, 0)
+end
+
+function PlayerState.ActivatePlayerUpgradeNonPers(self: PlayerState, perk_id: id): ()
+    local flags = self.state:get(perk_id, C.Bitset)
+    local duration
+    if S.PlayerUpgradeNonPersistent[perk_id].period then
+        duration = S.PlayerUpgradeNonPersistent[perk_id].period
+    end
+
+    -- set ttl
+    local ttl
+    if S.PlayerUpgradeNonPersistent[perk_id].isExpirable then
+        if duration then
+            ttl = _roflake.time() + duration
+        else
+            ttl = 0xffff_ffff
+        end
+        self.state:set(perk_id, C.TTL, ttl)
+    end
+
+    -- set tte
+    if S.PlayerUpgradeNonPersistent[perk_id].isLooped then
+        -- local tte = S.PlayerUpgradeNonPersistent[perk_id].period
+        self.state:set(perk_id, C.TTE, 0)
+    end
+
+    self.state:set(perk_id, C.Bitset, Id.flag_or(flags, Id.PlayerF.PERK_ACQUIRED, Id.PlayerF.PERK_ACTIVE))
+    if S.PlayerUpgradeNonPersistent[perk_id].hp then
+        self.state:set(perk_id, C.HP, S.PlayerUpgradeNonPersistent[perk_id].hp)
     end
 end
 
-function PlayerState.AddHp(self: PlayerState, howMuch: num)
-    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
-    local new_hp = math.min(current + howMuch, SharedConfig.PLAYER_BASE_HP)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, new_hp)
+function PlayerState.ChangeWeapon(self: PlayerState, weapon_id: id, current_handicap: id)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, weapon_id)
+    local tte = 0
+    local ammo = 0
+    if current_handicap and current_handicap == Id.Handicap.FINITE_AMMO then
+        ammo = assert(S.Weapon[weapon_id].magazineSize)
+    end
+    -- if weapon_id ~= Id.Weapon._NONE then
+    --     tte = assert(S.Weapon[weapon_id].cooldown)
+    --     elseif not self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) then
+    --         self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, tte)
+    -- end
+    -- self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, tte)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.ValueNonPers, ammo)
+end
+
+function PlayerState.AddHp(self: PlayerState, howMuch: num, current_handicap: id)
+    local current = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP)
+    local min_hp = SharedConfig.PLAYER_BASE_HP
+    if current_handicap == Id.Handicap.DOUBLE_HP then
+        min_hp *= SharedConfig.HP_HANDICAP_MULT
+    end
+    local new_hp = math.min(current + howMuch, min_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP, new_hp)
     return current, new_hp
 end
 
 function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
-    local current_hp = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
+    -- NOTE: HP drain damage bypasses all perks except invincibility
+    
+    -- check if player is invincible
+    local flags = self.state:get(Id.PlayerUpgradeNonPersistent.INVINCIBILITY, C.Bitset)
+    local isInvincible = Id.flag_test(flags, Id.PlayerF.PERK_ACTIVE)
+    if isInvincible then
+        -- no further checks, no damage, no state changes
+        return 0
+    end
+
+    -- check if player has shield
+    local shield_hp = self.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.HP)
+    local shield_flags = self.state:get(Id.PlayerUpgradeNonPersistent.SHIELD, C.Bitset)
+    local isShieldActive = Id.flag_test(shield_flags, Id.PlayerF.PERK_ACTIVE)
+    if isShieldActive and shield_hp > 0 and cause ~= Id.Handicap.HP_DRAIN then
+        local new_shield_hp = math.max(shield_hp - howMuch, 0)
+        self.state:set(Id.PlayerUpgradeNonPersistent.SHIELD, C.HP, new_shield_hp)
+        if new_shield_hp <= 0 then
+            self:DeactivatePlayerUpgradeNonPers(Id.PlayerUpgradeNonPersistent.SHIELD)
+            howMuch -= shield_hp
+        else
+            -- no further checks, no damage, no state changes
+            return 0
+        end
+    end
+
+    -- check if player has armor
+    local armor_flags = self.state:get(Id.PlayerUpgradeNonPersistent.ARMOR, C.Bitset)
+    local isArmorActive = Id.flag_test(armor_flags, Id.PlayerF.PERK_ACTIVE)
+    if isArmorActive and cause ~= Id.Handicap.HP_DRAIN then
+        local armor_stage = self.state:get(Id.PlayerUpgradeNonPersistent.ARMOR, C.ValueNonPers)
+        local armor_multiplier = S.PlayerUpgradeNonPersistent[Id.PlayerUpgradeNonPersistent.ARMOR].multiplier - (0.1 * armor_stage)
+        howMuch = math.floor(howMuch * armor_multiplier)
+    end
+
+    local current_hp = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP)
     local new_hp = math.max(current_hp - howMuch, 0)
-    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value, new_hp)
+    self.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.HP, new_hp)
     if new_hp <= 0 then
         Signal.Fire(Id.S2S.PLAYER_DIED, self.player_id, current_hp, cause)
     else
@@ -307,17 +452,39 @@ function PlayerState.DeductHp(self: PlayerState, howMuch: num, cause: id | uid?)
 end
 
 function PlayerState.UpdateSessionDamageStats(self: PlayerState, dmg: num): int
-    local oldVal = self.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.Value)
+    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_DAMAGE, C.ValueNonPers)
     local newVal = oldVal + dmg
-    self.state:set(Id.PlayerSpecs.SESSION_DAMAGE, C.Value, newVal)
+    self.state:set(Id.PlayerSpecs.SESSION_DAMAGE, C.ValueNonPers, newVal)
     return newVal
 end
 
 function PlayerState.UpdateSessionEnemyKills(self: PlayerState): int
-    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value)
+    local oldVal = self.state:get(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.ValueNonPers)
     local newVal = oldVal + 1
-    self.state:set(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.Value, newVal)
+    self.state:set(Id.PlayerSpecs.SESSION_ENEMY_KILLS, C.ValueNonPers, newVal)
     return newVal
+end
+
+-- function PlayerState.UpdatePlayerXP(self: PlayerState, received_xp: int): (int, int)
+--     local current_rank = self.state:get(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank)
+--     local current_xp = self.state:get(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers)
+--     local next_rank = current_rank
+--     local next_xp = current_xp + received_xp
+--     local xp_required = SharedConfig.PLAYER_RANK_XP_REQUIRED + current_rank * SharedConfig.PLAYER_RANK_XP_INCREMENT
+--     if next_xp >= xp_required then
+--         -- rank up
+--         next_rank = current_rank + 1
+--         next_xp = next_xp - xp_required
+--         Signal.Fire(Id.S2S.RANK_UP, self.player_id, next_rank, next_xp)
+--     end
+--     self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank, next_rank)
+--     self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers, next_xp)
+--     return next_rank, next_xp
+-- end
+
+function PlayerState.ResetPlayerXP(self: PlayerState): ()
+    self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.PlayerRank, 0)
+    self.state:set(Id.PlayerSpecs.XP_PROGRESS, C.ValueNonPers, 0)
 end
 
 function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
@@ -330,9 +497,36 @@ function PlayerState.GetCloneAmount(self: PlayerState, id: id): int
     return clonesAmount
 end
 
+function PlayerState.set_flag(self: PlayerState, uid: state.uid, comp: state.cid, flag: Id.flag, value: bool)
+    assert(comp == C.Bitset or comp == C.BitsetNonPers, "not Bitset of BitsetNonPers")
+    local flags = self.state:get(uid, comp)
+    if not flags then
+        log:error("no component", uid, comp, debug.traceback)
+        return
+    end
+    if Id.kind(flags) ~= Id.kind(flag) then
+        log:error("different kinds", flags, flag, debug.traceback)
+        return
+    end
+    self.state:set(uid, comp, Id.flag_set(flags, flag, value))
+end
+function PlayerState.test_flag(self: PlayerState, uid: state.uid, comp: state.cid, flag: Id.flag): bool
+    assert(comp == C.Bitset or comp == C.BitsetNonPers, "not Bitset of BitsetNonPers")
+    local flags = self.state:get(uid, comp)
+    if not flags then
+        log:error("no component", uid, comp, debug.traceback)
+        return false
+    end
+    if Id.kind(flags) ~= Id.kind(flag) then
+        log:error("different kinds", flags, flag, debug.traceback)
+        return false
+    end
+    return Id.flag_test(flags, flag)
+end
+
 function PlayerState.AddBooster(self: PlayerState, instanceGuid: string): ()
     local _booster = self.state:constructor(C.BitsetNonPers)
-    _booster(instanceGuid, Id.PlayerF.NONE)
+    _booster(instanceGuid, Id.PlayerF._NONE)
 end
 
 function PlayerState.__tostring(self: PlayerState): str

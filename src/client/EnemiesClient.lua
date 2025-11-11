@@ -75,31 +75,382 @@ local function flickerEnemy(guid: string, part: BasePart)
     end)
 end
 
-
-local function onEnemyAdded(worldState, playerState: state.Replica, enemyGuid: string)
-    local enemyId = worldState:get(enemyGuid, W.RefId)
-    local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
-
-    local enemyInstance
-    if S.Enemy[enemyId].meshTemplate then
-        enemyInstance = S.Enemy[enemyId].meshTemplate:Clone()
-    else
-        enemyInstance = Instance.new("Part")
-        enemyInstance.Size = Vector3.new(2, 6, 2)
-    end
+local function spawnEnemy(worldState: state.Replica, enemyGuid: string, enemyRefId: id, enemyInstance: BasePart, enemyPos: Vector3)
     enemyInstance.CanCollide = false
     enemyInstance.Anchored = true
-    enemyInstance.CollisionGroup = "BulletCollidable"
+    enemyInstance.CollisionGroup = SharedConfig.BULLET_COLLIDABLE_COLLISION_GROUP_NAME
 
     enemyInstance.Parent = ENEMIES_FOLDER
     enemyInstance.CFrame = CFrame.new(enemyPos)
     enemyInstance.Name = enemyGuid
-
     worldState:set(enemyGuid, W.ClientInstance, enemyInstance)
+end
+
+local function playTween(worldState, enemyGuid: string, tween: Tween)
+    if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+        tween:Play()
+    end
+end
+
+local function animateOctobossJump(worldState, enemyGuid: string, enemyInstance: BasePart, humanoidRootPart: BasePart)
+    local vfxName = "groundCrack"
+    local previousVFX = enemyInstance:FindFirstChild(vfxName)
+    if previousVFX then
+        previousVFX:Destroy()
+    end
+    assert(enemyInstance and enemyInstance:IsA("BasePart"), "Invalid part")
+    local height = 18
+    local animationDur = assert(S.Enemy[Id.Enemy.OCTOBOSS].animationDur)
+    local durationDown = 0.3
+    local durationUp = animationDur - durationDown
+    local spinNum = 3
+    local spinDuration = durationUp / spinNum
+    local turnDuration = spinDuration / 3
+
+    local originalPosition = enemyInstance.Position
+    local originalCFrame = enemyInstance.CFrame
+    local heightPerTurn = height / spinNum / 3
+    local y = Misc.DefineObjectY(enemyInstance)
+
+    local baseRotation = originalCFrame - originalCFrame.Position -- Extract just the rotation part
+
+    local spin1 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn, 0)) * baseRotation * CFrame.Angles(0, math.rad(120), 0),
+    })
+    local spin2 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 2, 0)) * baseRotation * CFrame.Angles(0, math.rad(240), 0),
+    })
+    local spin3 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 3, 0)) * baseRotation * CFrame.Angles(0, math.rad(360), 0),
+    })
+    local spin4 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 4, 0)) * baseRotation * CFrame.Angles(0, math.rad(120), 0),
+    })
+    local spin5 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 5, 0)) * baseRotation * CFrame.Angles(0, math.rad(240), 0),
+    })
+    local spin6 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 6, 0)) * baseRotation * CFrame.Angles(0, math.rad(360), 0),
+    })
+    local spin7 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 7, 0)) * baseRotation * CFrame.Angles(0, math.rad(120), 0),
+    })
+    local spin8 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 8, 0)) * baseRotation * CFrame.Angles(0, math.rad(240), 0),
+    })
+    local spin9 = TweenService:Create(enemyInstance, TweenInfo.new(turnDuration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+        CFrame = CFrame.new(originalPosition + Vector3.new(0, heightPerTurn * 9, 0)) * baseRotation * CFrame.Angles(0, math.rad(360), 0),
+    })
+
+    worldState:set(enemyGuid, W.ClientFlags, true)
+
+    -- spin the part
+    spin1:Play()
+    spin1.Completed:Connect(function()
+        playTween(worldState, enemyGuid, spin2)
+    end)
+    spin2.Completed:Connect(function()
+        playTween(worldState, enemyGuid, spin3)
+    end)
+    spin3.Completed:Connect(function()
+        playTween(worldState, enemyGuid, spin4)
+    end)
+    spin4.Completed:Connect(function()
+        playTween(worldState, enemyGuid, spin5)
+    end)
+    spin5.Completed:Connect(function()
+        playTween(worldState, enemyGuid, spin6)
+    end)
+    spin6.Completed:Connect(function()
+        playTween(worldState, enemyGuid, spin7)
+    end)
+    spin7.Completed:Connect(function()
+        playTween(worldState, enemyGuid, spin8)
+    end)
+    spin8.Completed:Connect(function()
+        playTween(worldState, enemyGuid, spin9)
+    end)
+    spin9.Completed:Connect(function()
+        if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+            local newPos = worldState:get(enemyGuid, W.Position) :: Vector3
+            local finalPos = Vector3.new(newPos.X, y, newPos.Z)
+
+            -- Use a proxy to tween CFrame
+            local proxy = Instance.new("CFrameValue")
+            proxy.Value = enemyInstance.CFrame
+
+            proxy:GetPropertyChangedSignal("Value"):Connect(function()
+                -- edit look vector to face the player
+                local humPos = humanoidRootPart.Position
+                local lookAt = Vector3.new(humPos.X, enemyInstance.Position.Y, humPos.Z)
+                local newCframe = CFrame.new(proxy.Value.Position, lookAt) * CFrame.Angles(0, math.pi, 0)
+                enemyInstance.CFrame = newCframe
+            end)
+
+            local tweenCFRame = TweenService:Create(proxy, TweenInfo.new(durationDown, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {
+                Value = CFrame.new(finalPos),
+            })
+            tweenCFRame:Play()
+
+            tweenCFRame.Completed:Connect(function()
+                -- play impact sound
+                local localizedThump = S.Sound[Id.Sound.STOMP_LOCALIZED]
+                Misc.SoundLocalizedAudio(localizedThump, enemyInstance.Position, 0)
+
+                -- spawn VFX
+                local cFrame = CFrame.new(newPos + Vector3.new(0, 0.1, 0))
+                local VFXInstance = Misc.SpawnVFX(Id.VFX.GROUND_CRACK, enemyInstance, cFrame)
+                if VFXInstance then
+                    VFXInstance.Name = vfxName
+                end
+
+                proxy:Destroy()
+                if worldState:has(enemyGuid) then -- check if the enemy is still in the world
+                    worldState:set(enemyGuid, W.ClientFlags, false)
+                end
+            end)
+        end
+    end)
+    -- end)
+end
+
+-- local function animateNonFlyerMeshChange(
+--     worldState: state.Replica,
+--     enemyGuid: string,
+--     enemyRefId: id,
+--     oldMeshInstance: BasePart,
+--     newMeshInstance: BasePart
+-- )
+--     -- TODO: animation of the mesh change
+--     TaskPool.spawn(function()
+--         worldState:set(enemyGuid, W.ClientFlags, true)
+--         local t = 0.3
+--         local newCFrame = newMeshInstance.CFrame * CFrame.Angles(math.rad(-10), 0, 0)
+--         local tween = TweenService:Create(oldMeshInstance, TweenInfo.new(t, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut), {
+--             CFrame = newCFrame,
+--         })
+--         tween:Play()
+--         tween.Completed:Connect(function()
+--             local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
+--             spawnEnemy(worldState, enemyGuid, enemyRefId, newMeshInstance, enemyPos)
+--             worldState:set(enemyGuid, W.ClientFlags, false)
+--         end)
+--     end)
+-- end
+
+local function animatePoisonBelt(worldState, poisonBelt: BasePart, playerRootPart: BasePart)
+    local beltOrigin = poisonBelt.Position
+    local normalizedOrigin = Vector3.new(beltOrigin.X, 0, beltOrigin.Z)
+    local partFront = assert(poisonBelt:FindFirstChild("PartFront")) :: BasePart
+    local partBack = assert(poisonBelt:FindFirstChild("PartBack")) :: BasePart
+    local partLeft = assert(poisonBelt:FindFirstChild("PartLeft")) :: BasePart
+    local partRight = assert(poisonBelt:FindFirstChild("PartRight")) :: BasePart
+    local originalSizeFront = partFront.Size
+    local partHalfWidth = originalSizeFront.Z / 2
+    local offset = originalSizeFront.X / 2 - partHalfWidth
+    local y = 9
+    partFront.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z - offset)
+    partBack.Position = Vector3.new(normalizedOrigin.X, y, normalizedOrigin.Z + offset)
+    partLeft.Position = Vector3.new(normalizedOrigin.X - offset, y, normalizedOrigin.Z)
+    partRight.Position = Vector3.new(normalizedOrigin.X + offset, y, normalizedOrigin.Z)
+    local beltWidth = SharedConfig.POISON_BELT_WIDTH
+    for _, part in { partFront, partBack, partLeft, partRight } do
+        part.Size = Vector3.new(part.Size.X, part.Size.Y, beltWidth)
+    end
+    local targetSize1 = SharedConfig.POISON_BELT_SIZE_1
+    local time1 = SharedConfig.POISON_BELT_TIME_1
+    local size1 = Vector3.new(targetSize1, poisonBelt.Size.Y, targetSize1)
+    local tweenInfoShrink1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenShrink1 = TweenService:Create(poisonBelt, tweenInfoShrink1, { Size = size1 })
+    local targetSize2 = SharedConfig.POISON_BELT_SIZE_2
+    local size2 = Vector3.new(targetSize2, poisonBelt.Size.Y, targetSize2)
+    local time2 = SharedConfig.POISON_BELT_TIME_2
+    local tweenInfoShrink2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenShrink2 = TweenService:Create(poisonBelt, tweenInfoShrink2, { Size = size2 })
+    local destinationFront1 = normalizedOrigin + Vector3.new(0, 0, -targetSize1 / 2 + partHalfWidth)
+    local destinationBack1 = normalizedOrigin + Vector3.new(0, 0, targetSize1 / 2 - partHalfWidth)
+    local destinationLeft1 = normalizedOrigin + Vector3.new(-targetSize1 / 2 + partHalfWidth, 0, 0)
+    local destinationRight1 = normalizedOrigin + Vector3.new(targetSize1 / 2 - partHalfWidth, 0, 0)
+    local destinationFront2 = normalizedOrigin + Vector3.new(0, 0, -targetSize2 / 2 + partHalfWidth)
+    local destinationBack2 = normalizedOrigin + Vector3.new(0, 0, targetSize2 / 2 - partHalfWidth)
+    local destinationLeft2 = normalizedOrigin + Vector3.new(-targetSize2 / 2 + partHalfWidth, 0, 0)
+    local destinationRight2 = normalizedOrigin + Vector3.new(targetSize2 / 2 - partHalfWidth, 0, 0)
+    local sizePart1 = Vector3.new(targetSize1, originalSizeFront.Y, originalSizeFront.Z)
+    local sizePart2 = Vector3.new(targetSize2, originalSizeFront.Y, originalSizeFront.Z)
+    local tweenInfoMoveFront1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveFront1 = TweenService:Create(partFront, tweenInfoMoveFront1, { Position = destinationFront1, Size = sizePart1 })
+    local tweenInfoMoveBack1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveBack1 = TweenService:Create(partBack, tweenInfoMoveBack1, { Position = destinationBack1, Size = sizePart1 })
+    local tweenInfoMoveLeft1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveLeft1 = TweenService:Create(partLeft, tweenInfoMoveLeft1, { Position = destinationLeft1, Size = sizePart1 })
+    local tweenInfoMoveRight1 = TweenInfo.new(time1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveRight1 = TweenService:Create(partRight, tweenInfoMoveRight1, { Position = destinationRight1, Size = sizePart1 })
+    local tweenInfoMoveFront2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveFront2 = TweenService:Create(partFront, tweenInfoMoveFront2, { Position = destinationFront2, Size = sizePart2 })
+    local tweenInfoMoveBack2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveBack2 = TweenService:Create(partBack, tweenInfoMoveBack2, { Position = destinationBack2, Size = sizePart2 })
+    local tweenInfoMoveLeft2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveLeft2 = TweenService:Create(partLeft, tweenInfoMoveLeft2, { Position = destinationLeft2, Size = sizePart2 })
+    local tweenInfoMoveRight2 = TweenInfo.new(time2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local tweenMoveRight2 = TweenService:Create(partRight, tweenInfoMoveRight2, { Position = destinationRight2, Size = sizePart2 })
+    TaskPool.spawn(function()
+        tweenShrink1:Play()
+        tweenMoveFront1:Play()
+        tweenMoveBack1:Play()
+        tweenMoveLeft1:Play()
+        tweenMoveRight1:Play()
+        tweenShrink1.Completed:Connect(function()
+            tweenShrink2:Play()
+            tweenMoveFront2:Play()
+            tweenMoveBack2:Play()
+            tweenMoveLeft2:Play()
+            tweenMoveRight2:Play()
+        end)
+    end)
 end
 
 local m = {}
 
-workerMaid.subToAdd = Signal.Connect(Id.C2C.NEW_ENEMY_ADDED, onEnemyAdded)
+m.OnEnemyAdded = function(
+    worldState: state.Replica,
+    playerState: state.Replica,
+    enemyGuid: string,
+    isBoss: bool,
+    drivingBoxBackPart: BasePart,
+    playerRootPart: BasePart
+)
+    local enemyRefId = worldState:get(enemyGuid, W.RefId)
+    local enemyInstance
+    if S.Enemy[enemyRefId].meshTemplate then
+        enemyInstance = S.Enemy[enemyRefId].meshTemplate:Clone()
+    else
+        enemyInstance = Instance.new("Part")
+        enemyInstance.Size = Vector3.new(2, 6, 2)
+    end
+
+    local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
+    spawnEnemy(worldState, enemyGuid, enemyRefId, enemyInstance, enemyPos)
+
+    if isBoss then
+        -- if the enemy is a boss, attach the player's align constraint to the boss
+        local bossAtt = Instance.new("Attachment") :: Attachment
+        bossAtt.Parent = enemyInstance
+
+        -- set player's align orientation constraint to the boss controller
+        local character = LOCAL_PLAYER.Character
+        local playerAlignOrient = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
+        if playerAlignOrient then
+            playerAlignOrient.Attachment1 = bossAtt
+        end
+
+        -- spawn poison belt
+        local poisonBelt = assert(ReplicatedStorage.VFX.PoisonBelt:Clone())
+        local currentGroundUnit = workspace.GroundUnits:FindFirstChild("3")
+        local driverPos = drivingBoxBackPart.Position
+        poisonBelt.Position = Misc.GetPoisonBeltStartingPosition(driverPos)
+        poisonBelt.Parent = currentGroundUnit
+        poisonBelt.Name = SharedConfig.POISON_BELT_NAME_CLIENT
+
+        animatePoisonBelt(worldState, poisonBelt, playerRootPart)
+    end
+end
+
+m.OnBossDestroyed = function(worldState, enemyGuid: string)
+    local character = LOCAL_PLAYER.Character
+    local playerAlignConst = character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
+    if playerAlignConst then
+        playerAlignConst.Attachment1 = nil
+    end
+    local poisonBelt = workspace.GroundUnits:FindFirstChild(SharedConfig.POISON_BELT_NAME_CLIENT, true)
+    if poisonBelt then
+        poisonBelt:Destroy()
+    end
+    S.Sound[Id.Sound.HISS]:Stop()
+end
+
+m.OnTTEReset = function(worldState: state.Replica, enemyGuid: string, refId: id, humanoidRootPart: BasePart)
+    if refId == Id.Enemy.OCTOBOSS then
+        local enemyInstance = worldState:get(enemyGuid, W.ClientInstance)
+        if enemyInstance then
+            animateOctobossJump(worldState, enemyGuid, enemyInstance, humanoidRootPart)
+        end
+    end
+end
+
+m.OnEnemyHit = function(worldState: state.Replica, enemyGuid: string, enemyRefId: id, newHp: num, oldHp: num)
+    local totalHp = S.Enemy[enemyRefId].health
+    local hpNoArmor
+    if S.Enemy[enemyRefId].armor then
+        hpNoArmor = totalHp - assert(S.Enemy[enemyRefId].armor)
+    end
+
+    -- if the enemy is not supposed to have armor, do nothing
+    if not hpNoArmor then
+        return
+    end
+
+    -- if the armor has been depleted already, do nothing
+    if oldHp < hpNoArmor then
+        return
+    end
+
+    local soundId
+    if enemyRefId == Id.Enemy.CONEHEAD then
+        soundId = Id.Sound.POP_LOW
+    elseif enemyRefId == Id.Enemy.ZOMBUCKET then
+        soundId = Id.Sound.METAL_BUCKET
+    end
+
+    -- if the enemy has been hit and the armor has not yet been depleted, play the sound
+    if newHp > hpNoArmor then
+        if soundId then
+            Misc.PlaySound(soundId)
+        end
+    end
+end
+
+function m.OnEnemyHpDecreased(worldState: state.Replica, enemyGuid: string, enemyRefId: id, newHp: num, oldHp: num)
+    local totalHp = S.Enemy[enemyRefId].health
+    local hpNoArmor
+    if S.Enemy[enemyRefId].armor then
+        hpNoArmor = totalHp - assert(S.Enemy[enemyRefId].armor)
+    end
+
+    -- if the enemy is not supposed to have armor, do nothing
+    if not hpNoArmor then
+        return
+    end
+
+    -- if the armor has been depleted already, do nothing
+    if oldHp < hpNoArmor then
+        return
+    end
+
+    -- the armor has not yet been depleted, do nothing
+    if newHp > hpNoArmor then
+        return
+    end
+
+    local newMeshInstance
+    if S.Enemy[enemyRefId].meshTemplateNoArmor then
+        newMeshInstance = S.Enemy[enemyRefId].meshTemplateNoArmor:Clone()
+    end
+    -- no new mesh template id was found in the database
+    if not newMeshInstance then
+        return
+    end
+
+    local enemyInstance = worldState:get(enemyGuid, W.ClientInstance) :: MeshPart
+    disposer.dispose(enemyInstance)
+    local enemyPos = worldState:get(enemyGuid, W.Position) :: Vector3
+    spawnEnemy(worldState, enemyGuid, enemyRefId, newMeshInstance, enemyPos)
+
+    -- if soundId then
+    --     Misc.SoundLocalizedAudio(S.Sound[soundId], enemyInstance.Position, 0)
+    -- end
+
+    -- replace the mesh
+    -- animateNonFlyerMeshChange(worldState, enemyGuid, enemyRefId, enemyInstance, newMeshInstance)
+end
 
 return m
