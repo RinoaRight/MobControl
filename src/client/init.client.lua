@@ -597,7 +597,7 @@ local function subscribeStartCollider()
             else
                 -- show a message
                 Signal.Fire(Id.C2C.SHOW_POPUP_CLIENT, {
-                    text = "Wait for the next round!",
+                    text = "Wait for the next round!\n",
                     ok = function() end,
                 })
             end

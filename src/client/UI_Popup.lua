@@ -84,7 +84,7 @@ end
 
 local function hide_panel()
     local self: InternalPopup = m :: any
-    Misc:PlaySound(Id.Sound.CLICK)
+    Misc.PlaySound(Id.Sound.CLICK)
     self._maid:Destroy()
     self._panel.Enabled = false
     show_cursor(false)

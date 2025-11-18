@@ -331,11 +331,12 @@ local function isPvPTime(get_state: (player_id: int) -> PSS.PlayerState?, waveNu
                 end
             end
         end
-        -- TODO: PVP is currently disabled!
-        -- if playersInSessionCount > 1 then
-        -- isPvPTime = true
-        -- WorldService.SetPvPTimeOn()
-        -- end
+        -- TODO: NOTE: PVP is currently enabled! Decide if it should be the case
+        if playersInSessionCount > 1 then
+            isPvPTime = true
+            WorldService.SetPvPTimeOn()
+            -- TODO: notify clients to stop run animations
+        end
     end
     return isPvPTime, playersInSession
 end
@@ -610,11 +611,12 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
         local isPvPTime = worldState:get(Id.WorldSpecs.PVP_TIME, W.Value)
         local studPerSec = SharedConfig.MOVEMENT_SPEED
         local studPerTick = SharedConfig.MOVEMENT_SPEED * dt
-        if isBossFightOn then
+        if isBossFightOn or isPvPTime then
             studPerSec = SharedConfig.MOVEMENT_SPEED_BOSS
             studPerTick = SharedConfig.MOVEMENT_SPEED_BOSS * dt
         end
 
+        local activePlayers = 0
         for _, player in game.Players:GetPlayers() do
             local playerState = get_state(player.UserId)
             if not playerState then
@@ -638,6 +640,7 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
 
             local nonPersFlags = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
             if Id.flag_test(nonPersFlags, Id.PlayerF.READY) then
+                activePlayers += 1
                 -- weapon cooldown
                 local shot_tte = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE) :: num
                 shot_tte -= dt
@@ -675,14 +678,14 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     end
 
                     character:PivotTo(CFrame.new(newX, HUMANOID_Y_OFFSET, newZ))
-                -- elseif isPvPTime then
-                --     -- if player is firing, orient towards the mouse pointer, otherwise orient according to movement direction
-                --     local lookVector = playerState.state:get(Id.PlayerSpecs.ORIENTATION, C.V3) :: Vector3
-                --     local playerIntendedPos = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
+                elseif isPvPTime then
+                    -- if player is firing, orient towards the mouse pointer, otherwise orient according to movement direction
+                    local lookVector = playerState.state:get(Id.PlayerSpecs.ORIENTATION, C.V3) :: Vector3
+                    local playerIntendedPos = playerState.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.V3)
 
-                --     if lookVector and lookVector.Magnitude > 0.1 then
-                --         -- playerRootPart.CFrame = CFrame.new(playerIntendedPos, playerIntendedPos + lookVector)
-                --     end
+                    if lookVector and lookVector.Magnitude > 0.1 then
+                        playerRootPart.CFrame = CFrame.new(playerIntendedPos, playerIntendedPos + lookVector)
+                    end
                 else
                     -- special mode movement: free movement, but still within the driving box's limits
                     -- NOTE: player rotation during boss fight is handled separately below, when calling DoBossSpecial
@@ -741,6 +744,10 @@ function m.StartMainLoopWorld(worldState: state.Main, get_state: (player_id: int
                     end
                 end
             end
+        end
+
+        if activePlayers < 2 and isPvPTime then
+            -- TODO: one man standing left, announce him a winner, stop game session
         end
 
         -- driving box movement
