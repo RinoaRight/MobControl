@@ -53,6 +53,7 @@ local supervisor = require(shared.supervisor)
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Pvp = require(server.Pvp)
+local PhysicsService = game:GetService("PhysicsService")
 
 local ftest = WorldService.ftest
 local worldfset = WorldService.fset
@@ -69,7 +70,7 @@ local m = {} :: {
     StartMainLoopWorld: (world_state: state.Main, (int) -> PSS.PlayerState?) -> (num) -> (),
     SetPlayerAlignment: (PSS.PlayerState) -> (),
     SpawnPlayer: (PSS.PlayerState, int) -> (),
-    UnconstrainPlayer: (PSS.PlayerState) -> (),
+    ResetPlayerCharacter: (PSS.PlayerState) -> (),
     UpdatePlayerIntendedPos: (PSS.PlayerState, Vector3) -> (),
     ApplyExplosionKnockback: (PSS.PlayerState, Vector3, num?, num?) -> (),
 }
@@ -198,7 +199,7 @@ local function onPvpActivated(get_state: (player_id: int) -> PSS.PlayerState?, p
         if not player_state then
             continue
         end
-        m.UnconstrainPlayer(player_state)
+        m.ResetPlayerCharacter(player_state)
 
         -- for all player parts, assign to "BulletCollidable" collision group
         for _, part in Misc.GetAllPlayerParts(player_state) do
@@ -576,6 +577,28 @@ local function isNewPosWithinLimits(newX, newZ)
         isWithinLimitsZ = false
     end
     return isWithinLimitsX, isWithinLimitsZ
+end
+
+local function setCharacterCollisionGroup(char, isPlayerUncollidable)
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            if isPlayerUncollidable then
+                PhysicsService:SetPartCollisionGroup(part, SharedConfig.PLAYER_COLLISION_GROUP_NAME)
+            else
+                PhysicsService:SetPartCollisionGroup(part, "Default")
+            end
+        end
+    end
+    if isPlayerUncollidable then
+        -- catch new parts added later
+        workerMaid.accessoryAdded = char.DescendantAdded:Connect(function(desc)
+            if desc:IsA("BasePart") then
+                PhysicsService:SetPartCollisionGroup(desc, SharedConfig.PLAYER_COLLISION_GROUP_NAME)
+            end
+        end)
+    else
+        workerMaid.accessoryAdded = nil
+    end
 end
 
 function m.Init(worldState: state.Main, get_state: (player_id: int) -> PSS.PlayerState?)
@@ -1136,12 +1159,16 @@ m.StartDamageThrottleSupervisor = function(get_state: (player_id: int) -> PSS.Pl
     return throttleSupervisor
 end
 
-m.UnconstrainPlayer = function(player_state: PSS.PlayerState)
+m.ResetPlayerCharacter = function(player_state: PSS.PlayerState)
+    -- remove alignment constraint if any
     local algnConstraint = player_state.character:FindFirstChild(SharedConfig.PLAYER_ALIGN_CONSTR_NAME)
     if algnConstraint then
         algnConstraint:Destroy()
     end
+    -- reset walk speed
     player_state.humanoid.WalkSpeed = SharedConfig.PLAYER_DEFAULT_WALK_SPEED
+    -- reset collision group to default
+    setCharacterCollisionGroup(player_state.character, false)
 end
 
 m.Cleanup = function()
@@ -1263,6 +1290,9 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
     attClones.Parent = playerRootPart
 
     HUMANOID_Y_OFFSET = y_pos
+
+    -- add player parts to a collision group
+    setCharacterCollisionGroup(playerCharacter, true)
 end
 
 function m.ApplyExplosionKnockback(player_state: PSS.PlayerState, explosionPos: Vector3, maxForce: num?, maxRange: num?)

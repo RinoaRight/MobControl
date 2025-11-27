@@ -203,7 +203,7 @@ local function onPlayerSessionFinishedPlayerState(player_state: PSS.PlayerState,
 
     player_state.humanoid.AutoRotate = true
 
-    GameModule.UnconstrainPlayer(player_state)
+    GameModule.ResetPlayerCharacter(player_state)
 
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.RefId, Id.Weapon._NONE)
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.TTE, 0)

@@ -510,7 +510,7 @@ export type EnemyF = typeof(Id.EnemyF)
 -----------------------------
 Id.WorldF = enum.with_id "Id.WorldF" {
     _NONE                     = flag(Id.Kind.WorldF),
-    -- PVP_TIME                  = flag'',
+    SPECIAL_FIGHT_MODE        = flag'',
 }
 KIND_TO_ENUM[Id.Kind.WorldF] = Id.WorldF
 export type WorldF = typeof(Id.WorldF)
@@ -731,7 +731,7 @@ export type VFX = typeof(Id.VFX)
 Id.PlayerSpecs = enum.with_id "Id.PlayerSpecs" {
     _NONE                = iota(Id.Kind.PlayerSpecs, 0),
     GAME_SESSION_PARAMS  = iota'',
-    ORIENTATION         = iota'',
+    ORIENTATION          = iota'',
     XP_PROGRESS          = iota'',
     SESSION_DAMAGE       = iota'',
     SESSION_ENEMY_KILLS  = iota'',

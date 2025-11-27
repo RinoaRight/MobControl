@@ -170,6 +170,8 @@ function m.ResetBoosterWaveCount()
     end
 end
 
+local _world_flags = m.world:constructor(W.Bitset)
+
 local _boss_fight = m.world:constructor(W.Value)
 function m.SetBossFightOn(enemyGuid: guid)
     local refId = m.world:get(enemyGuid, W.RefId)
@@ -178,11 +180,19 @@ function m.SetBossFightOn(enemyGuid: guid)
         return
     end
 
-    local value = m.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
-    if value == nil then
+    local boss_fight_value = m.world:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
+    if boss_fight_value == nil then
         _boss_fight(Id.WorldSpecs.BOSS_FIGHT_ON, true)
     else
         m.world:set(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value, true)
+    end
+
+    -- set special mode flag
+    local special_mode_flags = m.world:get(Id.WorldF.SPECIAL_FIGHT_MODE, W.Bitset)
+    if not special_mode_flags then
+        _world_flags(Id.WorldF.SPECIAL_FIGHT_MODE, Id.flag_set(0, Id.WorldF.SPECIAL_FIGHT_MODE, true))
+    else
+        m.world:set(Id.WorldF.SPECIAL_FIGHT_MODE, W.Bitset, Id.flag_set(special_mode_flags, Id.WorldF.SPECIAL_FIGHT_MODE, true))
     end
 end
 function m.SetBossFightOff()
@@ -191,6 +201,14 @@ function m.SetBossFightOff()
         _boss_fight(Id.WorldSpecs.BOSS_FIGHT_ON, false)
     else
         m.world:set(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value, false)
+    end
+
+    -- reset special mode flag
+    local special_mode_flags = m.world:get(Id.WorldF.SPECIAL_FIGHT_MODE, W.Bitset)
+    if not special_mode_flags then
+        _world_flags(Id.WorldF.SPECIAL_FIGHT_MODE, Id.flag_set(0, Id.WorldF.SPECIAL_FIGHT_MODE, false))
+    else
+        m.world:set(Id.WorldF.SPECIAL_FIGHT_MODE, W.Bitset, Id.flag_set(special_mode_flags, Id.WorldF.SPECIAL_FIGHT_MODE, false))
     end
 end
 
@@ -222,6 +240,14 @@ function m.SetPvPTimeOn()
     else
         m.world:set(Id.WorldSpecs.PVP_TIME, W.Value, true)
     end
+
+    -- set special mode flag
+    local special_mode_flags = m.world:get(Id.WorldF.SPECIAL_FIGHT_MODE, W.Bitset)
+    if not special_mode_flags then
+        _world_flags(Id.WorldF.SPECIAL_FIGHT_MODE, Id.flag_set(0, Id.WorldF.SPECIAL_FIGHT_MODE, true))
+    else
+        m.world:set(Id.WorldF.SPECIAL_FIGHT_MODE, W.Bitset, Id.flag_set(special_mode_flags, Id.WorldF.SPECIAL_FIGHT_MODE, true))
+    end
 end
 function m.SetPvPTimeOff(get_state: GetState)
     local value = m.world:get(Id.WorldSpecs.PVP_TIME, W.Value)
@@ -229,6 +255,14 @@ function m.SetPvPTimeOff(get_state: GetState)
         _pvp_time(Id.WorldSpecs.PVP_TIME, false)
     else
         m.world:set(Id.WorldSpecs.PVP_TIME, W.Value, false)
+    end
+    
+    -- reset special mode flag
+    local special_mode_flags = m.world:get(Id.WorldF.SPECIAL_FIGHT_MODE, W.Bitset)
+    if not special_mode_flags then
+        _world_flags(Id.WorldF.SPECIAL_FIGHT_MODE, Id.flag_set(0, Id.WorldF.SPECIAL_FIGHT_MODE, false))
+    else
+        m.world:set(Id.WorldF.SPECIAL_FIGHT_MODE, W.Bitset, Id.flag_set(special_mode_flags, Id.WorldF.SPECIAL_FIGHT_MODE, false))
     end
 end
 
