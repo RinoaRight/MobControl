@@ -186,6 +186,15 @@ local PERK_SELECTION_GUI = assert(PLAYER_GUI:WaitForChild("PerkSelectionGUI"))
 local playRunAnimTrack
 local startRunAnim
 
+local function stopRunAnim(character)
+    local humanoid = character:WaitForChild("Humanoid")
+    for _, v in ipairs(humanoid:GetPlayingAnimationTracks()) do
+        if v.Name == SharedConfig.RUN_ANIMATION_NAME then
+            v:Stop()
+        end
+    end
+end
+
 local _player = PLAYER_STATE:constructor(C.ClientWeaponId, C.ClientTTE)
 local function setPlayerToClientState(player_id, weapon_id)
     -- if PLAYER_STATE:has(player_id) or player_id == LOCAL_PLAYER.UserId then
@@ -405,12 +414,9 @@ on_cc[Id.S2CC.PLAYER_STOPPED_SESSION] = function(player_id: id)
         if not character then
             return
         end
-        local humanoid = character:WaitForChild("Humanoid")
-        for _, v in ipairs(humanoid:GetPlayingAnimationTracks()) do
-            if v.Name == SharedConfig.RUN_ANIMATION_NAME then
-                v:Stop()
-            end
-        end
+        
+        stopRunAnim(character)
+
         -- kill his clones
         local clonesFolder = character:FindFirstChild(SharedConfig.CLONES_FOLDER_NAME)
         if clonesFolder then
@@ -496,6 +502,18 @@ on_cc[Id.S2CC.BOSS_KILLED_BY_PLAYER] = function()
     local font = Enum.Font.FredokaOne
     local color = Color3.fromHex("00ff00")
     Misc.ShowAnnouncement("Boss defeated!", ANNOUNCEMENT_GUI, font, color)
+end
+
+on_cc[Id.S2CC.PVP_STARTED] = function()
+    -- TODO: stop run animations for all players
+    local players = Players:GetPlayers()
+    for _, player in ipairs(players) do
+        local character = player.Character
+        if character then
+            stopRunAnim(character)
+        end
+    end
+
 end
 
 -----------------------------

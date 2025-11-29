@@ -54,6 +54,7 @@ local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Pvp = require(server.Pvp)
 local PhysicsService = game:GetService("PhysicsService")
+local CollectionService = game:GetService("CollectionService")
 
 local ftest = WorldService.ftest
 local worldfset = WorldService.fset
@@ -583,9 +584,10 @@ local function setCharacterCollisionGroup(char, isPlayerUncollidable)
     for _, part in ipairs(char:GetDescendants()) do
         if part:IsA("BasePart") then
             if isPlayerUncollidable then
-                PhysicsService:SetPartCollisionGroup(part, SharedConfig.PLAYER_COLLISION_GROUP_NAME)
+                part.CollisionGroup = SharedConfig.PLAYER_COLLISION_GROUP_NAME
+                CollectionService:AddTag(part, SharedConfig.PLAYER_COLLISION_GROUP_NAME)
             else
-                PhysicsService:SetPartCollisionGroup(part, "Default")
+                part.CollisionGroup = "Default"
             end
         end
     end
@@ -593,7 +595,7 @@ local function setCharacterCollisionGroup(char, isPlayerUncollidable)
         -- catch new parts added later
         workerMaid.accessoryAdded = char.DescendantAdded:Connect(function(desc)
             if desc:IsA("BasePart") then
-                PhysicsService:SetPartCollisionGroup(desc, SharedConfig.PLAYER_COLLISION_GROUP_NAME)
+                desc.CollisionGroup = SharedConfig.PLAYER_COLLISION_GROUP_NAME
             end
         end)
     else
@@ -1217,6 +1219,8 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
 
     -- define spawning position
     local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
+    -- TODO: new error introduced in the next line. What seems to be the problem? NonPersFlags is not nil here.
+    print("LLLLLLLLLLL", Id.flag_test(nonPersFlags, Id.PlayerF.READY))
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.flag_or(nonPersFlags, Id.PlayerF.READY))
 
     local playerCharacter = player_state.character :: Model
@@ -1291,7 +1295,7 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
 
     HUMANOID_Y_OFFSET = y_pos
 
-    -- add player parts to a collision group
+    -- add player parts to a collision group, tag all his parts
     setCharacterCollisionGroup(playerCharacter, true)
 end
 

@@ -240,6 +240,7 @@ function m.SetPvPTimeOn()
     else
         m.world:set(Id.WorldSpecs.PVP_TIME, W.Value, true)
     end
+    Remote.Server.Broadcast(Id.S2CC.PVP_STARTED)
 
     -- set special mode flag
     local special_mode_flags = m.world:get(Id.WorldF.SPECIAL_FIGHT_MODE, W.Bitset)

@@ -894,6 +894,7 @@ Id.S2CC = enum.with_id "Id.S2CC" {
     PLAYER_STARTED_SESSION     = iota'', -- player_id, player_hp
     PLAYER_STOPPED_SESSION     = iota'', -- player_id
     PLAYER_CHANGED_WEAPON      = iota'', -- player_id, weapon_id
+    PVP_STARTED                = iota'', 
     SESSION_HANDICAP_MODIFIED  = iota'', -- handicap_id
 }
 KIND_TO_ENUM[Id.Kind.S2CC] = Id.S2CC
