@@ -68,6 +68,11 @@ local function decode(id: id): (kind, ord | bits)
     if not id then
         error(debug.traceback("id is nil"))
     end
+    if MIN_IDK <= id and id <= MAX_IDK then
+        -- ok
+    else
+        error(debug.traceback(fmt("id out of range: 0x%X", id)))
+    end
     assert(MIN_IDK <= id and id <= MAX_IDK)
     return bit32.band(0x1ff, bit32.rshift(id, 10)), bit32.band(0x1ff, id)
 end

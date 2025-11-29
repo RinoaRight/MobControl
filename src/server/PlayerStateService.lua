@@ -121,6 +121,7 @@ export type PlayerState = {
 
 -- note: was warm_up cache
 local function update_ids(main: state.Main)
+    print("LLLLLLLLLLLL update_ids")
     local function merge(ids: enum.Enum, ctor: (id) -> (), limit: id?)
         for _, id in ids:ids() do
             if limit and id > limit then

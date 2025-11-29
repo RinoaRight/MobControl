@@ -1219,8 +1219,6 @@ function m.SpawnPlayer(player_state: PSS.PlayerState, players_in_session: int)
 
     -- define spawning position
     local nonPersFlags = player_state.state:get(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers)
-    -- TODO: new error introduced in the next line. What seems to be the problem? NonPersFlags is not nil here.
-    print("LLLLLLLLLLL", Id.flag_test(nonPersFlags, Id.PlayerF.READY))
     player_state.state:set(Id.PlayerSpecs.GAME_SESSION_PARAMS, C.BitsetNonPers, Id.flag_or(nonPersFlags, Id.PlayerF.READY))
 
     local playerCharacter = player_state.character :: Model
