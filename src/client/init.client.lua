@@ -414,7 +414,7 @@ on_cc[Id.S2CC.PLAYER_STOPPED_SESSION] = function(player_id: id)
         if not character then
             return
         end
-        
+
         stopRunAnim(character)
 
         -- kill his clones
@@ -513,7 +513,6 @@ on_cc[Id.S2CC.PVP_STARTED] = function()
             stopRunAnim(character)
         end
     end
-
 end
 
 -----------------------------
@@ -1020,6 +1019,9 @@ RunService.Heartbeat:Connect(function(dt)
         return
     end
 
+    local isBossFight = WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
+    local isPvPModeOn = WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value)
+
     local gameSessionFlags
     local isPlayerInSession
     if PLAYER_STATE:has(Id.PlayerSpecs.GAME_SESSION_PARAMS) then
@@ -1061,16 +1063,34 @@ RunService.Heartbeat:Connect(function(dt)
             if not cloneRootPart then
                 continue
             end
-            local isRunAnimActive = false
+            local isCloneRunAnimActive = false
             local cloneAnimTracks = clone.Humanoid:GetPlayingAnimationTracks()
             for _, v in ipairs(cloneAnimTracks) do
                 if v.Name == SharedConfig.RUN_ANIMATION_NAME then
-                    isRunAnimActive = true
+                    isCloneRunAnimActive = true
                     break
                 end
             end
-            if not isRunAnimActive then
+            if not isCloneRunAnimActive and not isPvPModeOn then
+                -- if not pvp, clones should be running
                 startRunAnim(clone)
+            elseif isPvPModeOn then
+                -- if pvp is on, they should be running only if the player is running
+                local playerIsRunAnimActive = false
+                local playerAnimTracks = char.Humanoid:GetPlayingAnimationTracks()
+                for _, v in ipairs(playerAnimTracks) do
+                    if v.Name == SharedConfig.RUN_ANIMATION_NAME then
+                        playerIsRunAnimActive = true
+                        break
+                    end
+                end
+                if not isCloneRunAnimActive and playerIsRunAnimActive then
+                    print("LLLLLLLL start")
+                    startRunAnim(clone)
+                elseif isCloneRunAnimActive and not playerIsRunAnimActive then
+                    print("LLLLLLLL stop")
+                    stopRunAnim(clone)
+                end
             end
 
             local alreadyInCol = (i - 1) % SharedConfig.CLONES_IN_A_ROW
@@ -1080,8 +1100,7 @@ RunService.Heartbeat:Connect(function(dt)
             -- local cloneTargetCFrame = CFrame.lookAlong(cloneCFrame.Position, playerLook, Vector3.yAxis)
             -- if boss fight is on, clone orientation == playerLook, else it's straight ahead along the z axis
             local cloneTargetCFrame
-            local isBossFight = WORLD:get(Id.WorldSpecs.BOSS_FIGHT_ON, W.Value)
-            local isPvPModeOn = WORLD:get(Id.WorldSpecs.PVP_TIME, W.Value)
+
             if isBossFight or isPvPModeOn then
                 cloneTargetCFrame = CFrame.lookAlong(cloneCFrame.Position, playerLook, Vector3.yAxis)
             else
