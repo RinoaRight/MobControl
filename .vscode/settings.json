@@ -1,3 +1,5 @@
 {
-    "stylua.targetReleaseVersion": "latest"
+    "stylua.targetReleaseVersion": "latest",
+    "luau-lsp.fflags.enableNewSolver": false,
+    "luau-lsp.diagnostics.workspace": true
 }

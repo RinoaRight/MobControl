@@ -2,8 +2,11 @@
     "languageMode": "strict",
     "lint": {
         "*": true,
-        "LocalUnused": true,
-        "BuiltinGlobalWrite": false
+        "LocalUnused": false,
+        "ImportUnused": false,
+        "BuiltinGlobalWrite": false,
+        "FunctionUnused": false,
+        "LocalShadow": false
     },
     "lintErrors": false,
     "typeErrors": false,

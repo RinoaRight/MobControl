@@ -724,6 +724,7 @@ on[Id.C2S.TARGET_HIT] = function(playerState: PSS.PlayerState, targetGuids: { ui
 
         local distance = (bulletStartPos - targetPos).Magnitude
         if bulletWeaponId == Id.Weapon.ROCKET then
+            assert(bulletWeaponDataEntry.explosionSize, "Rocket weapon data entry must have explosion size")
             distance -= bulletWeaponDataEntry.explosionSize.Z
         end
 

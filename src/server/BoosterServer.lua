@@ -1,3 +1,4 @@
+--!nolint
 type str = string
 type bool = boolean
 type num = number

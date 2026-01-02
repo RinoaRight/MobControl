@@ -1199,7 +1199,9 @@ RunService.Heartbeat:Connect(function(dt)
             end
             hit_z = target_pos.Z + targetThickness + 1
             if weapon_id == Id.Weapon.ROCKET then
-                hit_z += S.Weapon[weapon_id].explosionSize.Z
+                local bulletWeaponDataEntry = assert(S.Weapon[weapon_id], "Weapon data entry not found for weapon")
+                assert(bulletWeaponDataEntry.explosionSize, "Rocket weapon data entry must have explosion size")
+                hit_z += bulletWeaponDataEntry.explosionSize.Z
             end
         end
 

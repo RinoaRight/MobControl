@@ -103,6 +103,7 @@ m.SpawnWinner = function(playerState: PSS.PlayerState, achievementId)
         local yOffset = podium.Size.Y / 2 + diff
         local targetPos = Vector3.new(podiumPos.X, oldPos.Y + yOffset, podiumPos.Z)
         cloneRoot.CFrame = CFrame.lookAlong(targetPos, -orientationBlock.Position)
+        cloneRoot.Anchored = true
         -- TODO: create a custom name plate
         local cloneHumanoid = clone:FindFirstChild("Humanoid") :: Humanoid
         if cloneHumanoid then   
