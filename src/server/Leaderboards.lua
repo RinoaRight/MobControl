@@ -97,16 +97,16 @@ m.SpawnWinner = function(playerState: PSS.PlayerState, achievementId)
         local currentScale = clone:GetScale()
         local newScale = currentScale * 3
         clone:ScaleTo(newScale)
-        local oldPos = cloneRoot.Position :: Vector3
-        local podiumPos = podium.Position :: Vector3
-        local diff = math.abs(podium.Position.Y - cloneRoot.Position.Y)
-        local yOffset = podium.Size.Y / 2 + diff
-        local targetPos = Vector3.new(podiumPos.X, oldPos.Y + yOffset, podiumPos.Z)
+        local cloneFoot = clone:FindFirstChild("RightFoot") :: Part
+        local diff = math.abs(cloneRoot.Position.Y - cloneFoot.Position.Y)
+        local orientBlockPos = orientationBlock.Position :: Vector3
+        local targetPos = Vector3.new(orientBlockPos.X, orientBlockPos.Y + diff, orientBlockPos.Z)
         cloneRoot.CFrame = CFrame.lookAlong(targetPos, -orientationBlock.Position)
         cloneRoot.Anchored = true
         -- TODO: create a custom name plate
         local cloneHumanoid = clone:FindFirstChild("Humanoid") :: Humanoid
         if cloneHumanoid then   
+            cloneHumanoid:ChangeState(Enum.HumanoidStateType.Landed)
             cloneHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
         end
 

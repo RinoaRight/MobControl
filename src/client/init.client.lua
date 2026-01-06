@@ -235,9 +235,9 @@ local function onStateUpdate(playerState: state.Replica)
 end
 
 local function onPlayerDamaged(deducted_hp: int, cause: id | uid?)
-    if deducted_hp <= 0 then
-        return
-    end
+    -- if deducted_hp <= 0 then
+    --     return
+    -- end
     Misc.FlickerPlayerHPGui(PLAYER_HP_TEXT_BOX, 1.5, deducted_hp)
     local soundId = Id.Sound.SCREAM
     if cause == Id.Handicap.HP_DRAIN then
